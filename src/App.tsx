@@ -27,7 +27,10 @@ export default function App() {
       <header className="bg-primary text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold">Payment Schedule Simulator</h1>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Calculator className="w-8 h-8" />
+              Payment Schedule Simulator
+            </h1>
             <button
               onClick={() => setIsConfigOpen(true)}
               className="p-2 rounded-full hover:bg-primary-light transition-colors"
