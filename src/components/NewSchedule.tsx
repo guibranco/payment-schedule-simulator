@@ -20,6 +20,12 @@ interface Props {
   apiEndpoint: string;
 }
 
+/**
+ * Generates a payment schedule based on various inputs such as taxes, admin fees, and financial details.
+ *
+ * @returns {JSX.Element} - A React component that renders a form for inputting schedule details,
+ *                            generates the schedule upon submission, and displays the generated schedule.
+ */
 export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>(initialSchedule || defaultSchedule);
   const [response, setResponse] = useState<PaymentScheduleResponse | null>(null);
@@ -129,7 +135,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-[90rem] mx-auto p-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h1 className="text-2xl font-bold mb-6 flex items-center gap-2 text-primary">
           <Calendar className="w-6 h-6" />
