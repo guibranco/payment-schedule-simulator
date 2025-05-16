@@ -4,6 +4,13 @@ import NewSchedule from './components/NewSchedule';
 import AmendSchedule from './components/AmendSchedule';
 import ConfigDialog from './components/ConfigDialog';
 
+/**
+ * Main application component for rendering the payment schedule simulator interface.
+ *
+ * This component manages the active tab, configuration dialog state, and API endpoint.
+ * It uses React hooks to handle state and side effects, and renders different components based on the active tab.
+ * The configuration dialog allows users to set the API endpoint, which is saved in local storage for persistence.
+ */
 export default function App() {
   const [activeTab, setActiveTab] = useState<'new' | 'amend'>('new');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
