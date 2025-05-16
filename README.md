@@ -15,87 +15,69 @@ A simple and interactive UI built with **Vite + React** to simulate and manage p
 
 ---
 
+## 🧱 Tech Stack
+
+- [Vite](https://vitejs.dev/) – Fast frontend build tool
+- [React](https://reactjs.org/) – UI library
+- [Tailwind CSS](https://tailwindcss.com/) – Utility-first CSS
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) >= 18
-- [PNPM](https://pnpm.io/) (or use `npm` or `yarn` if preferred)
 
 ### Installation
 
 ```bash
-git clone https://github.com/your-org/payment-schedule-simulator.git
+git clone https://github.com/guibranco/payment-schedule-simulator.git
 cd payment-schedule-simulator
-pnpm install
+npm install
 ````
 
-### Development
+### Run locally
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
-The app will be served at `http://localhost:5173` (or another available port).
+Open [http://localhost:5173](http://localhost:5173) to use the app in your browser.
 
 ---
 
-## 🛠 API Configuration
-
-At runtime, configure the backend API URL using the UI or through `localStorage` directly:
-
-```js
-localStorage.setItem('payment-simulator-api-url', 'https://api.example.com');
-```
-
-This URL will be used for all API requests and persists across sessions.
-
----
-
-## 📦 Build
-
-To generate a production build:
+## 📦 Build for Production
 
 ```bash
-pnpm build
+npm run build
 ```
 
-To preview the build locally:
+The static site will be available in the `dist/` folder.
 
-```bash
-pnpm preview
+---
+
+## 📂 Folder Structure
+
+```
+payment-schedule-simulator/
+├── public/
+├── src/
+│   ├── components/
+│   ├── hooks/
+│   ├── utils/
+│   ├── App.tsx
+│   └── main.tsx
+├── index.html
+├── tailwind.config.js
+└── vite.config.ts
 ```
 
 ---
 
-## 🗃️ File Uploads
+## 📄 License
 
-The simulator accepts structured JSON schedule files for parsing and amendment. Make sure your uploaded file follows the expected schema defined by the backend API.
-
----
-
-## 📤 Exporting
-
-You can export the current simulation results as:
-
-* **CSV**: Tabular format for spreadsheet use.
-* **JSON**: Raw structured data for programmatic consumption.
-
----
-
-## 🧩 Tech Stack
-
-* **React + Vite**
-* **Tailwind CSS**
-* **Lucide Icons**
-* **LocalStorage** for persistence
-* **Fetch API** for backend communication
-
----
-
-## 📝 License
-
-MIT © \[Your Name or Company]
+MIT License © Guilherme Branco Stracini
 
 ---
 
@@ -103,4 +85,3 @@ MIT © \[Your Name or Company]
 
 Feel free to open issues or submit pull requests! Suggestions and improvements are always welcome.
 
-```
