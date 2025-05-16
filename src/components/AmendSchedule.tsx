@@ -8,6 +8,14 @@ interface Props {
   apiEndpoint: string;
 }
 
+/**
+ * Renders a component for amending an existing payment schedule by uploading a JSON file and displaying options to create a new schedule.
+ *
+ * The component manages state for the existing schedule, whether to show the new schedule form, and any errors encountered during file upload or processing.
+ * It handles file uploads, validates the uploaded JSON format, and initializes input data for creating a new schedule based on the existing one.
+ *
+ * @param apiEndpoint - The API endpoint used for interacting with the backend services.
+ */
 export default function AmendSchedule({ apiEndpoint }: Props) {
   const [existingSchedule, setExistingSchedule] = useState<PaymentScheduleResponse | null>(null);
   const [showNewSchedule, setShowNewSchedule] = useState(false);
