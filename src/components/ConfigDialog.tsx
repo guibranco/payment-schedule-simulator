@@ -14,6 +14,17 @@ interface OAuthConfig {
   scopes: string[];
 }
 
+/**
+ * ConfigDialog component for managing configuration settings.
+ *
+ * This component provides a modal dialog to configure API endpoint, client ID, tenant ID,
+ * environment, and required scopes. It saves these configurations to localStorage and redirects
+ * the user to an authorization URL upon submission.
+ *
+ * @param isOpen - A boolean indicating whether the dialog is open.
+ * @param onClose - A function to close the dialog.
+ * @param onSave - A function to handle saving the base URL configuration.
+ */
 export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
   const [baseUrl, setBaseUrl] = useState('');
   const [port, setPort] = useState('');
@@ -44,6 +55,9 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     }
   }, [isOpen]);
 
+  /**
+   * Generates the authorization URL for OAuth 2.0 authentication.
+   */
   const getAuthorizationUrl = (config: OAuthConfig) => {
     const baseUrl = `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/authorize`;
     const envSuffix = config.environment === 'prod' ? '' : `-${config.environment}`;
@@ -62,6 +76,10 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     return `${baseUrl}?${params.toString()}`;
   };
 
+  /**
+   * Handles form submission by preventing default behavior, validating and storing API endpoint details,
+   * generating an authorization URL, and redirecting to it. Also saves configuration and closes the form.
+   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
