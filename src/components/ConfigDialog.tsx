@@ -14,6 +14,17 @@ interface OAuthConfig {
   scopes: string[];
 }
 
+/**
+ * ConfigDialog component for managing API configuration settings.
+ *
+ * This component renders a dialog to configure an API endpoint, including base URL, port,
+ * client ID, tenant ID, environment, and scopes. It also handles form submission to save the
+ * configurations and redirects to the authorization URL for OAuth2 authentication.
+ *
+ * @param isOpen - A boolean indicating whether the dialog is open or closed.
+ * @param onClose - A function to close the dialog.
+ * @param onSave - A function to handle the save action after form submission.
+ */
 export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
   const [baseUrl, setBaseUrl] = useState('');
   const [port, setPort] = useState('');
