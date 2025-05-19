@@ -4,6 +4,17 @@ import NewSchedule from './components/NewSchedule';
 import AmendSchedule from './components/AmendSchedule';
 import ConfigDialog from './components/ConfigDialog';
 
+/**
+ * Main application component that manages user authentication, configuration,
+ * and navigation between different tabs (New Schedule and Amend Schedule).
+ *
+ * The function initializes state variables for active tab, configuration dialog visibility,
+ * and API endpoint. It uses useEffect hooks to handle OAuth callbacks and initialize the
+ * API endpoint from local storage or prompt the user to configure it if necessary.
+ *
+ * Handles saving the configured API endpoint and rendering appropriate components based on
+ * the active tab.
+ */
 export default function App() {
   const [activeTab, setActiveTab] = useState<'new' | 'amend'>('new');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -20,6 +31,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    /**
+     * Handles OAuth callback by exchanging authorization code for an access token.
+     */
     const handleOAuthCallback = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
