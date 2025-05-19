@@ -23,8 +23,13 @@ interface Props {
 /**
  * Generates a payment schedule based on various inputs such as taxes, admin fees, and financial details.
  *
- * @returns {JSX.Element} - A React component that renders a form for inputting schedule details,
- *                            generates the schedule upon submission, and displays the generated schedule.
+ * This function manages the state of the payment schedule form, handles input changes,
+ * adds/removes taxes and admin fees, and submits the form data to an API endpoint to generate the schedule.
+ *
+ * @param initialSchedule - The initial payment schedule data to populate the form (optional).
+ * @param apiEndpoint - The API endpoint URL for generating the payment schedule.
+ * @returns A React component that renders a form for inputting schedule details,
+ *          generates the schedule upon submission, and displays the generated schedule.
  */
 export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>(initialSchedule || defaultSchedule);
@@ -96,6 +101,15 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
     });
   };
 
+  /**
+   * Handles form submission by sending a request to the API endpoint.
+   *
+   * This function prevents the default form behavior, checks if the API endpoint is configured,
+   * constructs the URL for the API request, sends a POST request with necessary headers and body,
+   * and processes the response. It handles errors by setting an error message.
+   *
+   * @param e - The form event triggered by the user's submission.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
