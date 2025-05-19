@@ -47,13 +47,18 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
   const getAuthorizationUrl = (config: OAuthConfig) => {
     const envSuffix = config.environment === 'prod' ? '' : `-${config.environment}`;
     const baseUrl = `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/authorize`;
+    const scope = config.scopes.map(scope => 
+      scope.replace('{environment-suffix}', envSuffix)
+    ).join(' ');
+
     const params = new URLSearchParams({
       client_id: config.clientId,
       response_type: 'code',
       redirect_uri: window.location.origin,
-      scope: config.scopes.join(' '),
+      scope,
       state: crypto.randomUUID()
     });
+
     return `${baseUrl}?${params.toString()}`;
   };
 
@@ -79,9 +84,7 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
       clientId,
       tenantId,
       environment,
-      scopes: selectedScopes.map(scope => 
-        scope.replace('{environment-suffix}', environment === 'prod' ? '' : `-${environment}`)
-      )
+      scopes: selectedScopes
     };
 
     const authUrl = getAuthorizationUrl(config);
