@@ -4,6 +4,14 @@ import NewSchedule from './components/NewSchedule';
 import AmendSchedule from './components/AmendSchedule';
 import ConfigDialog from './components/ConfigDialog';
 
+/**
+ * Main application component that handles configuration, navigation, and rendering of different tabs.
+ *
+ * The App component initializes state for active tab, configuration dialog visibility, and API endpoint.
+ * It uses useEffect to check local storage for saved configurations and handle OAuth callbacks for authentication.
+ * The component renders a header, navigation buttons, and main content area based on the active tab.
+ * A configuration dialog is also rendered, allowing users to save new API endpoints.
+ */
 export default function App() {
   const [activeTab, setActiveTab] = useState<'new' | 'amend'>('new');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -20,6 +28,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    /**
+     * Handles OAuth callback to exchange authorization code for access token.
+     */
     const handleOAuthCallback = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
@@ -60,6 +71,9 @@ export default function App() {
     handleOAuthCallback();
   }, []);
 
+  /**
+   * Sets the API endpoint.
+   */
   const handleSaveConfig = (endpoint: string) => {
     setApiEndpoint(endpoint);
   };
