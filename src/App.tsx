@@ -4,6 +4,16 @@ import NewSchedule from './components/NewSchedule';
 import AmendSchedule from './components/AmendSchedule';
 import ConfigDialog from './components/ConfigDialog';
 
+/**
+ * The main application component for managing payment schedule simulations.
+ *
+ * It initializes state variables for active tab, configuration open status, and API endpoint.
+ * It uses useEffect to load saved settings from localStorage and handle OAuth callbacks.
+ * It provides a header with navigation buttons and renders different components based on the active tab.
+ * It includes a configuration dialog for saving API endpoints.
+ *
+ * @returns The main application component.
+ */
 export default function App() {
   const [activeTab, setActiveTab] = useState<'new' | 'amend'>('new');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -20,6 +30,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    /**
+     * Handles the OAuth callback process to exchange authorization code for an access token.
+     *
+     * This function extracts the 'code' and 'state' from the URL parameters, clears them from the browser history,
+     * retrieves necessary configuration from local storage, and makes a POST request to the token endpoint.
+     * Upon success, it stores the access token in local storage. If there is an error during the token exchange,
+     * it logs the error and sets a flag to open the configuration interface.
+     */
     const handleOAuthCallback = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
