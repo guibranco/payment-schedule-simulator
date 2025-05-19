@@ -26,13 +26,13 @@ export default function App() {
       const state = urlParams.get('state');
       
       if (code && state) {
-        // Clear the URL parameters
         window.history.replaceState({}, document.title, window.location.pathname);
         
-        // Exchange the code for an access token
         const tenantId = localStorage.getItem('tenantId');
         const tokenEndpoint = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
         const clientId = localStorage.getItem('clientId');
+        const environment = localStorage.getItem('environment') || 'prod';
+        const envSuffix = environment === 'prod' ? '' : `-${environment}`;
         
         fetch(tokenEndpoint, {
           method: 'POST',
@@ -44,7 +44,7 @@ export default function App() {
             code: code,
             grant_type: 'authorization_code',
             redirect_uri: window.location.origin,
-            scope: 'api://schedule-api/user_impersonation',
+            scope: `api://schedule-api${envSuffix}/user_impersonation`,
           }),
         })
         .then(response => response.json())
