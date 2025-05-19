@@ -107,7 +107,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
     }
     
     try {
-      const functionUrl = new URL('/functions/v1/generate-schedule', apiEndpoint).toString();
+      const functionUrl = new URL('/api/v1/schedule/calculate', apiEndpoint).toString();
       
       const response = await fetch(functionUrl, {
         method: 'POST',
