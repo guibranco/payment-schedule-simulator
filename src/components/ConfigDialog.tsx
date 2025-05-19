@@ -9,6 +9,7 @@ interface Props {
 
 interface OAuthConfig {
   clientId: string;
+  tenantId: string;
   environment: 'prod' | 'int' | 'stg';
   scopes: string[];
 }
@@ -17,6 +18,7 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
   const [baseUrl, setBaseUrl] = useState('');
   const [port, setPort] = useState('');
   const [clientId, setClientId] = useState('');
+  const [tenantId, setTenantId] = useState('');
   const [environment, setEnvironment] = useState<'prod' | 'int' | 'stg'>('prod');
   const [selectedScopes] = useState(['api://schedule-api/user_impersonation']);
 
@@ -24,6 +26,7 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     if (isOpen) {
       const savedEndpoint = localStorage.getItem('apiEndpoint') || '';
       const savedClientId = localStorage.getItem('clientId') || '';
+      const savedTenantId = localStorage.getItem('tenantId') || '';
       const savedEnvironment = (localStorage.getItem('environment') || 'prod') as 'prod' | 'int' | 'stg';
 
       try {
@@ -36,13 +39,14 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
       }
 
       setClientId(savedClientId);
+      setTenantId(savedTenantId);
       setEnvironment(savedEnvironment);
     }
   }, [isOpen]);
 
   const getAuthorizationUrl = (config: OAuthConfig) => {
     const envSuffix = config.environment === 'prod' ? '' : `-${config.environment}`;
-    const baseUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize`;
+    const baseUrl = `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/authorize`;
     const params = new URLSearchParams({
       client_id: config.clientId,
       response_type: 'code',
@@ -68,10 +72,12 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     }
 
     localStorage.setItem('clientId', clientId);
+    localStorage.setItem('tenantId', tenantId);
     localStorage.setItem('environment', environment);
     
     const config: OAuthConfig = {
       clientId,
+      tenantId,
       environment,
       scopes: selectedScopes.map(scope => 
         scope.replace('{environment-suffix}', environment === 'prod' ? '' : `-${environment}`)
@@ -143,6 +149,20 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 placeholder="Enter your client ID"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="tenantId" className="block text-sm font-medium text-gray-700">
+                Tenant ID
+              </label>
+              <input
+                type="text"
+                id="tenantId"
+                value={tenantId}
+                onChange={(e) => setTenantId(e.target.value)}
+                placeholder="Enter your tenant ID"
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
                 required
               />
