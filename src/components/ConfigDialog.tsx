@@ -14,25 +14,13 @@ interface OAuthConfig {
   scopes: string[];
 }
 
-/**
- * ConfigDialog component for managing configuration settings.
- *
- * This component renders a modal dialog that allows users to configure API endpoint settings,
- * including base URL, port, client ID, tenant ID, environment, and required scopes.
- * It handles form submission by validating the URL, storing the configurations in localStorage,
- * generating an authorization URL, and redirecting the user for authentication.
- *
- * @param isOpen - A boolean indicating whether the dialog is open or closed.
- * @param onClose - A callback function to close the dialog.
- * @param onSave - A callback function to handle saving of the base URL.
- */
 export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
   const [baseUrl, setBaseUrl] = useState('');
   const [port, setPort] = useState('');
   const [clientId, setClientId] = useState('');
   const [tenantId, setTenantId] = useState('');
   const [environment, setEnvironment] = useState<'prod' | 'int' | 'stg'>('prod');
-  const [selectedScopes] = useState(['api://schedule-api/user_impersonation']);
+  const [selectedScopes] = useState(['api://schedule-api{environment-suffix}.outsurance.ie/user_impersonation']);
 
   useEffect(() => {
     if (isOpen) {
@@ -56,12 +44,9 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     }
   }, [isOpen]);
 
-  /**
-   * Constructs and returns the authorization URL for OAuth based on the provided configuration.
-   */
   const getAuthorizationUrl = (config: OAuthConfig) => {
-    const envSuffix = config.environment === 'prod' ? '' : `-${config.environment}`;
     const baseUrl = `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/authorize`;
+    const envSuffix = config.environment === 'prod' ? '' : `-${config.environment}`;
     const scope = config.scopes.map(scope => 
       scope.replace('{environment-suffix}', envSuffix)
     ).join(' ');
@@ -77,14 +62,6 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     return `${baseUrl}?${params.toString()}`;
   };
 
-  /**
-   * Handles form submission by preventing default behavior, validating and storing API endpoint details,
-   * configuring OAuth settings, generating an authorization URL, redirecting to it, and invoking save/close callbacks.
-   *
-   * The function constructs a URL from the base URL and optional port, stores relevant configuration in localStorage,
-   * creates an OAuth configuration object, generates an authorization URL using this configuration, redirects the browser
-   * to the authorization URL, and finally calls the `onSave` and `onClose` functions.
-   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
