@@ -161,20 +161,6 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
               />
             </div>
             <div>
-              <label htmlFor="clientId" className="block text-sm font-medium text-gray-700">
-                Client ID
-              </label>
-              <input
-                type="text"
-                id="clientId"
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                placeholder="Enter your client ID"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-                required
-              />
-            </div>
-            <div>
               <label htmlFor="tenantId" className="block text-sm font-medium text-gray-700">
                 Tenant ID
               </label>
@@ -184,6 +170,20 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
                 value={tenantId}
                 onChange={(e) => setTenantId(e.target.value)}
                 placeholder="Enter your tenant ID"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="clientId" className="block text-sm font-medium text-gray-700">
+                Client ID
+              </label>
+              <input
+                type="text"
+                id="clientId"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                placeholder="Enter your client ID"
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
                 required
               />
