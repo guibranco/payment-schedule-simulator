@@ -14,7 +14,8 @@ interface OAuthConfig {
 }
 
 export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
-  const [endpoint, setEndpoint] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [port, setPort] = useState('');
   const [clientId, setClientId] = useState('');
   const [environment, setEnvironment] = useState<'prod' | 'int' | 'stg'>('prod');
   const [selectedScopes] = useState(['api://schedule-api/user_impersonation']);
@@ -24,7 +25,16 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
       const savedEndpoint = localStorage.getItem('apiEndpoint') || '';
       const savedClientId = localStorage.getItem('clientId') || '';
       const savedEnvironment = (localStorage.getItem('environment') || 'prod') as 'prod' | 'int' | 'stg';
-      setEndpoint(savedEndpoint);
+
+      try {
+        const url = new URL(savedEndpoint);
+        setBaseUrl(url.protocol + '//' + url.hostname);
+        setPort(url.port || '');
+      } catch {
+        setBaseUrl(savedEndpoint);
+        setPort('');
+      }
+
       setClientId(savedClientId);
       setEnvironment(savedEnvironment);
     }
@@ -46,7 +56,17 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    localStorage.setItem('apiEndpoint', endpoint);
+    try {
+      const url = new URL(baseUrl);
+      if (port) {
+        url.port = port;
+      }
+      localStorage.setItem('apiEndpoint', url.toString());
+    } catch (error) {
+      console.error('Invalid URL:', error);
+      return;
+    }
+
     localStorage.setItem('clientId', clientId);
     localStorage.setItem('environment', environment);
     
@@ -61,7 +81,7 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     const authUrl = getAuthorizationUrl(config);
     window.location.href = authUrl;
     
-    onSave(endpoint);
+    onSave(baseUrl);
     onClose();
   };
 
@@ -85,17 +105,32 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
         <form onSubmit={handleSubmit} className="p-4">
           <div className="space-y-4">
             <div>
-              <label htmlFor="endpoint" className="block text-sm font-medium text-gray-700">
-                API Endpoint
+              <label htmlFor="baseUrl" className="block text-sm font-medium text-gray-700">
+                API Base URL
               </label>
               <input
                 type="url"
-                id="endpoint"
-                value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
-                placeholder="https://your-api-endpoint.com"
+                id="baseUrl"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="https://api.example.com"
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
                 required
+              />
+            </div>
+            <div>
+              <label htmlFor="port" className="block text-sm font-medium text-gray-700">
+                Port (Optional)
+              </label>
+              <input
+                type="number"
+                id="port"
+                value={port}
+                onChange={(e) => setPort(e.target.value)}
+                placeholder="8080"
+                min="1"
+                max="65535"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
               />
             </div>
             <div>
