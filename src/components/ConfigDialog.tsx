@@ -13,6 +13,20 @@ interface OAuthConfig {
   scopes: string[];
 }
 
+/**
+ * ConfigDialog component for managing API configuration settings.
+ *
+ * This component renders a modal dialog that allows users to configure an API endpoint, client ID,
+ * and environment. It also handles form submission by storing the input values in local storage,
+ * constructing an OAuth authorization URL, and redirecting the user to authenticate.
+ *
+ * The component uses React hooks such as `useState` for managing state and `useEffect` for side effects.
+ * It includes validation for required fields and provides feedback to the user through UI elements.
+ *
+ * @param isOpen - A boolean indicating whether the dialog is open or closed.
+ * @param onClose - A callback function to close the dialog.
+ * @param onSave - A callback function to handle saving configuration changes.
+ */
 export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
   const [endpoint, setEndpoint] = useState('');
   const [clientId, setClientId] = useState('');
@@ -30,6 +44,9 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     }
   }, [isOpen]);
 
+  /**
+   * Constructs and returns an authorization URL for OAuth2 authentication.
+   */
   const getAuthorizationUrl = (config: OAuthConfig) => {
     const envSuffix = config.environment === 'prod' ? '' : `-${config.environment}`;
     const baseUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize`;
@@ -43,6 +60,9 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     return `${baseUrl}?${params.toString()}`;
   };
 
+  /**
+   * Handles form submission, saves configuration to localStorage, and redirects to authorization URL.
+   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
