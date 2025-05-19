@@ -55,6 +55,9 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     }
   }, [isOpen]);
 
+  /**
+   * Generates the authorization URL for OAuth 2.0 authentication.
+   */
   const getAuthorizationUrl = (config: OAuthConfig) => {
     const baseUrl = `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/authorize`;
     const envSuffix = config.environment === 'prod' ? '' : `-${config.environment}`;
@@ -73,6 +76,10 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     return `${baseUrl}?${params.toString()}`;
   };
 
+  /**
+   * Handles form submission by preventing default behavior, validating and storing API endpoint details,
+   * generating an authorization URL, and redirecting to it. Also saves configuration and closes the form.
+   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
