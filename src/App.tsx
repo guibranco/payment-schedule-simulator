@@ -30,7 +30,8 @@ export default function App() {
         window.history.replaceState({}, document.title, window.location.pathname);
         
         // Exchange the code for an access token
-        const tokenEndpoint = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+        const tenantId = localStorage.getItem('tenantId');
+        const tokenEndpoint = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
         const clientId = localStorage.getItem('clientId');
         
         fetch(tokenEndpoint, {
