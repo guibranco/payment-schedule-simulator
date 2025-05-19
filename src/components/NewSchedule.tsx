@@ -20,6 +20,17 @@ interface Props {
   apiEndpoint: string;
 }
 
+/**
+ * A React component for creating and managing a new payment schedule.
+ *
+ * This component manages the state of a payment schedule, including taxes and admin fees.
+ * It provides functionality to add and remove taxes and fees, handle input changes,
+ * and submit the schedule data to an API endpoint. The component also handles errors
+ * related to API requests and user authentication.
+ *
+ * @param initialSchedule - An optional initial schedule object to populate the form.
+ * @param apiEndpoint - The API endpoint URL for submitting the payment schedule.
+ */
 export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>(initialSchedule || defaultSchedule);
   const [response, setResponse] = useState<PaymentScheduleResponse | null>(null);
@@ -90,6 +101,16 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
     });
   };
 
+  /**
+   * Handles form submission to calculate a schedule using an API endpoint.
+   *
+   * This function prevents the default form submission, checks if the API endpoint is configured,
+   * and verifies if the user is authenticated by checking the access token in local storage.
+   * It then makes a POST request to the API with the schedule data, handling authentication
+   * errors and other HTTP issues. If successful, it updates the response state; otherwise, it sets an error message.
+   *
+   * @param e - The form event object.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
