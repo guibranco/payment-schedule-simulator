@@ -20,12 +20,6 @@ interface Props {
   apiEndpoint: string;
 }
 
-/**
- * Generates a payment schedule based on various inputs such as taxes, admin fees, and financial details.
- *
- * @returns {JSX.Element} - A React component that renders a form for inputting schedule details,
- *                            generates the schedule upon submission, and displays the generated schedule.
- */
 export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>(initialSchedule || defaultSchedule);
   const [response, setResponse] = useState<PaymentScheduleResponse | null>(null);
@@ -105,6 +99,12 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
       setError('API endpoint not configured. Please configure it in settings.');
       return;
     }
+
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+      setError('Not authenticated. Please configure the application settings.');
+      return;
+    }
     
     try {
       const functionUrl = new URL('/api/v1/schedule/calculate', apiEndpoint).toString();
@@ -113,7 +113,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Accept': 'application/json'
         },
         mode: 'cors',
@@ -122,6 +122,11 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
       });
       
       if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('accessToken');
+          setError('Authentication expired. Please reconfigure the application settings.');
+          return;
+        }
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
       }

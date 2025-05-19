@@ -7,19 +7,60 @@ interface Props {
   onSave: (endpoint: string) => void;
 }
 
+interface OAuthConfig {
+  clientId: string;
+  environment: 'prod' | 'int' | 'stg';
+  scopes: string[];
+}
+
 export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
   const [endpoint, setEndpoint] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [environment, setEnvironment] = useState<'prod' | 'int' | 'stg'>('prod');
+  const [selectedScopes] = useState(['api://schedule-api/user_impersonation']);
 
   useEffect(() => {
     if (isOpen) {
       const savedEndpoint = localStorage.getItem('apiEndpoint') || '';
+      const savedClientId = localStorage.getItem('clientId') || '';
+      const savedEnvironment = (localStorage.getItem('environment') || 'prod') as 'prod' | 'int' | 'stg';
       setEndpoint(savedEndpoint);
+      setClientId(savedClientId);
+      setEnvironment(savedEnvironment);
     }
   }, [isOpen]);
 
+  const getAuthorizationUrl = (config: OAuthConfig) => {
+    const envSuffix = config.environment === 'prod' ? '' : `-${config.environment}`;
+    const baseUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize`;
+    const params = new URLSearchParams({
+      client_id: config.clientId,
+      response_type: 'code',
+      redirect_uri: window.location.origin,
+      scope: config.scopes.join(' '),
+      state: crypto.randomUUID()
+    });
+    return `${baseUrl}?${params.toString()}`;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
     localStorage.setItem('apiEndpoint', endpoint);
+    localStorage.setItem('clientId', clientId);
+    localStorage.setItem('environment', environment);
+    
+    const config: OAuthConfig = {
+      clientId,
+      environment,
+      scopes: selectedScopes.map(scope => 
+        scope.replace('{environment-suffix}', environment === 'prod' ? '' : `-${environment}`)
+      )
+    };
+
+    const authUrl = getAuthorizationUrl(config);
+    window.location.href = authUrl;
+    
     onSave(endpoint);
     onClose();
   };
@@ -57,6 +98,47 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
                 required
               />
             </div>
+            <div>
+              <label htmlFor="clientId" className="block text-sm font-medium text-gray-700">
+                Client ID
+              </label>
+              <input
+                type="text"
+                id="clientId"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                placeholder="Enter your client ID"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="environment" className="block text-sm font-medium text-gray-700">
+                Environment
+              </label>
+              <select
+                id="environment"
+                value={environment}
+                onChange={(e) => setEnvironment(e.target.value as 'prod' | 'int' | 'stg')}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+              >
+                <option value="prod">Production</option>
+                <option value="int">Integration</option>
+                <option value="stg">Staging</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Required Scopes
+              </label>
+              <div className="mt-1 text-sm text-gray-500">
+                {selectedScopes.map(scope => (
+                  <div key={scope} className="p-2 bg-gray-50 rounded">
+                    {scope.replace('{environment-suffix}', environment === 'prod' ? '' : `-${environment}`)}
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className="flex justify-end gap-3">
               <button
                 type="button"
@@ -69,7 +151,7 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
                 type="submit"
                 className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-dark"
               >
-                Save
+                Connect
               </button>
             </div>
           </div>

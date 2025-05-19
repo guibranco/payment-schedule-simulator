@@ -4,13 +4,6 @@ import NewSchedule from './components/NewSchedule';
 import AmendSchedule from './components/AmendSchedule';
 import ConfigDialog from './components/ConfigDialog';
 
-/**
- * Main application component for rendering the payment schedule simulator interface.
- *
- * This component manages the active tab, configuration dialog state, and API endpoint.
- * It uses React hooks to handle state and side effects, and renders different components based on the active tab.
- * The configuration dialog allows users to set the API endpoint, which is saved in local storage for persistence.
- */
 export default function App() {
   const [activeTab, setActiveTab] = useState<'new' | 'amend'>('new');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -18,11 +11,53 @@ export default function App() {
 
   useEffect(() => {
     const savedEndpoint = localStorage.getItem('apiEndpoint');
-    if (!savedEndpoint) {
+    const accessToken = localStorage.getItem('accessToken');
+    if (!savedEndpoint || !accessToken) {
       setIsConfigOpen(true);
     } else {
       setApiEndpoint(savedEndpoint);
     }
+  }, []);
+
+  useEffect(() => {
+    const handleOAuthCallback = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const state = urlParams.get('state');
+      
+      if (code && state) {
+        // Clear the URL parameters
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Exchange the code for an access token
+        const tokenEndpoint = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+        const clientId = localStorage.getItem('clientId');
+        
+        fetch(tokenEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            client_id: clientId || '',
+            code: code,
+            grant_type: 'authorization_code',
+            redirect_uri: window.location.origin,
+            scope: 'api://schedule-api/user_impersonation',
+          }),
+        })
+        .then(response => response.json())
+        .then(data => {
+          localStorage.setItem('accessToken', data.access_token);
+        })
+        .catch(error => {
+          console.error('Error exchanging code for token:', error);
+          setIsConfigOpen(true);
+        });
+      }
+    };
+
+    handleOAuthCallback();
   }, []);
 
   const handleSaveConfig = (endpoint: string) => {
