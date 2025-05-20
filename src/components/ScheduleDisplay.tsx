@@ -8,6 +8,19 @@ interface Props {
   onStatusChange?: (index: number) => void;
 }
 
+/**
+ * A React component for displaying a schedule and its items with various actions like downloading as CSV or JSON.
+ *
+ * This component renders a summary of the schedule, including total amount, collection day, cover period, and schedule ID.
+ * It also displays a table of schedule items with details such as index, period, due date, net amount, taxes & levies,
+ * admin fees, total, collection item created date, status, adjustment date, and whether it has an original item.
+ *
+ * The component provides buttons to download the schedule data as JSON or CSV. It includes helper functions like
+ * `formatDate` for formatting dates, `getIndexBackgroundColor` for setting background colors based on item attributes,
+ * and `getStatusIcon` for rendering status icons with optional change functionality.
+ *
+ * @param {Props} props - The component's properties including the schedule data and a callback for status changes.
+ */
 export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   
@@ -15,6 +28,14 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     ? schedule.scheduleItems.reduce((sum, item) => sum + Number(item?.amountDue ?? 0), 0) 
     : 0;
 
+  /**
+   * Formats a given date string to 'en-GB' locale or returns '-' if invalid.
+   * - Checks if the input string is empty or a default value and returns '-'.
+   * - Converts the string to a Date object and validates it.
+   * - If the date is valid, formats it using `toLocaleDateString` with 'en-GB' locale.
+   *
+   * @param {string} dateStr - The date string to be formatted.
+   */
   const formatDate = (dateStr: string) => {
     if (!dateStr || dateStr === '0001-01-01T00:00:00+00:00') return '-';
     const date = new Date(dateStr);
@@ -22,12 +43,31 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     return date.toLocaleDateString('en-GB');
   };
 
+  /**
+   * Determines the background color based on item properties.
+   *
+   * This function checks the admin fees and collection type of the item to determine
+   * the appropriate background color. If there are admin fees, it returns 'bg-orange-100'.
+   * If the collection type is 'proRata', it returns 'bg-yellow-100'. Otherwise, it defaults
+   * to 'bg-green-100'.
+   *
+   * @param item - The object containing adminFees and collectionType properties.
+   */
   const getIndexBackgroundColor = (item: any) => {
     if (Object.keys(item.adminFees).length > 0) return 'bg-orange-100';
     if (item.collectionType === 'proRata') return 'bg-yellow-100';
     return 'bg-green-100';
   };
   
+  /**
+   * Downloads a CSV file containing schedule items data.
+   *
+   * This function constructs a CSV file from an array of schedule items, formatting each item's data into rows.
+   * It handles various fields such as taxes, fees, and dates, ensuring they are properly formatted for CSV output.
+   * The resulting CSV is then downloaded by creating a Blob URL and triggering a click event on a hidden link element.
+   *
+   * @returns void
+   */
   const downloadCsv = () => {
     const headers = [
       'Index',
