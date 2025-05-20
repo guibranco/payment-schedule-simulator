@@ -224,7 +224,7 @@ export default function ConvertSchedule() {
             
             <ScheduleDisplay schedule={convertedSchedule} />
             
-            <div className="flex justify-between items-center">
+            <div className="flex justify-end items-center">
               <div className="flex gap-2">
                 <button
                   onClick={downloadJson}
