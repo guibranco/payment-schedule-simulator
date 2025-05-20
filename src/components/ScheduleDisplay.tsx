@@ -8,6 +8,18 @@ interface Props {
   onStatusChange?: (index: number) => void;
 }
 
+/**
+ * Display a schedule with detailed items and options to download data in JSON or CSV format.
+ *
+ * This component renders a comprehensive view of a schedule, including total amount, collection day,
+ * cover period, and other relevant details. It also provides functionality to download the schedule
+ * data as either JSON or CSV files. The table displays individual schedule items with various attributes
+ * such as due date, net amount, taxes, admin fees, and status icons. Additionally, a modal can be opened
+ * to view the raw JSON representation of the schedule.
+ *
+ * @param schedule - An object containing the schedule details including items, period dates, and amounts.
+ * @param onStatusChange - A callback function that triggers when a status icon is clicked, allowing for status changes.
+ */
 export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   
@@ -29,6 +41,15 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     return 'bg-green-100';
   };
   
+  /**
+   * Generates and downloads a CSV file containing schedule item data.
+   *
+   * This function constructs a CSV with headers and rows extracted from schedule items.
+   * It calculates various date-related fields, sums up admin fees and taxes,
+   * and formats the data appropriately before creating a downloadable CSV link.
+   *
+   * @returns void
+   */
   const downloadCsv = () => {
     const headers = [
       'Index',
