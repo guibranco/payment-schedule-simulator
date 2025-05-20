@@ -8,6 +8,14 @@ interface Props {
   children: React.ReactNode;
 }
 
+/**
+ * A modal component that displays content with a title and copy functionality.
+ *
+ * This component conditionally renders based on the `isOpen` prop. It includes
+ * a header with a title, a copy button to copy the modal's content to the clipboard,
+ * and a close button. The component uses React state to manage the copied status
+ * and updates the UI accordingly.
+ */
 export default function Modal({ isOpen, onClose, title, children }: Props) {
   const [copied, setCopied] = React.useState(false);
 
