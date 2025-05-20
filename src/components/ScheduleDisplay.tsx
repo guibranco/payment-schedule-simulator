@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Euro, FileJson, FileSpreadsheet } from 'lucide-react';
+import { Euro, FileJson, FileSpreadsheet, Check, X, MinusCircle } from 'lucide-react';
 import { PaymentScheduleResponse } from '../types';
 import Modal from './Modal';
 
@@ -15,10 +15,25 @@ export default function ScheduleDisplay({ schedule }: Props) {
     : 0;
   
   const downloadCsv = () => {
-    const headers = ['Period Start', 'Period End', 'Due Date', 'Net Amount', 'Taxes & Levies', 'Admin Fees', 'Total Amount'];
-    const rows = schedule.scheduleItems.map(item => {
+    const headers = [
+      'Index',
+      'Period Start',
+      'Period End',
+      'Due Date',
+      'Net Amount',
+      'Taxes & Levies',
+      'Admin Fees',
+      'Total Amount',
+      'Created Date',
+      'Status',
+      'Adjustment Date',
+      'Original Item',
+      'Collection Type'
+    ];
+    
+    const rows = schedule.scheduleItems.map((item, index) => {
       const taxesStr = Object.entries(item.taxesAndLevies)
-        .map(([key, value]) => `${key}: €${Number(value).toFixed(2)}`)
+        .map(([key, value]) => `${key}: €${Number(value || 0).toFixed(2)}`)
         .join('; ');
       
       const feesStr = Object.entries(item.adminFees)
@@ -26,13 +41,19 @@ export default function ScheduleDisplay({ schedule }: Props) {
         .join('; ');
 
       return [
+        index.toString(),
         new Date(item.periodStartDate).toLocaleDateString(),
         new Date(item.periodEndDate).toLocaleDateString(),
         new Date(item.dueDate).toLocaleDateString(),
         `€${Number(item?.netAmount ?? 0).toFixed(2)}`,
         taxesStr || '-',
         feesStr || '-',
-        `€${Number(item?.amountDue ?? 0).toFixed(2)}`
+        `€${Number(item?.amountDue ?? 0).toFixed(2)}`,
+        item.createdDate ? new Date(item.createdDate).toLocaleDateString() : '-',
+        item.succeeded === null ? 'Pending' : item.succeeded ? 'Success' : 'Failed',
+        item.adjustmentDate ? new Date(item.adjustmentDate).toLocaleDateString() : '-',
+        item.originalItem ? item.originalItem : '-',
+        item.collectionType || '-'
       ];
     });
 
@@ -63,6 +84,13 @@ export default function ScheduleDisplay({ schedule }: Props) {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const getStatusIcon = (succeeded: boolean | null) => {
+    if (succeeded === null) return <MinusCircle className="w-5 h-5 text-gray-400" />;
+    return succeeded ? 
+      <Check className="w-5 h-5 text-green-500" /> : 
+      <X className="w-5 h-5 text-red-500" />;
   };
 
   return (
@@ -118,17 +146,26 @@ export default function ScheduleDisplay({ schedule }: Props) {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Index</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Amount</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taxes & Levies</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin Fees</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adjustment Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Original Item</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collection Type</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {schedule.scheduleItems.map((item) => (
+              {schedule.scheduleItems.map((item, index) => (
                 <tr key={item.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {index}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {new Date(item.periodStartDate).toLocaleDateString()} - {new Date(item.periodEndDate).toLocaleDateString()}
                   </td>
@@ -155,6 +192,21 @@ export default function ScheduleDisplay({ schedule }: Props) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     €{Number(item?.amountDue ?? 0).toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {item.createdDate ? new Date(item.createdDate).toLocaleDateString() : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {getStatusIcon(item.succeeded)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {item.adjustmentDate ? new Date(item.adjustmentDate).toLocaleDateString() : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {item.originalItem || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {item.collectionType || '-'}
                   </td>
                 </tr>
               ))}
