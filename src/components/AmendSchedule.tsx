@@ -116,21 +116,19 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
       coverEndDate: json.coverEndDate || json.CoverEndDate,
       scheduleItems: (json.scheduleItems || json.ScheduleItems).map((item: any) => ({
         id: item.id || item.Id || item.ID,
-        collectionType: item.collectionType || item.CollectionType,
+        collectionType: item.collectionType || item.CollectionType || 'full',
         periodStartDate: item.periodStartDate || item.PeriodStartDate,
         periodEndDate: item.periodEndDate || item.PeriodEndDate,
-        adjustmentDate: item.adjustmentDate || item.AdjustmentDate,
+        adjustmentDate: item.adjustmentDate || item.AdjustmentDate || null,
         dueDate: item.dueDate || item.DueDate,
         amountDue: Number(item.amountDue || item.AmountDue || 0),
         netAmount: Number(item.netAmount || item.NetAmount || 0),
         taxesAndLevies: item.taxesAndLevies || item.TaxesAndLevies || {},
-        adminFees: Object.entries(item.adminFees || item.AdminFees || {}).reduce((acc, [key, value]: [string, any]) => ({
-          ...acc,
-          [key]: {
-            amountDue: Number(value.amountDue || value.AmountDue || 0),
-            taxAmount: Number(value.taxAmount || value.TaxAmount || 0)
-          }
-        }), {})
+        adminFees: item.adminFees || item.AdminFees || {},
+        collectionItemCreatedDate: item.collectionItemCreatedDate || item.CollectionItemCreatedDate || null,
+        succeeded: item.succeeded !== undefined ? item.succeeded : 
+                 item.Succeeded !== undefined ? item.Succeeded : null,
+        originalItem: item.originalItem || item.OriginalItem || null
       }))
     };
 
@@ -174,7 +172,8 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
             taxAmount: Number(value.taxAmount || 0)
           }
         }), {})
-      }), {})
+      }), {}),
+      currentSchedule: existingSchedule
     };
 
     return <NewSchedule initialSchedule={initialInput} apiEndpoint={apiEndpoint} existingSchedule={existingSchedule} />;
