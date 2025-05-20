@@ -13,6 +13,12 @@ export default function ScheduleDisplay({ schedule }: Props) {
   const totalAmount = schedule.scheduleItems.length > 0 
     ? schedule.scheduleItems.reduce((sum, item) => sum + Number(item?.amountDue ?? 0), 0) 
     : 0;
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime()) || date.getFullYear() <= 1) return '-';
+    return date.toLocaleDateString('en-GB');
+  };
   
   const downloadCsv = () => {
     const headers = [
@@ -42,17 +48,17 @@ export default function ScheduleDisplay({ schedule }: Props) {
 
       return [
         index.toString(),
-        new Date(item.periodStartDate).toLocaleDateString(),
-        new Date(item.periodEndDate).toLocaleDateString(),
-        new Date(item.dueDate).toLocaleDateString(),
+        formatDate(item.periodStartDate),
+        formatDate(item.periodEndDate),
+        formatDate(item.dueDate),
         `€${Number(item?.netAmount ?? 0).toFixed(2)}`,
         taxesStr || '-',
         feesStr || '-',
         `€${Number(item?.amountDue ?? 0).toFixed(2)}`,
-        item.createdDate ? new Date(item.createdDate).toLocaleDateString() : '-',
+        item.createdDate ? formatDate(item.createdDate) : '-',
         item.succeeded === null ? 'Pending' : item.succeeded ? 'Success' : 'Failed',
-        item.adjustmentDate ? new Date(item.adjustmentDate).toLocaleDateString() : '-',
-        item.originalItem ? item.originalItem : '-',
+        item.adjustmentDate ? formatDate(item.adjustmentDate) : '-',
+        item.originalItem || '-',
         item.collectionType || '-'
       ];
     });
@@ -112,7 +118,7 @@ export default function ScheduleDisplay({ schedule }: Props) {
             <div className="p-4 bg-gray-50 rounded-lg">
               <h3 className="text-sm font-medium text-gray-900">Cover Period</h3>
               <p className="mt-2 text-sm font-medium text-gray-900">
-                {new Date(schedule.coverStartDate).toLocaleDateString()} - {new Date(schedule.coverEndDate).toLocaleDateString()}
+                {formatDate(schedule.coverStartDate)} - {formatDate(schedule.coverEndDate)}
               </p>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
@@ -167,10 +173,10 @@ export default function ScheduleDisplay({ schedule }: Props) {
                     {index}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(item.periodStartDate).toLocaleDateString()} - {new Date(item.periodEndDate).toLocaleDateString()}
+                    {formatDate(item.periodStartDate)} - {formatDate(item.periodEndDate)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(item.dueDate).toLocaleDateString()}
+                    {formatDate(item.dueDate)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     €{Number(item?.netAmount ?? 0).toFixed(2)}
@@ -190,17 +196,17 @@ export default function ScheduleDisplay({ schedule }: Props) {
                       </div>
                     ))}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     €{Number(item?.amountDue ?? 0).toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.createdDate ? new Date(item.createdDate).toLocaleDateString() : '-'}
+                    {item.createdDate ? formatDate(item.createdDate) : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {getStatusIcon(item.succeeded)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.adjustmentDate ? new Date(item.adjustmentDate).toLocaleDateString() : '-'}
+                    {formatDate(item.adjustmentDate || '')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {item.originalItem || '-'}
