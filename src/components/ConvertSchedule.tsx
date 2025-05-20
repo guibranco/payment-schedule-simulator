@@ -5,6 +5,16 @@ import ScheduleDisplay from './ScheduleDisplay';
 import Modal from './Modal';
 import NewSchedule from './NewSchedule';
 
+/**
+ * Convert a Policy Admin schedule to Payment Schedule Service format.
+ *
+ * This component handles file uploads and JSON pasting of Policy Admin schedules, validates them,
+ * converts them to the Payment Schedule Service format, and provides functionality to toggle status
+ * states. It also displays the converted schedule and allows for generating a new schedule based on
+ * the converted data.
+ *
+ * @returns A React functional component that manages the conversion process and UI interactions.
+ */
 export default function ConvertSchedule() {
   const [policyAdminSchedule, setPolicyAdminSchedule] = useState<any>(null);
   const [convertedSchedule, setConvertedSchedule] = useState<PaymentScheduleResponse | null>(null);
@@ -94,6 +104,15 @@ export default function ConvertSchedule() {
     }
   };
 
+  /**
+   * Toggles the status of a schedule item and updates the created date accordingly.
+   *
+   * This function cycles through the status states of a schedule item: null, true, false, and back to null.
+   * If the new status is null, it clears the associated createdDate. If transitioning from null to a non-null
+   * status and no createdDate exists, it sets the createdDate to the current date.
+   *
+   * @param index - The index of the schedule item in the convertedSchedule array.
+   */
   const handleStatusChange = (index: number) => {
     if (!convertedSchedule) return;
 
