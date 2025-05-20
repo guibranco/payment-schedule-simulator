@@ -119,10 +119,16 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
         periodEndDate: item.periodEndDate || item.PeriodEndDate,
         adjustmentDate: item.adjustmentDate || item.AdjustmentDate,
         dueDate: item.dueDate || item.DueDate,
-        amountDue: item.amountDue || item.AmountDue,
-        netAmount: item.netAmount || item.NetAmount,
+        amountDue: Number(item.amountDue || item.AmountDue || 0),
+        netAmount: Number(item.netAmount || item.NetAmount || 0),
         taxesAndLevies: item.taxesAndLevies || item.TaxesAndLevies || {},
-        adminFees: item.adminFees || item.AdminFees || {}
+        adminFees: Object.entries(item.adminFees || item.AdminFees || {}).reduce((acc, [key, value]: [string, any]) => ({
+          ...acc,
+          [key]: {
+            amountDue: Number(value.amountDue || value.AmountDue || 0),
+            taxAmount: Number(value.taxAmount || value.TaxAmount || 0)
+          }
+        }), {})
       }))
     };
 
@@ -159,7 +165,13 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
       taxesAndLevies: existingSchedule.scheduleItems[0]?.taxesAndLevies || {},
       adminFees: existingSchedule.scheduleItems.reduce((fees, item) => ({
         ...fees,
-        ...item.adminFees
+        ...Object.entries(item.adminFees).reduce((acc, [key, value]) => ({
+          ...acc,
+          [key]: {
+            amountDue: Number(value.amountDue || 0),
+            taxAmount: Number(value.taxAmount || 0)
+          }
+        }), {})
       }), {})
     };
 
