@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileJson, FileSpreadsheet, FileText, FilePdf, Eye } from 'lucide-react';
+import { FileJson, FileSpreadsheet, FileText, File as FilePdf, Eye } from 'lucide-react';
 import { PaymentScheduleResponse } from '../types';
 import ScheduleDisplay from './ScheduleDisplay';
 
