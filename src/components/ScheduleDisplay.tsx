@@ -7,6 +7,17 @@ interface Props {
   schedule: PaymentScheduleResponse;
 }
 
+/**
+ * Renders a schedule display component with options to download data as JSON or CSV.
+ *
+ * This function calculates the total amount of scheduled items, renders summary statistics,
+ * and provides buttons to download the schedule data in JSON or CSV format. It also includes
+ * a modal for viewing the raw JSON data. The component handles rendering of a table with detailed
+ * information about each schedule item, including period dates, due dates, amounts, taxes, and fees.
+ *
+ * @param {Props} props - An object containing the schedule data.
+ * @returns {JSX.Element} A React JSX element representing the schedule display interface.
+ */
 export default function ScheduleDisplay({ schedule }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   
