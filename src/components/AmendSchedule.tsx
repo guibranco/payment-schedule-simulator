@@ -17,3 +17,5 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.
+  }
+}
