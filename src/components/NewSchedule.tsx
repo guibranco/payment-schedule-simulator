@@ -35,7 +35,6 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
     setSchedule(prev => ({
       ...prev,
       [name]: value,
-      // Reset collection day to 0 when switching to Annual frequency
       ...(name === 'collectionFrequency' && value === 'Annual' ? { collectionDay: 0 } : {})
     }));
   };
@@ -156,7 +155,8 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
+            {/* First line: Collection Frequency and Collection Day */}
             <div className="flex gap-4 items-start">
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700">
@@ -192,58 +192,65 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Schedule Start Date
-              </label>
-              <input
-                type="date"
-                name="scheduleStartDate"
-                value={schedule.scheduleStartDate}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-              />
+            {/* Second line: Schedule Start and End Dates */}
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Schedule Start Date
+                </label>
+                <input
+                  type="date"
+                  name="scheduleStartDate"
+                  value={schedule.scheduleStartDate}
+                  onChange={handleInputChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                />
+              </div>
+
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Schedule End Date
+                </label>
+                <input
+                  type="date"
+                  name="scheduleEndDate"
+                  value={schedule.scheduleEndDate}
+                  onChange={handleInputChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Schedule End Date
-              </label>
-              <input
-                type="date"
-                name="scheduleEndDate"
-                value={schedule.scheduleEndDate}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-              />
+            {/* Third line: Effective Date and Due Date */}
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Effective Date
+                </label>
+                <input
+                  type="date"
+                  name="effectiveDate"
+                  value={schedule.effectiveDate}
+                  onChange={handleInputChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                />
+              </div>
+
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Due Date (Optional)
+                </label>
+                <input
+                  type="date"
+                  name="dueDate"
+                  value={schedule.dueDate || ''}
+                  onChange={handleInputChange}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Effective Date
-              </label>
-              <input
-                type="date"
-                name="effectiveDate"
-                value={schedule.effectiveDate}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Due Date (Optional)
-              </label>
-              <input
-                type="date"
-                name="dueDate"
-                value={schedule.dueDate || ''}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-              />
-            </div>
-
+            {/* Fourth line: Net Amount */}
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Net Amount (€)
