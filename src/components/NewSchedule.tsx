@@ -21,8 +21,11 @@ interface Props {
   apiEndpoint: string;
 }
 
-export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
-  const [schedule, setSchedule] = useState<PaymentScheduleInput>(initialSchedule || defaultSchedule);
+export default function NewSchedule({ initialSchedule, apiEndpoint, existingSchedule }: Props & { existingSchedule?: PaymentScheduleResponse }) {
+  const [schedule, setSchedule] = useState<PaymentScheduleInput>({
+    ...initialSchedule || defaultSchedule,
+    currentSchedule: existingSchedule
+  });
   const [response, setResponse] = useState<PaymentScheduleResponse | null>(null);
   const [taxKey, setTaxKey] = useState('');
   const [taxValue, setTaxValue] = useState('');
