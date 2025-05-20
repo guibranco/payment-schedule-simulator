@@ -1,5 +1,11 @@
 {
+  "scripts": {
+    "dev": "vite"
+  },
   "dependencies": {
     "jspdf": "^2.5.1"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
   }
 }
