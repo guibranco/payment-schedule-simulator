@@ -95,39 +95,44 @@ export default function ViewSchedule() {
   const downloadPdf = async () => {
     if (!schedule) return;
     
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF();
+    try {
+      const jsPDFModule = await import('jspdf');
+      const doc = new jsPDFModule.default();
 
-    // Add header
-    doc.setFontSize(16);
-    doc.text('Payment Schedule Details', 20, 20);
-    
-    doc.setFontSize(12);
-    doc.text(`Schedule ID: ${schedule.id}`, 20, 30);
-    doc.text(`Collection Frequency: ${schedule.collectionFrequency}`, 20, 40);
-    doc.text(`Cover Period: ${new Date(schedule.coverStartDate).toLocaleDateString()} - ${new Date(schedule.coverEndDate).toLocaleDateString()}`, 20, 50);
-
-    const totalAmount = schedule.scheduleItems.reduce((sum, item) => sum + item.amountDue, 0);
-    doc.text(`Total Amount: €${totalAmount.toFixed(2)}`, 20, 60);
-
-    // Add table
-    let y = 80;
-    const itemHeight = 10;
-    const pageHeight = doc.internal.pageSize.height;
-
-    schedule.scheduleItems.forEach((item, index) => {
-      if (y + itemHeight > pageHeight - 20) {
-        doc.addPage();
-        y = 20;
-      }
-
-      doc.text(`${index + 1}. Due Date: ${new Date(item.dueDate).toLocaleDateString()}`, 20, y);
-      doc.text(`Amount: €${item.amountDue.toFixed(2)}`, 20, y + 5);
+      // Add header
+      doc.setFontSize(16);
+      doc.text('Payment Schedule Details', 20, 20);
       
-      y += itemHeight;
-    });
+      doc.setFontSize(12);
+      doc.text(`Schedule ID: ${schedule.id}`, 20, 30);
+      doc.text(`Collection Frequency: ${schedule.collectionFrequency}`, 20, 40);
+      doc.text(`Cover Period: ${new Date(schedule.coverStartDate).toLocaleDateString()} - ${new Date(schedule.coverEndDate).toLocaleDateString()}`, 20, 50);
 
-    doc.save(`schedule-${schedule.id}.pdf`);
+      const totalAmount = schedule.scheduleItems.reduce((sum, item) => sum + item.amountDue, 0);
+      doc.text(`Total Amount: €${totalAmount.toFixed(2)}`, 20, 60);
+
+      // Add table
+      let y = 80;
+      const itemHeight = 10;
+      const pageHeight = doc.internal.pageSize.height;
+
+      schedule.scheduleItems.forEach((item, index) => {
+        if (y + itemHeight > pageHeight - 20) {
+          doc.addPage();
+          y = 20;
+        }
+
+        doc.text(`${index + 1}. Due Date: ${new Date(item.dueDate).toLocaleDateString()}`, 20, y);
+        doc.text(`Amount: €${item.amountDue.toFixed(2)}`, 20, y + 5);
+        
+        y += itemHeight;
+      });
+
+      doc.save(`schedule-${schedule.id}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      setError('Failed to generate PDF. Please try again.');
+    }
   };
 
   return (
