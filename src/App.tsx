@@ -69,7 +69,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-primary text-white shadow-lg">
-        <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Calculator className="w-8 h-8" />
@@ -87,7 +87,7 @@ export default function App() {
       </header>
 
       <nav className="bg-white shadow-sm">
-        <div className="max-w-[90rem] mx-auto px-4">
+        <div className="max-w-screen-2xl mx-auto px-4">
           <div className="flex space-x-8">
             <button
               onClick={() => setActiveTab('new')}
