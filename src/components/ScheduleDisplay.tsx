@@ -8,7 +8,7 @@ interface Props {
 
 export default function ScheduleDisplay({ schedule }: Props) {
   const totalAmount = schedule.scheduleItems.length > 0 
-    ? schedule.scheduleItems.reduce((sum, item) => sum + (item?.amountDue ?? 0), 0) 
+    ? schedule.scheduleItems.reduce((sum, item) => sum + (item?.amountDue != null ? item.amountDue : 0), 0) 
     : 0;
   
   const downloadJson = () => {
@@ -39,10 +39,10 @@ export default function ScheduleDisplay({ schedule }: Props) {
         new Date(item.periodStartDate).toLocaleDateString(),
         new Date(item.periodEndDate).toLocaleDateString(),
         new Date(item.dueDate).toLocaleDateString(),
-        `€${(item?.netAmount ?? 0).toFixed(2)}`,
+        `€${(item?.netAmount != null ? item.netAmount : 0).toFixed(2)}`,
         taxesStr || '-',
         feesStr || '-',
-        `€${(item?.amountDue ?? 0).toFixed(2)}`
+        `€${(item?.amountDue != null ? item.amountDue : 0).toFixed(2)}`
       ];
     });
 
@@ -132,7 +132,7 @@ export default function ScheduleDisplay({ schedule }: Props) {
                   {new Date(item.dueDate).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  €{(item?.netAmount ?? 0).toFixed(2)}
+                  €{(item?.netAmount != null ? item.netAmount : 0).toFixed(2)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {Object.entries(item.taxesAndLevies).map(([key, value]) => (
@@ -150,7 +150,7 @@ export default function ScheduleDisplay({ schedule }: Props) {
                   ))}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  €{(item?.amountDue ?? 0).toFixed(2)}
+                  €{(item?.amountDue != null ? item.amountDue : 0).toFixed(2)}
                 </td>
               </tr>
             ))}
