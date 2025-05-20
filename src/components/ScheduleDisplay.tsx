@@ -197,19 +197,27 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                     €{Number(item?.netAmount ?? 0).toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {Object.entries(item.taxesAndLevies).map(([key, value]) => (
-                      <div key={key}>
-                        {key}: €{Number(value || 0).toFixed(2)}
-                      </div>
-                    ))}
+                    {Object.entries(item.taxesAndLevies).length > 0 ? (
+                      Object.entries(item.taxesAndLevies).map(([key, value]) => (
+                        <div key={key}>
+                          {key}: €{Number(value || 0).toFixed(2)}
+                        </div>
+                      ))
+                    ) : (
+                      '-'
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {Object.entries(item.adminFees).map(([key, value]) => (
-                      <div key={key}>
-                        {key}: €{Number(value.amountDue || 0).toFixed(2)}
-                        {Number(value.taxAmount || 0) > 0 && ` + €${Number(value.taxAmount || 0).toFixed(2)} tax`}
-                      </div>
-                    ))}
+                    {Object.entries(item.adminFees).length > 0 ? (
+                      Object.entries(item.adminFees).map(([key, value]) => (
+                        <div key={key}>
+                          {key}: €{Number(value.amountDue || 0).toFixed(2)}
+                          {Number(value.taxAmount || 0) > 0 && ` + €${Number(value.taxAmount || 0).toFixed(2)} tax`}
+                        </div>
+                      ))
+                    ) : (
+                      '-'
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     €{Number(item?.amountDue ?? 0).toFixed(2)}
@@ -221,7 +229,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                     {getStatusIcon(item.succeeded, index)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatDate(item.adjustmentDate || '')}
+                    {item.adjustmentDate ? formatDate(item.adjustmentDate) : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {item.originalItem || '-'}
