@@ -20,6 +20,17 @@ interface Props {
   apiEndpoint: string;
 }
 
+/**
+ * The NewSchedule component allows users to create and amend payment schedules.
+ *
+ * This component manages state for various schedule-related fields including collection frequency, start and end dates,
+ * net amount, taxes and levies, and admin fees. It provides input fields and buttons for adding/removing taxes and fees.
+ * The form is submitted asynchronously to an API endpoint to generate a payment schedule, handling errors such as missing
+ * API configuration or authentication issues.
+ *
+ * @param initialSchedule - An optional initial payment schedule object used for amendments.
+ * @param apiEndpoint - The API endpoint URL where the schedule calculation request will be sent.
+ */
 export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>(initialSchedule || defaultSchedule);
   const [response, setResponse] = useState<PaymentScheduleResponse | null>(null);
