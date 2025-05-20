@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { FileUp, Clipboard, ArrowRight } from 'lucide-react';
-import { PaymentScheduleResponse } from '../types';
+import { PaymentScheduleResponse, PaymentScheduleInput } from '../types';
 import ScheduleDisplay from './ScheduleDisplay';
+import Modal from './Modal';
+import NewSchedule from './NewSchedule';
 
 export default function ConvertSchedule() {
   const [policyAdminSchedule, setPolicyAdminSchedule] = useState<any>(null);
@@ -9,6 +11,8 @@ export default function ConvertSchedule() {
   const [error, setError] = useState<string | null>(null);
   const [jsonInput, setJsonInput] = useState('');
   const [showPasteInput, setShowPasteInput] = useState(false);
+  const [showNewSchedule, setShowNewSchedule] = useState(false);
+  const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -82,7 +86,7 @@ export default function ConvertSchedule() {
     }
   };
 
-  const downloadConvertedJson = () => {
+  const downloadJson = () => {
     if (!convertedSchedule) return;
     
     const dataStr = JSON.stringify(convertedSchedule, null, 2);
@@ -96,6 +100,32 @@ export default function ConvertSchedule() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
+
+  if (showNewSchedule && convertedSchedule) {
+    const initialInput: PaymentScheduleInput = {
+      collectionFrequency: convertedSchedule.collectionFrequency.charAt(0).toUpperCase() + 
+                          convertedSchedule.collectionFrequency.slice(1) as 'Monthly' | 'Annual',
+      scheduleStartDate: convertedSchedule.coverStartDate,
+      scheduleEndDate: convertedSchedule.coverEndDate,
+      collectionDay: convertedSchedule.collectionDay,
+      effectiveDate: convertedSchedule.inceptionDate,
+      dueDate: convertedSchedule.scheduleItems[0]?.dueDate || null,
+      netAmount: convertedSchedule.scheduleItems.reduce((sum, item) => sum + item.netAmount, 0),
+      taxesAndLevies: convertedSchedule.scheduleItems[0]?.taxesAndLevies || {},
+      adminFees: convertedSchedule.scheduleItems.reduce((fees, item) => ({
+        ...fees,
+        ...Object.entries(item.adminFees).reduce((acc, [key, value]) => ({
+          ...acc,
+          [key]: {
+            amountDue: Number(value.amountDue || 0),
+            taxAmount: Number(value.taxAmount || 0)
+          }
+        }), {})
+      }), {})
+    };
+
+    return <NewSchedule initialSchedule={initialInput} apiEndpoint="" existingSchedule={convertedSchedule} />;
+  }
 
   return (
     <div className="max-w-[90rem] mx-auto p-6">
@@ -142,7 +172,7 @@ export default function ConvertSchedule() {
                   value={jsonInput}
                   onChange={(e) => setJsonInput(e.target.value)}
                   placeholder="Paste your Policy Admin schedule JSON here..."
-                  className="w-full h-64 p-4 border border-gray-300 rounded-md focus:border-primary focus:ring-primary"
+                  className="w-full h-64 p-4 border border-gray-300 rounded-md focus:border-primary focus:ring focus:ring-primary"
                 />
                 <div className="flex justify-end">
                   <button
@@ -195,18 +225,42 @@ export default function ConvertSchedule() {
             
             <ScheduleDisplay schedule={convertedSchedule} />
             
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center">
               <button
-                onClick={downloadConvertedJson}
-                className="flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-md hover:bg-secondary-dark transition-colors"
+                onClick={() => setIsJsonModalOpen(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
               >
-                Download Converted Schedule
-                <ArrowRight className="w-5 h-5" />
+                View JSON
               </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={downloadJson}
+                  className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
+                >
+                  Download JSON
+                </button>
+                <button
+                  onClick={() => setShowNewSchedule(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-md hover:bg-secondary-dark transition-colors"
+                >
+                  Generate New Schedule
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={isJsonModalOpen}
+        onClose={() => setIsJsonModalOpen(false)}
+        title="Converted Schedule JSON"
+      >
+        <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
+          <code>{JSON.stringify(convertedSchedule, null, 2)}</code>
+        </pre>
+      </Modal>
     </div>
   );
 }
