@@ -6,6 +6,17 @@ interface Props {
   schedule: PaymentScheduleResponse;
 }
 
+/**
+ * Displays a schedule and provides options to download it as JSON or CSV.
+ *
+ * This component calculates the total amount of all items in the schedule,
+ * renders summary information, and includes buttons to export the schedule data
+ * in JSON and CSV formats. The exported JSON contains the full schedule details,
+ * while the CSV file includes specific fields for each item.
+ *
+ * @param schedule - An object containing schedule information and items.
+ * @returns A React component rendering the schedule display with download options.
+ */
 export default function ScheduleDisplay({ schedule }: Props) {
   const totalAmount = schedule.scheduleItems.length > 0 
     ? schedule.scheduleItems.reduce((sum, item) => sum + (item?.amountDue != null ? item.amountDue : 0), 0) 
@@ -24,6 +35,14 @@ export default function ScheduleDisplay({ schedule }: Props) {
     URL.revokeObjectURL(url);
   };
 
+  /**
+   * Generates a CSV file from the schedule items and triggers a download.
+   *
+   * This function constructs a CSV file containing financial details such as period start, period end,
+   * due date, net amount, taxes & levies, admin fees, and total amount for each item in the schedule.
+   * It formats these details into a string, creates a Blob object, and uses an anchor element to
+   * initiate the download of the CSV file with a filename based on the schedule's ID.
+   */
   const downloadCsv = () => {
     const headers = ['Period Start', 'Period End', 'Due Date', 'Net Amount', 'Taxes & Levies', 'Admin Fees', 'Total Amount'];
     const rows = schedule.scheduleItems.map(item => {
