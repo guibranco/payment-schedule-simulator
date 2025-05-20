@@ -8,9 +8,19 @@ interface Props {
   children: React.ReactNode;
 }
 
+/**
+ * Modal component that displays content in a centered overlay.
+ *
+ * This component renders a modal dialog with a title, close button, and copy-to-clipboard functionality.
+ * It conditionally renders based on the `isOpen` prop and handles copying the modal content to the clipboard.
+ * The modal is styled to be fixed at the center of the screen with a semi-transparent backdrop.
+ */
 export default function Modal({ isOpen, onClose, title, children }: Props) {
   const [copied, setCopied] = React.useState(false);
 
+  /**
+   * Copies text content from a modal to the clipboard and sets copied state.
+   */
   const handleCopy = async () => {
     const content = document.querySelector('.modal-content')?.textContent;
     if (content) {
