@@ -21,6 +21,22 @@ interface Props {
   apiEndpoint: string;
 }
 
+/**
+ * Renders a form to create or amend a payment schedule.
+ *
+ * This component manages the state of a payment schedule, including collection frequency, dates,
+ * net amount, taxes and levies, and admin fees. It provides input fields for users to modify these
+ * details and includes functionality to add and remove taxes and fees. The form can be reset and allows
+ * users to view the JSON representation of their input before submitting it to an API endpoint.
+ *
+ * Upon submission, the component checks for configuration errors and authentication status,
+ * then sends a POST request to the specified API endpoint with the current schedule data.
+ * It handles potential errors such as unauthorized access or invalid responses, updating the
+ * error state accordingly. The response from the API is displayed if successful.
+ *
+ * @param props - Props including initialSchedule, apiEndpoint, and existingSchedule.
+ * @returns A React component rendering the payment schedule form and related UI elements.
+ */
 export default function NewSchedule({ initialSchedule, apiEndpoint, existingSchedule }: Props & { existingSchedule?: PaymentScheduleResponse }) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>({
     ...initialSchedule || defaultSchedule,
