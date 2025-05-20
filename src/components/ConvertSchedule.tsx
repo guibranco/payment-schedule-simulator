@@ -49,18 +49,26 @@ export default function ConvertSchedule() {
         inceptionDate: json.InceptionDate,
         coverStartDate: json.CoverStartDate,
         coverEndDate: json.CoverEndDate,
-        scheduleItems: json.ScheduleItems.map((item: any) => ({
-          id: item.Id,
-          collectionType: item.CollectionType,
-          periodStartDate: item.PeriodStartDate,
-          periodEndDate: item.PeriodEndDate,
-          adjustmentDate: item.AdjustmentDate,
-          dueDate: item.DueDate,
-          amountDue: item.AmountDue,
-          netAmount: item.NetAmount,
-          taxesAndLevies: item.TaxesAndLevies || {},
-          adminFees: item.AdminFees || {}
-        }))
+        scheduleItems: json.ScheduleItems.map((item: any) => {
+          // Check if succeed flag exists in the original item
+          const succeeded = item.Succeeded !== undefined ? item.Succeeded : null;
+
+          return {
+            id: item.Id,
+            collectionType: item.CollectionType || 'full',
+            periodStartDate: item.PeriodStartDate,
+            periodEndDate: item.PeriodEndDate,
+            adjustmentDate: item.AdjustmentDate || null,
+            dueDate: item.DueDate,
+            amountDue: Number(item.AmountDue || 0),
+            netAmount: Number(item.NetAmount || 0),
+            taxesAndLevies: item.TaxesAndLevies || {},
+            adminFees: item.AdminFees || {},
+            createdDate: item.CreatedDate || null,
+            succeeded,
+            originalItem: item.OriginalItem || null
+          };
+        })
       };
 
       setConvertedSchedule(convertedSchedule);
@@ -121,7 +129,8 @@ export default function ConvertSchedule() {
             taxAmount: Number(value.taxAmount || 0)
           }
         }), {})
-      }), {})
+      }), {}),
+      currentSchedule: convertedSchedule
     };
 
     return <NewSchedule initialSchedule={initialInput} apiEndpoint="" existingSchedule={convertedSchedule} />;
@@ -219,7 +228,7 @@ export default function ConvertSchedule() {
               <h2 className="text-lg font-semibold text-primary mb-2">Converted Schedule</h2>
               <p className="text-gray-700">
                 The Policy Admin schedule has been converted to Payment Schedule Service format. 
-                Review the schedule below and download it if needed.
+                Review the schedule below and generate a new schedule if needed.
               </p>
             </div>
             
