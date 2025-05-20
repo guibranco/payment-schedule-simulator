@@ -50,7 +50,6 @@ export default function ConvertSchedule() {
         coverStartDate: json.CoverStartDate,
         coverEndDate: json.CoverEndDate,
         scheduleItems: json.ScheduleItems.map((item: any) => {
-          // Check if succeed flag exists in the original item
           const succeeded = item.Succeeded !== undefined ? item.Succeeded : null;
 
           return {
@@ -64,7 +63,7 @@ export default function ConvertSchedule() {
             netAmount: Number(item.NetAmount || 0),
             taxesAndLevies: item.TaxesAndLevies || {},
             adminFees: item.AdminFees || {},
-            createdDate: item.CreatedDate || null,
+            collectionItemCreatedDate: item.CollectionItemCreatedDate || null,
             succeeded,
             originalItem: item.OriginalItem || null
           };
@@ -105,12 +104,12 @@ export default function ConvertSchedule() {
     
     newSchedule.scheduleItems[index].succeeded = newStatus;
     
-    // If status is null, also clear the createdDate
+    // If status is null, also clear the collectionItemCreatedDate
     if (newStatus === null) {
-      newSchedule.scheduleItems[index].createdDate = null;
-    } else if (!newSchedule.scheduleItems[index].createdDate) {
-      // If status is being set and no createdDate exists, set it to current date
-      newSchedule.scheduleItems[index].createdDate = new Date().toISOString();
+      newSchedule.scheduleItems[index].collectionItemCreatedDate = null;
+    } else if (!newSchedule.scheduleItems[index].collectionItemCreatedDate) {
+      // If status is being set and no collectionItemCreatedDate exists, set it to current date
+      newSchedule.scheduleItems[index].collectionItemCreatedDate = new Date().toISOString();
     }
     
     setConvertedSchedule(newSchedule);
