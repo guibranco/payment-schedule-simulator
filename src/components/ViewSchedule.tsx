@@ -3,6 +3,17 @@ import { FileJson, FileSpreadsheet, FileText, File as FilePdf, Eye } from 'lucid
 import { PaymentScheduleResponse } from '../types';
 import ScheduleDisplay from './ScheduleDisplay';
 
+/**
+ * Renders a component to view and manage payment schedules.
+ *
+ * The component allows users to input JSON data representing a payment schedule,
+ * parse it, and then download the schedule as an HTML or PDF document. It manages
+ * state for the parsed schedule, any errors encountered during parsing, and user inputs.
+ * The component includes buttons for parsing new schedules and downloading the current
+ * schedule in different formats.
+ *
+ * @returns JSX element representing the ViewSchedule component.
+ */
 export default function ViewSchedule() {
   const [schedule, setSchedule] = useState<PaymentScheduleResponse | null>(null);
   const [jsonInput, setJsonInput] = useState('');
@@ -92,6 +103,13 @@ export default function ViewSchedule() {
     URL.revokeObjectURL(url);
   };
 
+  /**
+   * Generates a PDF document containing payment schedule details.
+   * The function first checks if a schedule is available. If not, it returns early.
+   * It then creates a new PDF document using jsPDF and adds headers, schedule information,
+   * and a table of schedule items. If an error occurs during the process, it logs the error
+   * and sets an error message.
+   */
   const downloadPdf = async () => {
     if (!schedule) return;
     
