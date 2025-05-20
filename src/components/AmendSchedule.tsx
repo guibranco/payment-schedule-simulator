@@ -8,6 +8,15 @@ interface Props {
   apiEndpoint: string;
 }
 
+/**
+ * Manages the amendment of a payment schedule by handling file uploads and JSON pasting.
+ *
+ * This function manages the state of the existing schedule, error messages, and user input.
+ * It includes handlers for file uploads, JSON validation, and navigation to create a new schedule.
+ * The function also constructs initial input data based on the existing schedule for further processing.
+ *
+ * @param apiEndpoint - The API endpoint used for creating a new schedule.
+ */
 export default function AmendSchedule({ apiEndpoint }: Props) {
   const [existingSchedule, setExistingSchedule] = useState<PaymentScheduleResponse | null>(null);
   const [showNewSchedule, setShowNewSchedule] = useState(false);
@@ -15,6 +24,14 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
   const [jsonInput, setJsonInput] = useState('');
   const [showPasteInput, setShowPasteInput] = useState(false);
 
+  /**
+   * Handles file upload events and processes JSON files.
+   *
+   * This function is triggered by a change event on an input element of type 'file'.
+   * It reads the uploaded file, parses its content as JSON, and validates it.
+   * If the JSON is valid, it calls `validateAndSetSchedule` to process the schedule data.
+   * If there is an error during parsing (e.g., invalid JSON syntax), it sets an error message.
+   */
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -31,6 +48,17 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
     reader.readAsText(file);
   };
 
+  /**
+   * Validates and sets a schedule based on the provided JSON object.
+   *
+   * This function checks for missing required fields, validates their types,
+   * ensures that the schedule contains at least one item, and validates each
+   * schedule item's properties. If any validation fails, it throws an error.
+   * Upon successful validation, it calls `setExistingSchedule` to set the schedule
+   * and updates UI-related state variables.
+   *
+   * @param json - The JSON object containing schedule data.
+   */
   const validateAndSetSchedule = (json: any) => {
     const requiredFields = {
       id: 'string',
@@ -85,6 +113,13 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
     setJsonInput('');
   };
 
+  /**
+   * Handles the submission of JSON data pasted into a form.
+   *
+   * This function prevents the default form submission behavior, parses the JSON input,
+   * and attempts to validate and set the schedule using the parsed JSON. If the JSON is invalid,
+   * it catches the error and sets an appropriate error message based on the type of error encountered.
+   */
   const handlePasteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     try {
