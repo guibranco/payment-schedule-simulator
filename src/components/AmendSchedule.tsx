@@ -16,6 +16,7 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
   const [showPasteInput, setShowPasteInput] = useState(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.
+    const file = e.target.files?.[0];
+    if (!file) return;
   }
 }
