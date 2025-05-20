@@ -8,7 +8,7 @@ interface Props {
 
 export default function ScheduleDisplay({ schedule }: Props) {
   const totalAmount = schedule.scheduleItems.length > 0 
-    ? schedule.scheduleItems.reduce((sum, item) => sum + (item?.amountDue ?? 0), 0) 
+    ? schedule.scheduleItems.reduce((sum, item) => sum + Number(item?.amountDue ?? 0), 0) 
     : 0;
   
   const downloadJson = () => {
@@ -28,21 +28,21 @@ export default function ScheduleDisplay({ schedule }: Props) {
     const headers = ['Period Start', 'Period End', 'Due Date', 'Net Amount', 'Taxes & Levies', 'Admin Fees', 'Total Amount'];
     const rows = schedule.scheduleItems.map(item => {
       const taxesStr = Object.entries(item.taxesAndLevies)
-        .map(([key, value]) => `${key}: €${value}`)
+        .map(([key, value]) => `${key}: €${Number(value).toFixed(2)}`)
         .join('; ');
       
       const feesStr = Object.entries(item.adminFees)
-        .map(([key, value]) => `${key}: €${value.amountDue}${value.taxAmount > 0 ? ` + €${value.taxAmount} tax` : ''}`)
+        .map(([key, value]) => `${key}: €${Number(value.amountDue).toFixed(2)}${Number(value.taxAmount) > 0 ? ` + €${Number(value.taxAmount).toFixed(2)} tax` : ''}`)
         .join('; ');
 
       return [
         new Date(item.periodStartDate).toLocaleDateString(),
         new Date(item.periodEndDate).toLocaleDateString(),
         new Date(item.dueDate).toLocaleDateString(),
-        `€${(item?.netAmount ?? 0).toFixed(2)}`,
+        `€${Number(item?.netAmount ?? 0).toFixed(2)}`,
         taxesStr || '-',
         feesStr || '-',
-        `€${(item?.amountDue ?? 0).toFixed(2)}`
+        `€${Number(item?.amountDue ?? 0).toFixed(2)}`
       ];
     });
 
@@ -132,25 +132,25 @@ export default function ScheduleDisplay({ schedule }: Props) {
                   {new Date(item.dueDate).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  €{(item?.netAmount ?? 0).toFixed(2)}
+                  €{Number(item?.netAmount ?? 0).toFixed(2)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {Object.entries(item.taxesAndLevies).map(([key, value]) => (
                     <div key={key}>
-                      {key}: €{value.toFixed(2)}
+                      {key}: €{Number(value).toFixed(2)}
                     </div>
                   ))}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {Object.entries(item.adminFees).map(([key, value]) => (
                     <div key={key}>
-                      {key}: €{value.amountDue.toFixed(2)}
-                      {value.taxAmount && value.taxAmount > 0 && ` + €${(value.taxAmount ?? 0).toFixed(2)} tax`}
+                      {key}: €{Number(value.amountDue).toFixed(2)}
+                      {value.taxAmount && Number(value.taxAmount) > 0 && ` + €${Number(value.taxAmount).toFixed(2)} tax`}
                     </div>
                   ))}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  €{(item?.amountDue ?? 0).toFixed(2)}
+                  €{Number(item?.amountDue ?? 0).toFixed(2)}
                 </td>
               </tr>
             ))}
