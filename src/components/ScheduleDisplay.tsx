@@ -20,6 +20,12 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     if (isNaN(date.getTime()) || date.getFullYear() <= 1) return '-';
     return date.toLocaleDateString('en-GB');
   };
+
+  const getIndexBackgroundColor = (item: any) => {
+    if (Object.keys(item.adminFees).length > 0) return 'bg-orange-100';
+    if (item.collectionType === 'pro-rata') return 'bg-yellow-100';
+    return 'bg-green-100';
+  };
   
   const downloadCsv = () => {
     const headers = [
@@ -34,8 +40,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
       'Collection Item Created Date',
       'Status',
       'Adjustment Date',
-      'Original Item',
-      'Collection Type'
+      'Original Item'
     ];
     
     const rows = schedule.scheduleItems.map((item, index) => {
@@ -59,8 +64,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
         item.collectionItemCreatedDate ? formatDate(item.collectionItemCreatedDate) : '-',
         item.succeeded === null ? 'Pending' : item.succeeded ? 'Success' : 'Failed',
         item.adjustmentDate ? formatDate(item.adjustmentDate) : '-',
-        item.originalItem || '-',
-        item.collectionType || '-'
+        item.originalItem || '-'
       ];
     });
 
@@ -175,13 +179,12 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adjustment Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Original Item</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collection Type</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {schedule.scheduleItems.map((item, index) => (
                 <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${getIndexBackgroundColor(item)}`}>
                     {index}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -222,9 +225,6 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {item.originalItem || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.collectionType || '-'}
                   </td>
                 </tr>
               ))}
