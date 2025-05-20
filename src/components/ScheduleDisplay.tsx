@@ -8,6 +8,18 @@ interface Props {
   onStatusChange?: (index: number) => void;
 }
 
+/**
+ * Renders a schedule display component with options to download data as CSV or JSON.
+ *
+ * This component displays the total amount, collection day, cover period, and schedule ID.
+ * It also renders a table showing detailed information about each schedule item, including
+ * formatting dates, displaying status icons, and mapping taxes and admin fees.
+ * The component provides buttons to download the schedule data in CSV or JSON format.
+ *
+ * @param {Props} props - The properties for the ScheduleDisplay component.
+ * @param {Schedule} props.schedule - The schedule object containing schedule items and other metadata.
+ * @param {Function} [props.onStatusChange] - Optional callback function to handle status changes.
+ */
 export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   
@@ -21,6 +33,15 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     return date.toLocaleDateString('en-GB');
   };
   
+  /**
+   * Downloads a CSV file containing schedule items.
+   *
+   * This function constructs a CSV string from an array of schedule items, formatting each item's data into rows.
+   * It handles various fields such as taxes, admin fees, and dates, ensuring proper formatting for CSV output.
+   * After constructing the CSV content, it creates a Blob object and uses an anchor element to trigger a download of the file.
+   *
+   * @returns void
+   */
   const downloadCsv = () => {
     const headers = [
       'Index',
