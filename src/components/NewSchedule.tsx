@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Calendar, Euro, X } from 'lucide-react';
 import { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
 import ScheduleDisplay from './ScheduleDisplay';
+import Modal from './Modal';
 
 const defaultSchedule: PaymentScheduleInput = {
   collectionFrequency: 'Monthly',
@@ -29,6 +30,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
   const [feeAmount, setFeeAmount] = useState('');
   const [feeTax, setFeeTax] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -378,6 +380,13 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
               Reset
             </button>
             <button
+              type="button"
+              onClick={() => setIsJsonModalOpen(true)}
+              className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-base font-medium"
+            >
+              View JSON Request
+            </button>
+            <button
               type="submit"
               className="px-6 py-3 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors text-base font-medium"
             >
@@ -388,6 +397,16 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
       </div>
 
       {response && <ScheduleDisplay schedule={response} />}
+
+      <Modal
+        isOpen={isJsonModalOpen}
+        onClose={() => setIsJsonModalOpen(false)}
+        title="JSON Request Preview"
+      >
+        <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
+          <code>{JSON.stringify(schedule, null, 2)}</code>
+        </pre>
+      </Modal>
     </div>
   );
 }
