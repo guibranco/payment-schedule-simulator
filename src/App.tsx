@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, PencilRuler, Settings, ArrowRight } from 'lucide-react';
+import { Calculator, PencilRuler, Settings, ArrowRight, Eye } from 'lucide-react';
 import NewSchedule from './components/NewSchedule';
 import AmendSchedule from './components/AmendSchedule';
 import ConvertSchedule from './components/ConvertSchedule';
+import ViewSchedule from './components/ViewSchedule';
 import ConfigDialog from './components/ConfigDialog';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'new' | 'amend' | 'convert'>('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'amend' | 'convert' | 'view'>('new');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [apiEndpoint, setApiEndpoint] = useState('');
 
@@ -122,6 +123,17 @@ export default function App() {
               <ArrowRight className="w-5 h-5" />
               Convert Schedule
             </button>
+            <button
+              onClick={() => setActiveTab('view')}
+              className={`py-4 px-3 inline-flex items-center gap-2 border-b-2 text-sm font-medium ${
+                activeTab === 'view'
+                  ? 'border-secondary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Eye className="w-5 h-5" />
+              View Schedule
+            </button>
           </div>
         </div>
       </nav>
@@ -131,8 +143,10 @@ export default function App() {
           <NewSchedule apiEndpoint={apiEndpoint} />
         ) : activeTab === 'amend' ? (
           <AmendSchedule apiEndpoint={apiEndpoint} />
-        ) : (
+        ) : activeTab === 'convert' ? (
           <ConvertSchedule />
+        ) : (
+          <ViewSchedule />
         )}
       </main>
 
