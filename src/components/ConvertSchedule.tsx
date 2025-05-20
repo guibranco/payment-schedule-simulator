@@ -225,18 +225,12 @@ export default function ConvertSchedule() {
             <ScheduleDisplay schedule={convertedSchedule} />
             
             <div className="flex justify-between items-center">
-              <button
-                onClick={() => setShowNewSchedule(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
-              >
-                View JSON
-              </button>
               <div className="flex gap-2">
                 <button
                   onClick={downloadJson}
                   className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
                 >
-                  Download JSON
+                  View JSON
                 </button>
                 <button
                   onClick={() => setShowNewSchedule(true)}
