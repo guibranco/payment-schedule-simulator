@@ -6,6 +6,16 @@ interface Props {
   schedule: PaymentScheduleResponse;
 }
 
+/**
+ * Displays a schedule with summary information and provides options to download the schedule as JSON or CSV.
+ *
+ * The component calculates the total amount of all schedule items, renders summary details such as collection day,
+ * cover period, and schedule ID. It also includes a table displaying individual schedule items with their respective
+ * period, due date, net amount, taxes & levies, admin fees, and total amount. Two buttons are provided to download
+ * the full schedule data in JSON or CSV format.
+ *
+ * @param props - An object containing the schedule data to be displayed.
+ */
 export default function ScheduleDisplay({ schedule }: Props) {
   const totalAmount = schedule.scheduleItems.length > 0 
     ? schedule.scheduleItems.reduce((sum, item) => sum + (item.amountDue || 0), 0) 
