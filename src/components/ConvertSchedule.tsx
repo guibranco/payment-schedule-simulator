@@ -5,6 +5,16 @@ import ScheduleDisplay from './ScheduleDisplay';
 import Modal from './Modal';
 import NewSchedule from './NewSchedule';
 
+/**
+ * Converts a Policy Admin schedule to Payment Schedule Service format.
+ *
+ * This component handles file uploads and JSON pasting, validates the input,
+ * converts it from Policy Admin format to Payment Schedule Service format,
+ * and displays the converted schedule. It also provides options to download
+ * the converted JSON or generate a new schedule.
+ *
+ * @returns A React functional component that renders the conversion interface.
+ */
 export default function ConvertSchedule() {
   const [policyAdminSchedule, setPolicyAdminSchedule] = useState<any>(null);
   const [convertedSchedule, setConvertedSchedule] = useState<PaymentScheduleResponse | null>(null);
