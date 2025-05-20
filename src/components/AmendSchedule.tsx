@@ -8,6 +8,15 @@ interface Props {
   apiEndpoint: string;
 }
 
+/**
+ * Component to amend a payment schedule by uploading or pasting JSON data.
+ *
+ * This component manages the state of an existing schedule, error messages, and input methods (file upload or paste).
+ * It validates the uploaded/pasted JSON against required fields and types, normalizes keys for case-insensitive checks,
+ * and sets the validated schedule as the existing schedule. If validation fails, it updates the error state.
+ *
+ * @param apiEndpoint - The API endpoint used by the NewSchedule component.
+ */
 export default function AmendSchedule({ apiEndpoint }: Props) {
   const [existingSchedule, setExistingSchedule] = useState<PaymentScheduleResponse | null>(null);
   const [showNewSchedule, setShowNewSchedule] = useState(false);
@@ -46,6 +55,17 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
     return obj;
   };
 
+  /**
+   * Validates and sets a schedule from a JSON object.
+   *
+   * This function normalizes the keys of the input JSON to lowercase,
+   * checks for required fields with correct types, validates collection day
+   * based on frequency, and ensures that schedule items have all necessary fields.
+   * It then converts the validated data back to its original case format before setting
+   * it as an existing schedule.
+   *
+   * @param json - The raw JSON object containing schedule information.
+   */
   const validateAndSetSchedule = (json: any) => {
     // Normalize all keys to lowercase for case-insensitive comparison
     const normalizedJson = normalizeKeys(json);
