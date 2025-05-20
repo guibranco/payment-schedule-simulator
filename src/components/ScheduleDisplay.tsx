@@ -145,7 +145,7 @@ export default function ScheduleDisplay({ schedule }: Props) {
                   {Object.entries(item.adminFees).map(([key, value]) => (
                     <div key={key}>
                       {key}: €{value.amountDue.toFixed(2)}
-                      {value.taxAmount > 0 && ` + €${value.taxAmount.toFixed(2)} tax`}
+                      {value.taxAmount && value.taxAmount > 0 && ` + €${(value.taxAmount ?? 0).toFixed(2)} tax`}
                     </div>
                   ))}
                 </td>
