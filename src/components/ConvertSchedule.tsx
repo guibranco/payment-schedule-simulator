@@ -5,6 +5,15 @@ import ScheduleDisplay from './ScheduleDisplay';
 import Modal from './Modal';
 import NewSchedule from './NewSchedule';
 
+/**
+ * Converts a Policy Admin schedule to Payment Schedule Service format.
+ *
+ * This component handles file uploads and pasting of JSON inputs, validates the input data,
+ * converts it to the required format, and provides options to download or generate a new schedule.
+ * It manages state for policy admin schedules, converted schedules, errors, and UI components.
+ *
+ * @returns A React functional component rendering the conversion interface.
+ */
 export default function ConvertSchedule() {
   const [policyAdminSchedule, setPolicyAdminSchedule] = useState<any>(null);
   const [convertedSchedule, setConvertedSchedule] = useState<PaymentScheduleResponse | null>(null);
@@ -13,6 +22,15 @@ export default function ConvertSchedule() {
   const [showPasteInput, setShowPasteInput] = useState(false);
   const [showNewSchedule, setShowNewSchedule] = useState(false);
 
+  /**
+   * Handles file upload events, parses JSON content from uploaded files, and validates it.
+   *
+   * This function is triggered by a file input change event. It reads the selected file,
+   * parses its content as JSON, and then passes the parsed data to `validateAndConvertSchedule`.
+   * If an error occurs during parsing, such as invalid JSON syntax, it sets an error message.
+   *
+   * @param e - The React change event object containing the uploaded file(s).
+   */
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
