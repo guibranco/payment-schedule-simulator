@@ -15,6 +15,7 @@ export interface PaymentScheduleInput {
   netAmount: number;
   taxesAndLevies: Record<string, number>;
   adminFees: Record<string, AdminFee>;
+  currentSchedule?: PaymentScheduleResponse;
 }
 
 export interface ScheduleItem {
