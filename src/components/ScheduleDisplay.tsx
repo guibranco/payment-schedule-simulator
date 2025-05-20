@@ -16,6 +16,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     : 0;
 
   const formatDate = (dateStr: string) => {
+    if (!dateStr || dateStr === '0001-01-01T00:00:00+00:00') return '-';
     const date = new Date(dateStr);
     if (isNaN(date.getTime()) || date.getFullYear() <= 1) return '-';
     return date.toLocaleDateString('en-GB');
@@ -23,7 +24,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
 
   const getIndexBackgroundColor = (item: any) => {
     if (Object.keys(item.adminFees).length > 0) return 'bg-orange-100';
-    if (item.collectionType === 'pro-rata') return 'bg-yellow-100';
+    if (item.collectionType === 'proRata') return 'bg-yellow-100';
     return 'bg-green-100';
   };
   
@@ -40,7 +41,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
       'Collection Item Created Date',
       'Status',
       'Adjustment Date',
-      'Original Item'
+      'Has Original Item'
     ];
     
     const rows = schedule.scheduleItems.map((item, index) => {
@@ -64,7 +65,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
         item.collectionItemCreatedDate ? formatDate(item.collectionItemCreatedDate) : '-',
         item.succeeded === null ? 'Pending' : item.succeeded ? 'Success' : 'Failed',
         item.adjustmentDate ? formatDate(item.adjustmentDate) : '-',
-        item.originalItem || '-'
+        item.originalItem ? 'Yes' : 'No'
       ];
     });
 
@@ -178,7 +179,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collection Item Created Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adjustment Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Original Item</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Has Original Item</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -229,10 +230,10 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                     {getStatusIcon(item.succeeded, index)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.adjustmentDate ? formatDate(item.adjustmentDate) : '-'}
+                    {formatDate(item.adjustmentDate)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.originalItem || '-'}
+                    {item.originalItem ? 'Yes' : 'No'}
                   </td>
                 </tr>
               ))}
