@@ -8,6 +8,9 @@ interface Props {
   children: React.ReactNode;
 }
 
+/**
+ * Renders a modal dialog with a title, close button, and content area.
+ */
 export default function Modal({ isOpen, onClose, title, children }: Props) {
   if (!isOpen) return null;
 
