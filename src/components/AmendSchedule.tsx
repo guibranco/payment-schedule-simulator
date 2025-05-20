@@ -9,6 +9,15 @@ interface Props {
   apiEndpoint: string;
 }
 
+/**
+ * Function to amend a payment schedule by uploading or pasting JSON data.
+ *
+ * This function handles file uploads and JSON input, validates the structure and types of the JSON,
+ * normalizes keys for case-insensitive comparison, and sets the validated schedule state.
+ * It also provides UI elements for users to upload files or paste JSON directly into a textarea.
+ *
+ * @param {Props} props - An object containing the API endpoint as a property.
+ */
 export default function AmendSchedule({ apiEndpoint }: Props) {
   const [existingSchedule, setExistingSchedule] = useState<PaymentScheduleResponse | null>(null);
   const [showNewSchedule, setShowNewSchedule] = useState(false);
@@ -33,6 +42,14 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
     reader.readAsText(file);
   };
 
+  /**
+   * Recursively normalizes object keys to lowercase.
+   *
+   * This function iterates over an object or array, converting all keys of objects to lowercase.
+   * If a value is an array or object, it recursively applies the normalization.
+   *
+   * @param obj - The input object or array whose keys are to be normalized.
+   */
   const normalizeKeys = (obj: any): any => {
     if (Array.isArray(obj)) {
       return obj.map(normalizeKeys);
@@ -48,6 +65,16 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
     return obj;
   };
 
+  /**
+   * Validates and sets a payment schedule from a JSON object.
+   *
+   * The function normalizes all keys to lowercase for case-insensitive comparison,
+   * checks for missing required fields, validates their types, and ensures that the
+   * schedule contains at least one item with valid properties. It then converts the
+   * validated data back to its original case and sets it as the existing schedule.
+   *
+   * @param json - A JSON object containing schedule information.
+   */
   const validateAndSetSchedule = (json: any) => {
     // Normalize all keys to lowercase for case-insensitive comparison
     const normalizedJson = normalizeKeys(json);
