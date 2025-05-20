@@ -3,6 +3,7 @@ import { FileUp, Calendar, ArrowRight, Clipboard } from 'lucide-react';
 import { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
 import NewSchedule from './NewSchedule';
 import ScheduleDisplay from './ScheduleDisplay';
+import Modal from './Modal';
 
 interface Props {
   apiEndpoint: string;
@@ -14,6 +15,7 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [jsonInput, setJsonInput] = useState('');
   const [showPasteInput, setShowPasteInput] = useState(false);
+  const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -276,7 +278,13 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
             
             <ScheduleDisplay schedule={existingSchedule} />
             
-            <div className="flex justify-end">
+            <div className="flex justify-end items-center gap-4">
+              <button
+                onClick={() => setIsJsonModalOpen(true)}
+                className="px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
+              >
+                View JSON
+              </button>
               <button
                 onClick={() => setShowNewSchedule(true)}
                 className="flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-md hover:bg-secondary-dark transition-colors"
@@ -288,6 +296,16 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={isJsonModalOpen}
+        onClose={() => setIsJsonModalOpen(false)}
+        title="Current Schedule JSON"
+      >
+        <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
+          <code>{JSON.stringify(existingSchedule, null, 2)}</code>
+        </pre>
+      </Modal>
     </div>
   );
 }
