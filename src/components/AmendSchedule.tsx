@@ -8,6 +8,17 @@ interface Props {
   apiEndpoint: string;
 }
 
+/**
+ * Main component for amending a payment schedule.
+ *
+ * This component manages the state and logic for uploading or pasting JSON data,
+ * validating it, and displaying or creating a new payment schedule based on the input.
+ * It handles various validation checks, including required fields, types, and specific
+ * rules for collection frequencies and schedule items. The component also provides UI
+ * elements for user interaction, such as buttons and form inputs.
+ *
+ * @param apiEndpoint - The API endpoint to be used for creating a new schedule.
+ */
 export default function AmendSchedule({ apiEndpoint }: Props) {
   const [existingSchedule, setExistingSchedule] = useState<PaymentScheduleResponse | null>(null);
   const [showNewSchedule, setShowNewSchedule] = useState(false);
@@ -15,6 +26,13 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
   const [jsonInput, setJsonInput] = useState('');
   const [showPasteInput, setShowPasteInput] = useState(false);
 
+  /**
+   * Handles file upload event and processes JSON content.
+   *
+   * This function is triggered by a file input change event. It reads the selected file,
+   * parses its content as JSON, and validates it using `validateAndSetSchedule`. If the
+   * JSON is invalid, an error message is set indicating syntax issues.
+   */
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -31,6 +49,13 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
     reader.readAsText(file);
   };
 
+  /**
+   * Recursively normalizes all keys in an object to lowercase.
+   *
+   * This function traverses through the given object or array, converting each key
+   * to lowercase if it is a string. It recursively processes nested objects and arrays,
+   * ensuring that all levels of the structure are normalized.
+   */
   const normalizeKeys = (obj: any): any => {
     if (Array.isArray(obj)) {
       return obj.map(normalizeKeys);
@@ -46,6 +71,16 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
     return obj;
   };
 
+  /**
+   * Validates and sets a payment schedule based on input JSON.
+   *
+   * This function first normalizes all keys in the JSON object to lowercase to ensure case-insensitive validation.
+   * It checks for required fields, validates their types, and throws errors if any are missing or of incorrect type.
+   * It then validates specific rules related to the collection frequency and schedule items, including checking for valid dates and amounts.
+   * Finally, it converts the validated data back to the original case format and sets it as the existing schedule, clearing error states and UI inputs.
+   *
+   * @param json - The input JSON object containing schedule details.
+   */
   const validateAndSetSchedule = (json: any) => {
     // Normalize all keys to lowercase for case-insensitive comparison
     const normalizedJson = normalizeKeys(json);
@@ -138,6 +173,15 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
     setJsonInput('');
   };
 
+  /**
+   * Handles form submission after pasting JSON input, validating and setting the schedule or displaying errors.
+   *
+   * This function prevents the default form submission behavior, attempts to parse the JSON input,
+   * validates it using `validateAndSetSchedule`, and catches any parsing errors to display appropriate messages.
+   * It handles syntax errors specifically by providing a clear message about missing commas, quotes, or brackets.
+   *
+   * @param e - The React form event object.
+   */
   const handlePasteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     try {
