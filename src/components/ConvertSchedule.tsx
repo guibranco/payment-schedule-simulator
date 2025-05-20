@@ -12,6 +12,7 @@ export default function ConvertSchedule() {
   const [jsonInput, setJsonInput] = useState('');
   const [showPasteInput, setShowPasteInput] = useState(false);
   const [showNewSchedule, setShowNewSchedule] = useState(false);
+  const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -224,26 +225,34 @@ export default function ConvertSchedule() {
             
             <ScheduleDisplay schedule={convertedSchedule} />
             
-            <div className="flex justify-end items-center">
-              <div className="flex gap-2">
-                <button
-                  onClick={downloadJson}
-                  className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
-                >
-                  View JSON
-                </button>
-                <button
-                  onClick={() => setShowNewSchedule(true)}
-                  className="flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-md hover:bg-secondary-dark transition-colors"
-                >
-                  Generate New Schedule
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </div>
+            <div className="flex justify-end items-center gap-4">
+              <button
+                onClick={() => setIsJsonModalOpen(true)}
+                className="px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
+              >
+                View JSON
+              </button>
+              <button
+                onClick={() => setShowNewSchedule(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-md hover:bg-secondary-dark transition-colors"
+              >
+                Generate New Schedule
+                <ArrowRight className="w-5 h-5" />
+              </button>
             </div>
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={isJsonModalOpen}
+        onClose={() => setIsJsonModalOpen(false)}
+        title="Converted Schedule JSON"
+      >
+        <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
+          <code>{JSON.stringify(convertedSchedule, null, 2)}</code>
+        </pre>
+      </Modal>
     </div>
   );
 }
