@@ -31,7 +31,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
       'Taxes & Levies',
       'Admin Fees',
       'Total Amount',
-      'Created Date',
+      'Collection Item Created Date',
       'Status',
       'Adjustment Date',
       'Original Item',
@@ -56,7 +56,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
         taxesStr || '-',
         feesStr || '-',
         `€${Number(item?.amountDue ?? 0).toFixed(2)}`,
-        item.createdDate ? formatDate(item.createdDate) : '-',
+        item.collectionItemCreatedDate ? formatDate(item.collectionItemCreatedDate) : '-',
         item.succeeded === null ? 'Pending' : item.succeeded ? 'Success' : 'Failed',
         item.adjustmentDate ? formatDate(item.adjustmentDate) : '-',
         item.originalItem || '-',
@@ -171,7 +171,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taxes & Levies</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin Fees</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collection Item Created Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adjustment Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Original Item</th>
@@ -212,7 +212,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                     €{Number(item?.amountDue ?? 0).toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.createdDate ? formatDate(item.createdDate) : '-'}
+                    {item.collectionItemCreatedDate ? formatDate(item.collectionItemCreatedDate) : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {getStatusIcon(item.succeeded, index)}
