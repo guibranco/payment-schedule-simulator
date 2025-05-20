@@ -12,7 +12,6 @@ export default function ConvertSchedule() {
   const [jsonInput, setJsonInput] = useState('');
   const [showPasteInput, setShowPasteInput] = useState(false);
   const [showNewSchedule, setShowNewSchedule] = useState(false);
-  const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -227,7 +226,7 @@ export default function ConvertSchedule() {
             
             <div className="flex justify-between items-center">
               <button
-                onClick={() => setIsJsonModalOpen(true)}
+                onClick={() => setShowNewSchedule(true)}
                 className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
               >
                 View JSON
@@ -251,16 +250,6 @@ export default function ConvertSchedule() {
           </div>
         )}
       </div>
-
-      <Modal
-        isOpen={isJsonModalOpen}
-        onClose={() => setIsJsonModalOpen(false)}
-        title="Converted Schedule JSON"
-      >
-        <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
-          <code>{JSON.stringify(convertedSchedule, null, 2)}</code>
-        </pre>
-      </Modal>
     </div>
   );
 }
