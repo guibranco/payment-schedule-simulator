@@ -8,6 +8,15 @@ interface Props {
   onStatusChange?: (index: number) => void;
 }
 
+/**
+ * Renders a schedule display component with options to download data in CSV and JSON formats.
+ *
+ * This component calculates the total amount due, formats dates, and maps over schedule items to display detailed information.
+ * It also provides interactive elements like buttons for status changes and modals for JSON viewing.
+ *
+ * @param schedule - The schedule data containing items and other details.
+ * @param onStatusChange - Optional callback function triggered when a status change is requested.
+ */
 export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   
@@ -93,6 +102,9 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     URL.revokeObjectURL(url);
   };
 
+  /**
+   * Returns a status icon based on success state and optionally wraps it in a button.
+   */
   const getStatusIcon = (succeeded: boolean | null, index: number) => {
     const icon = succeeded === null ? 
       <MinusCircle className="w-5 h-5 text-gray-400" /> :
