@@ -8,6 +8,17 @@ interface Props {
   onStatusChange?: (index: number) => void;
 }
 
+/**
+ * ScheduleDisplay component to display and manage schedule information.
+ *
+ * This component renders a detailed schedule view, including total amount calculation,
+ * date formatting, background color determination based on item properties, CSV and JSON download
+ * functionalities, and status icon rendering. It also includes a modal for displaying the JSON representation
+ * of the schedule.
+ *
+ * @param schedule - The schedule data to be displayed.
+ * @param onStatusChange - An optional callback function to handle status changes.
+ */
 export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   
@@ -22,6 +33,17 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     return date.toLocaleDateString('en-GB');
   };
 
+  /**
+   * Determines the background color based on the item's financial and administrative status.
+   *
+   * This function evaluates the `amountDue`, presence of `adminFees`, and `collectionType` to decide the appropriate background color class.
+   * If `amountDue` is negative, it returns 'bg-blue-100'.
+   * If there are admin fees, it returns 'bg-orange-100'.
+   * If the collection type is 'proRata', it returns 'bg-yellow-100'.
+   * For all other cases, it defaults to 'bg-green-100'.
+   *
+   * @param item - The object containing financial and administrative details.
+   */
   const getIndexBackgroundColor = (item: any) => {
     if (Number(item.amountDue) < 0) return 'bg-blue-100';
     if (Object.keys(item.adminFees).length > 0) return 'bg-orange-100';
