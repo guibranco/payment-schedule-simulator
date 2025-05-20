@@ -31,55 +31,97 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
     reader.readAsText(file);
   };
 
+  const normalizeKeys = (obj: any): any => {
+    if (Array.isArray(obj)) {
+      return obj.map(normalizeKeys);
+    }
+    if (obj !== null && typeof obj === 'object') {
+      return Object.fromEntries(
+        Object.entries(obj).map(([key, value]) => [
+          key.toLowerCase(),
+          normalizeKeys(value)
+        ])
+      );
+    }
+    return obj;
+  };
+
   const validateAndSetSchedule = (json: any) => {
+    // Normalize all keys to lowercase for case-insensitive comparison
+    const normalizedJson = normalizeKeys(json);
+
     const requiredFields = {
       id: 'string',
-      collectionFrequency: 'string',
-      scheduleItems: 'array',
-      collectionDay: 'number',
-      coverStartDate: 'string',
-      coverEndDate: 'string',
-      inceptionDate: 'string'
+      collectionfrequency: 'string',
+      scheduleitems: 'array',
+      collectionday: 'number',
+      coverstartdate: 'string',
+      coverenddate: 'string',
+      inceptiondate: 'string'
     };
 
     // Check for missing required fields
     for (const [field, type] of Object.entries(requiredFields)) {
-      if (!json[field]) {
+      if (!normalizedJson[field]) {
         throw new Error(`Missing required field: ${field}`);
       }
 
       // Type validation
-      if (type === 'array' && !Array.isArray(json[field])) {
+      if (type === 'array' && !Array.isArray(normalizedJson[field])) {
         throw new Error(`${field} must be an array`);
-      } else if (type !== 'array' && typeof json[field] !== type) {
+      } else if (type !== 'array' && typeof normalizedJson[field] !== type) {
         throw new Error(`${field} must be a ${type}`);
       }
     }
 
     // Validate schedule items
-    if (json.scheduleItems.length === 0) {
+    if (normalizedJson.scheduleitems.length === 0) {
       throw new Error('Schedule must contain at least one item');
     }
 
-    for (const [index, item] of json.scheduleItems.entries()) {
+    for (const [index, item] of normalizedJson.scheduleitems.entries()) {
       if (!item.id) {
         throw new Error(`Schedule item at index ${index} is missing an id`);
       }
-      if (!item.dueDate) {
+      if (!item.duedate) {
         throw new Error(`Schedule item at index ${index} is missing a due date`);
       }
-      if (typeof item.netAmount !== 'number') {
+      if (typeof item.netamount !== 'number') {
         throw new Error(`Schedule item at index ${index} has invalid net amount`);
       }
-      if (typeof item.amountDue !== 'number') {
+      if (typeof item.amountdue !== 'number') {
         throw new Error(`Schedule item at index ${index} has invalid amount due`);
       }
-      if (!item.periodStartDate || !item.periodEndDate) {
+      if (!item.periodstartdate || !item.periodenddate) {
         throw new Error(`Schedule item at index ${index} is missing period dates`);
       }
     }
 
-    setExistingSchedule(json);
+    // Convert back to original case for the application
+    const schedule: PaymentScheduleResponse = {
+      id: json.id || json.Id || json.ID,
+      token: json.token || json.Token || '',
+      hash: json.hash || json.Hash || '',
+      collectionFrequency: json.collectionFrequency || json.CollectionFrequency,
+      collectionDay: json.collectionDay || json.CollectionDay,
+      inceptionDate: json.inceptionDate || json.InceptionDate,
+      coverStartDate: json.coverStartDate || json.CoverStartDate,
+      coverEndDate: json.coverEndDate || json.CoverEndDate,
+      scheduleItems: (json.scheduleItems || json.ScheduleItems).map((item: any) => ({
+        id: item.id || item.Id || item.ID,
+        collectionType: item.collectionType || item.CollectionType,
+        periodStartDate: item.periodStartDate || item.PeriodStartDate,
+        periodEndDate: item.periodEndDate || item.PeriodEndDate,
+        adjustmentDate: item.adjustmentDate || item.AdjustmentDate,
+        dueDate: item.dueDate || item.DueDate,
+        amountDue: item.amountDue || item.AmountDue,
+        netAmount: item.netAmount || item.NetAmount,
+        taxesAndLevies: item.taxesAndLevies || item.TaxesAndLevies || {},
+        adminFees: item.adminFees || item.AdminFees || {}
+      }))
+    };
+
+    setExistingSchedule(schedule);
     setError(null);
     setShowPasteInput(false);
     setJsonInput('');
