@@ -143,7 +143,7 @@ export default function ConvertSchedule() {
   }
 
   return (
-    <div className="max-w-[90rem] mx-auto p-6">
+    <div className="max-w-screen-2xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h1 className="text-2xl font-bold mb-6 flex items-center gap-2 text-primary">
           <ArrowRight className="w-6 h-6" />
