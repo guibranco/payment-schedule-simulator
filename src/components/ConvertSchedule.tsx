@@ -5,6 +5,17 @@ import ScheduleDisplay from './ScheduleDisplay';
 import Modal from './Modal';
 import NewSchedule from './NewSchedule';
 
+/**
+ * Converts a Policy Admin schedule to a Payment Schedule Service format.
+ *
+ * This function manages the state and logic for uploading, validating,
+ * converting, displaying, and downloading schedules. It handles both file uploads
+ * and JSON pasting from users. The conversion involves mapping fields from the
+ * Policy Admin format to the Payment Schedule Service format, including handling
+ * nested structures like taxes and admin fees.
+ *
+ * @returns A React component that renders the schedule conversion interface.
+ */
 export default function ConvertSchedule() {
   const [policyAdminSchedule, setPolicyAdminSchedule] = useState<any>(null);
   const [convertedSchedule, setConvertedSchedule] = useState<PaymentScheduleResponse | null>(null);
@@ -30,6 +41,20 @@ export default function ConvertSchedule() {
     reader.readAsText(file);
   };
 
+  /**
+   * Validates and converts a JSON object representing a policy admin schedule to a payment schedule service format.
+   *
+   * This function first checks for required fields in the input JSON. If any field is missing, it throws an error.
+   * It then sets the policy admin schedule using `setPolicyAdminSchedule`.
+   * After validation, it maps the schedule items from the Policy Admin format to the Payment Schedule Service format,
+   * handling optional properties and converting types where necessary.
+   * Finally, it sets the converted schedule using `setConvertedSchedule`, clears any error messages with `setError`,
+   * hides the paste input field with `setShowPasteInput`, and resets the JSON input with `setJsonInput`.
+   *
+   * @param json - A JSON object representing a policy admin schedule.
+   * @returns void
+   * @throws Error If the input JSON is missing required fields or has an invalid format.
+   */
   const validateAndConvertSchedule = (json: any) => {
     try {
       // Validate required fields for Policy Admin format
