@@ -7,6 +7,16 @@ interface Props {
   schedule: PaymentScheduleResponse;
 }
 
+/**
+ * Renders a schedule display component with summary statistics and detailed item listings.
+ *
+ * The function calculates the total amount from the schedule items, provides functionality to download
+ * the schedule as JSON or CSV, and displays a modal for viewing the full JSON content. It also includes
+ * status icons based on the success state of each schedule item and formats dates for display.
+ *
+ * @param {Props} props - The component's properties, which include the `schedule` object.
+ * @returns A React element representing the schedule display component.
+ */
 export default function ScheduleDisplay({ schedule }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   
@@ -14,6 +24,15 @@ export default function ScheduleDisplay({ schedule }: Props) {
     ? schedule.scheduleItems.reduce((sum, item) => sum + Number(item?.amountDue ?? 0), 0) 
     : 0;
   
+  /**
+   * Downloads a CSV file containing schedule items data.
+   *
+   * This function constructs a CSV from an array of schedule items, mapping each item to a row in the CSV.
+   * It formats various fields such as dates and monetary values appropriately.
+   * The generated CSV is then downloaded by creating a temporary URL and triggering a click event on a hidden anchor element.
+   *
+   * @returns void
+   */
   const downloadCsv = () => {
     const headers = [
       'Index',
@@ -86,6 +105,9 @@ export default function ScheduleDisplay({ schedule }: Props) {
     URL.revokeObjectURL(url);
   };
 
+  /**
+   * Returns an icon based on the success status.
+   */
   const getStatusIcon = (succeeded: boolean | null) => {
     if (succeeded === null) return <MinusCircle className="w-5 h-5 text-gray-400" />;
     return succeeded ? 
