@@ -29,7 +29,19 @@ export interface ScheduleItem {
   netAmount: number;
   taxesAndLevies: Record<string, number>;
   adminFees: Record<string, AdminFee>;
-  createdDate?: string;
+  collectionItemCreatedDate?: string;
   succeeded: boolean | null;
   originalItem?: string;
+}
+
+export interface PaymentScheduleResponse {
+  id: string;
+  token: string;
+  hash: string;
+  collectionFrequency: string;
+  collectionDay: number;
+  inceptionDate: string;
+  coverStartDate: string;
+  coverEndDate: string;
+  scheduleItems: ScheduleItem[];
 }
