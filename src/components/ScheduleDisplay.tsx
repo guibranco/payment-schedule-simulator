@@ -8,6 +8,18 @@ interface Props {
   onStatusChange?: (index: number) => void;
 }
 
+/**
+ * Display a schedule with detailed items and options to download data in JSON or CSV format.
+ *
+ * This component renders a comprehensive view of a schedule, including total amount, collection day,
+ * cover period, and other relevant details. It also provides functionality to download the schedule
+ * data as either JSON or CSV files. The table displays individual schedule items with various attributes
+ * such as due date, net amount, taxes, admin fees, and status icons. Additionally, a modal can be opened
+ * to view the raw JSON representation of the schedule.
+ *
+ * @param schedule - An object containing the schedule details including items, period dates, and amounts.
+ * @param onStatusChange - A callback function that triggers when a status icon is clicked, allowing for status changes.
+ */
 export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   
@@ -29,50 +41,88 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     return 'bg-green-100';
   };
   
+  /**
+   * Generates and downloads a CSV file containing schedule item data.
+   *
+   * This function constructs a CSV with headers and rows extracted from schedule items.
+   * It calculates various date-related fields, sums up admin fees and taxes,
+   * and formats the data appropriately before creating a downloadable CSV link.
+   *
+   * @returns void
+   */
   const downloadCsv = () => {
     const headers = [
       'Index',
-      'Period Start',
-      'Period End',
-      'Due Date',
-      'Net Amount',
-      'Taxes & Levies',
-      'Admin Fees',
-      'Total Amount',
-      'Collection Item Created Date',
-      'Status',
-      'Adjustment Date',
-      'Has Original Item'
+      'PeriodStartDate',
+      'PeriodEndDate',
+      'DaysDueDateBeforePeriodStart',
+      'DaysInPeriod',
+      'DaysRemainingInPeriod',
+      'DueDate',
+      'AmountDue',
+      'AdminFeesTotal',
+      'AdminFees',
+      'NetPremium',
+      'TaxesAndLeviesTotal',
+      'TaxesAndLevies',
+      'CollectionItemCreatedDate',
+      'Succeeded',
+      'AdjustmentDate',
+      'HasOriginalItem',
+      'Type'
     ];
     
     const rows = schedule.scheduleItems.map((item, index) => {
-      const taxesStr = Object.entries(item.taxesAndLevies)
-        .map(([key, value]) => `${key}: €${Number(value || 0).toFixed(2)}`)
-        .join('; ');
+      const periodStart = new Date(item.periodStartDate);
+      const periodEnd = new Date(item.periodEndDate);
+      const dueDate = new Date(item.dueDate);
       
-      const feesStr = Object.entries(item.adminFees)
-        .map(([key, value]) => `${key}: €${Number(value.amountDue || 0).toFixed(2)}${Number(value.taxAmount || 0) > 0 ? ` + €${Number(value.taxAmount || 0).toFixed(2)} tax` : ''}`)
-        .join('; ');
+      // Calculate days between due date and period start
+      const daysDueDateBeforePeriodStart = Math.floor((periodStart.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Calculate days in period
+      const daysInPeriod = Math.floor((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      
+      // Calculate days remaining in period (from current date)
+      const now = new Date();
+      const daysRemainingInPeriod = Math.floor((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      const adminFeesTotal = Object.values(item.adminFees).reduce((sum, fee) => sum + (fee.amountDue || 0), 0);
+      const taxesAndLeviesTotal = Object.values(item.taxesAndLevies).reduce((sum, value) => sum + (value || 0), 0);
+
+      const adminFeesStr = Object.entries(item.adminFees)
+        .map(([key, value]) => `${key}|${value.amountDue}|${value.taxAmount}`)
+        .join(':');
+
+      const taxesAndLeviesStr = Object.entries(item.taxesAndLevies)
+        .map(([key, value]) => `${key}|${value}`)
+        .join(':');
 
       return [
-        index.toString(),
+        index,
         formatDate(item.periodStartDate),
         formatDate(item.periodEndDate),
+        daysDueDateBeforePeriodStart,
+        daysInPeriod,
+        daysRemainingInPeriod,
         formatDate(item.dueDate),
-        `€${Number(item?.netAmount ?? 0).toFixed(2)}`,
-        taxesStr || '-',
-        feesStr || '-',
-        `€${Number(item?.amountDue ?? 0).toFixed(2)}`,
-        item.collectionItemCreatedDate ? formatDate(item.collectionItemCreatedDate) : '-',
-        item.succeeded === null ? 'Pending' : item.succeeded ? 'Success' : 'Failed',
-        item.adjustmentDate ? formatDate(item.adjustmentDate) : '-',
-        item.originalItem ? 'Yes' : 'No'
+        item.amountDue,
+        adminFeesTotal,
+        adminFeesStr || '',
+        item.netAmount,
+        taxesAndLeviesTotal,
+        taxesAndLeviesStr || '',
+        item.collectionItemCreatedDate ? formatDate(item.collectionItemCreatedDate) : '',
+        item.succeeded?.toString() || '',
+        item.adjustmentDate ? formatDate(item.adjustmentDate) : '',
+        (item.originalItem !== undefined && item.originalItem !== null).toString(),
+        item.collectionType
       ];
     });
 
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ...rows.map(row => row.join(','))
     ].join('\n');
 
     const dataBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
