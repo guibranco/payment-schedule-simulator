@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { FileUp, Calendar, ArrowRight, Clipboard } from 'lucide-react';
+import { FileUp, Clipboard, Calendar, ArrowRight } from 'lucide-react';
 import { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
 import NewSchedule from './NewSchedule';
 import ScheduleDisplay from './ScheduleDisplay';
+import Modal from './Modal';
 
 interface Props {
   apiEndpoint: string;
@@ -23,6 +24,7 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [jsonInput, setJsonInput] = useState('');
   const [showPasteInput, setShowPasteInput] = useState(false);
+  const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,7 +83,6 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
       id: 'string',
       collectionfrequency: 'string',
       scheduleitems: 'array',
-      collectionday: 'number',
       coverstartdate: 'string',
       coverenddate: 'string',
       inceptiondate: 'string'
@@ -99,6 +100,12 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
       } else if (type !== 'array' && typeof normalizedJson[field] !== type) {
         throw new Error(`${field} must be a ${type}`);
       }
+    }
+
+    // Validate collection day based on frequency
+    const frequency = normalizedJson.collectionfrequency.toLowerCase();
+    if (frequency === 'monthly' && (!normalizedJson.collectionday || typeof normalizedJson.collectionday !== 'number')) {
+      throw new Error('Monthly schedules must have a valid collection day (1-31)');
     }
 
     // Validate schedule items
@@ -130,7 +137,7 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
       token: json.token || json.Token || '',
       hash: json.hash || json.Hash || '',
       collectionFrequency: json.collectionFrequency || json.CollectionFrequency,
-      collectionDay: json.collectionDay || json.CollectionDay,
+      collectionDay: frequency === 'annual' ? (json.collectionDay || json.CollectionDay || 0) : (json.collectionDay || json.CollectionDay),
       inceptionDate: json.inceptionDate || json.InceptionDate,
       coverStartDate: json.coverStartDate || json.CoverStartDate,
       coverEndDate: json.coverEndDate || json.CoverEndDate,
@@ -141,10 +148,16 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
         periodEndDate: item.periodEndDate || item.PeriodEndDate,
         adjustmentDate: item.adjustmentDate || item.AdjustmentDate,
         dueDate: item.dueDate || item.DueDate,
-        amountDue: item.amountDue || item.AmountDue,
-        netAmount: item.netAmount || item.NetAmount,
+        amountDue: Number(item.amountDue || item.AmountDue || 0),
+        netAmount: Number(item.netAmount || item.NetAmount || 0),
         taxesAndLevies: item.taxesAndLevies || item.TaxesAndLevies || {},
-        adminFees: item.adminFees || item.AdminFees || {}
+        adminFees: Object.entries(item.adminFees || item.AdminFees || {}).reduce((acc, [key, value]: [string, any]) => ({
+          ...acc,
+          [key]: {
+            amountDue: Number(value.amountDue || value.AmountDue || 0),
+            taxAmount: Number(value.taxAmount || value.TaxAmount || 0)
+          }
+        }), {})
       }))
     };
 
@@ -181,15 +194,21 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
       taxesAndLevies: existingSchedule.scheduleItems[0]?.taxesAndLevies || {},
       adminFees: existingSchedule.scheduleItems.reduce((fees, item) => ({
         ...fees,
-        ...item.adminFees
+        ...Object.entries(item.adminFees).reduce((acc, [key, value]) => ({
+          ...acc,
+          [key]: {
+            amountDue: Number(value.amountDue || 0),
+            taxAmount: Number(value.taxAmount || 0)
+          }
+        }), {})
       }), {})
     };
 
-    return <NewSchedule initialSchedule={initialInput} apiEndpoint={apiEndpoint} />;
+    return <NewSchedule initialSchedule={initialInput} apiEndpoint={apiEndpoint} existingSchedule={existingSchedule} />;
   }
 
   return (
-    <div className="max-w-[90rem] mx-auto p-6">
+    <div className="max-w-screen-2xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h1 className="text-2xl font-bold mb-6 flex items-center gap-2 text-primary">
           <Calendar className="w-6 h-6" />
@@ -233,7 +252,7 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
                   value={jsonInput}
                   onChange={(e) => setJsonInput(e.target.value)}
                   placeholder="Paste your schedule JSON here..."
-                  className="w-full h-64 p-4 border border-gray-300 rounded-md focus:border-primary focus:ring-primary"
+                  className="w-full h-64 p-4 border border-gray-300 rounded-md focus:border-primary focus:ring focus:ring-primary"
                 />
                 <div className="flex justify-end">
                   <button
@@ -286,7 +305,13 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
             
             <ScheduleDisplay schedule={existingSchedule} />
             
-            <div className="flex justify-end">
+            <div className="flex justify-end items-center gap-4">
+              <button
+                onClick={() => setIsJsonModalOpen(true)}
+                className="px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
+              >
+                View JSON
+              </button>
               <button
                 onClick={() => setShowNewSchedule(true)}
                 className="flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-md hover:bg-secondary-dark transition-colors"
@@ -298,6 +323,16 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={isJsonModalOpen}
+        onClose={() => setIsJsonModalOpen(false)}
+        title="Current Schedule JSON"
+      >
+        <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
+          <code>{JSON.stringify(existingSchedule, null, 2)}</code>
+        </pre>
+      </Modal>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Calendar, Euro, X } from 'lucide-react';
 import { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
 import ScheduleDisplay from './ScheduleDisplay';
+import Modal from './Modal';
 
 const defaultSchedule: PaymentScheduleInput = {
   collectionFrequency: 'Monthly',
@@ -20,8 +21,11 @@ interface Props {
   apiEndpoint: string;
 }
 
-export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
-  const [schedule, setSchedule] = useState<PaymentScheduleInput>(initialSchedule || defaultSchedule);
+export default function NewSchedule({ initialSchedule, apiEndpoint, existingSchedule }: Props & { existingSchedule?: PaymentScheduleResponse }) {
+  const [schedule, setSchedule] = useState<PaymentScheduleInput>({
+    ...initialSchedule || defaultSchedule,
+    currentSchedule: existingSchedule
+  });
   const [response, setResponse] = useState<PaymentScheduleResponse | null>(null);
   const [taxKey, setTaxKey] = useState('');
   const [taxValue, setTaxValue] = useState('');
@@ -29,12 +33,14 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
   const [feeAmount, setFeeAmount] = useState('');
   const [feeTax, setFeeTax] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setSchedule(prev => ({
       ...prev,
-      [name]: value
+      [name]: value,
+      ...(name === 'collectionFrequency' && value === 'Annual' ? { collectionDay: 0 } : {})
     }));
   };
 
@@ -140,7 +146,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
   };
 
   return (
-    <div className="max-w-[90rem] mx-auto p-6">
+    <div className="max-w-screen-2xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h1 className="text-2xl font-bold mb-6 flex items-center gap-2 text-primary">
           <Calendar className="w-6 h-6" />
@@ -153,53 +159,28 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Collection Frequency
-              </label>
-              <select
-                name="collectionFrequency"
-                value={schedule.collectionFrequency}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-              >
-                <option value="Monthly">Monthly</option>
-                <option value="Annual">Annual</option>
-              </select>
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="grid grid-cols-1 gap-8">
+            {/* First line: Collection Frequency and Collection Day */}
+            <div className="flex gap-6">
+              <div className="flex-1">
+                <label className="block text-base font-semibold text-gray-700 mb-2">
+                  Collection Frequency
+                </label>
+                <select
+                  name="collectionFrequency"
+                  value={schedule.collectionFrequency}
+                  onChange={handleInputChange}
+                  className="block w-full h-12 px-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base"
+                >
+                  <option value="Monthly">Monthly</option>
+                  <option value="Annual">Annual</option>
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Schedule Start Date
-              </label>
-              <input
-                type="date"
-                name="scheduleStartDate"
-                value={schedule.scheduleStartDate}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Schedule End Date
-              </label>
-              <input
-                type="date"
-                name="scheduleEndDate"
-                value={schedule.scheduleEndDate}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-              />
-            </div>
-
-            {schedule.collectionFrequency === 'Monthly' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Collection Day (1-31)
+              <div className="flex-1">
+                <label className="block text-base font-semibold text-gray-700 mb-2">
+                  Collection Day {schedule.collectionFrequency === 'Monthly' ? '(1-31)' : ''}
                 </label>
                 <input
                   type="number"
@@ -208,43 +189,78 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
                   max="31"
                   value={schedule.collectionDay || ''}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                  disabled={schedule.collectionFrequency === 'Annual'}
+                  className={`block w-full h-12 px-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base
+                    ${schedule.collectionFrequency === 'Annual' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Effective Date
-              </label>
-              <input
-                type="date"
-                name="effectiveDate"
-                value={schedule.effectiveDate}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-              />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Due Date (Optional)
-              </label>
-              <input
-                type="date"
-                name="dueDate"
-                value={schedule.dueDate || ''}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-              />
+            {/* Second line: Schedule Start and End Dates */}
+            <div className="flex gap-6">
+              <div className="flex-1">
+                <label className="block text-base font-semibold text-gray-700 mb-2">
+                  Schedule Start Date
+                </label>
+                <input
+                  type="date"
+                  name="scheduleStartDate"
+                  value={schedule.scheduleStartDate}
+                  onChange={handleInputChange}
+                  className="block w-full h-12 px-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base"
+                />
+              </div>
+
+              <div className="flex-1">
+                <label className="block text-base font-semibold text-gray-700 mb-2">
+                  Schedule End Date
+                </label>
+                <input
+                  type="date"
+                  name="scheduleEndDate"
+                  value={schedule.scheduleEndDate}
+                  onChange={handleInputChange}
+                  className="block w-full h-12 px-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base"
+                />
+              </div>
             </div>
 
+            {/* Third line: Effective Date and Due Date */}
+            <div className="flex gap-6">
+              <div className="flex-1">
+                <label className="block text-base font-semibold text-gray-700 mb-2">
+                  Effective Date
+                </label>
+                <input
+                  type="date"
+                  name="effectiveDate"
+                  value={schedule.effectiveDate}
+                  onChange={handleInputChange}
+                  className="block w-full h-12 px-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base"
+                />
+              </div>
+
+              <div className="flex-1">
+                <label className="block text-base font-semibold text-gray-700 mb-2">
+                  Due Date (Optional)
+                </label>
+                <input
+                  type="date"
+                  name="dueDate"
+                  value={schedule.dueDate || ''}
+                  onChange={handleInputChange}
+                  className="block w-full h-12 px-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base"
+                />
+              </div>
+            </div>
+
+            {/* Fourth line: Net Amount */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-base font-semibold text-gray-700 mb-2">
                 Net Amount (€)
               </label>
-              <div className="mt-1 relative rounded-md shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Euro className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
@@ -252,72 +268,72 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
                   name="netAmount"
                   value={schedule.netAmount}
                   onChange={handleInputChange}
-                  className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                  className="block w-full h-12 pl-12 pr-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base"
                   step="0.01"
                 />
               </div>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-primary">Taxes and Levies</h2>
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold text-primary pt-4">Taxes and Levies</h2>
             <div className="flex gap-4">
               <input
                 type="text"
                 placeholder="Tax Label"
                 value={taxKey}
                 onChange={(e) => setTaxKey(e.target.value)}
-                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                className="flex-1 h-12 px-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base"
               />
               <input
                 type="number"
                 placeholder="Amount"
                 value={taxValue}
                 onChange={(e) => setTaxValue(e.target.value)}
-                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                className="flex-1 h-12 px-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base"
                 step="0.01"
               />
               <button
                 type="button"
                 onClick={addTax}
-                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+                className="px-6 h-12 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-base font-medium"
               >
                 Add Tax
               </button>
             </div>
             {Object.entries(schedule.taxesAndLevies).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between bg-gray-50 p-2 rounded-md">
-                <span className="text-sm">
+              <div key={key} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+                <span className="text-base">
                   <span className="font-medium">{key}:</span> €{value}
                 </span>
                 <button
                   type="button"
                   onClick={() => removeTax(key)}
-                  className="text-red-600 hover:text-red-800 p-1"
+                  className="text-red-600 hover:text-red-800 p-2"
                   title="Remove tax"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             ))}
           </div>
 
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-primary">Admin Fees</h2>
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold text-primary pt-4">Admin Fees</h2>
             <div className="flex gap-4">
               <input
                 type="text"
                 placeholder="Fee Label"
                 value={feeKey}
                 onChange={(e) => setFeeKey(e.target.value)}
-                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                className="flex-1 h-12 px-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base"
               />
               <input
                 type="number"
                 placeholder="Amount"
                 value={feeAmount}
                 onChange={(e) => setFeeAmount(e.target.value)}
-                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                className="flex-1 h-12 px-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base"
                 step="0.01"
               />
               <input
@@ -325,36 +341,36 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
                 placeholder="Tax Amount"
                 value={feeTax}
                 onChange={(e) => setFeeTax(e.target.value)}
-                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                className="flex-1 h-12 px-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base"
                 step="0.01"
               />
               <button
                 type="button"
                 onClick={addFee}
-                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+                className="px-6 h-12 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-base font-medium"
               >
                 Add Fee
               </button>
             </div>
             {Object.entries(schedule.adminFees).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between bg-gray-50 p-2 rounded-md">
-                <span className="text-sm">
+              <div key={key} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+                <span className="text-base">
                   <span className="font-medium">{key}:</span> Amount: €{value.amountDue}
                   {value.taxAmount > 0 && `, Tax: €${value.taxAmount}`}
                 </span>
                 <button
                   type="button"
                   onClick={() => removeFee(key)}
-                  className="text-red-600 hover:text-red-800 p-1"
+                  className="text-red-600 hover:text-red-800 p-2"
                   title="Remove fee"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             ))}
           </div>
 
-          <div className="flex justify-end gap-4">
+          <div className="flex justify-end gap-4 pt-6">
             <button
               type="button"
               onClick={() => {
@@ -362,13 +378,20 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
                 setResponse(null);
                 setError(null);
               }}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              className="px-6 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-base font-medium"
             >
               Reset
             </button>
             <button
+              type="button"
+              onClick={() => setIsJsonModalOpen(true)}
+              className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-base font-medium"
+            >
+              View JSON Request
+            </button>
+            <button
               type="submit"
-              className="px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary-dark"
+              className="px-6 py-3 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors text-base font-medium"
             >
               Generate Schedule
             </button>
@@ -377,6 +400,16 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
       </div>
 
       {response && <ScheduleDisplay schedule={response} />}
+
+      <Modal
+        isOpen={isJsonModalOpen}
+        onClose={() => setIsJsonModalOpen(false)}
+        title="JSON Request Preview"
+      >
+        <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
+          <code>{JSON.stringify(schedule, null, 2)}</code>
+        </pre>
+      </Modal>
     </div>
   );
 }

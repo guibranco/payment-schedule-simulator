@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, PencilRuler, Settings } from 'lucide-react';
+import { Calculator, PencilRuler, Settings, ArrowRight, Eye } from 'lucide-react';
 import NewSchedule from './components/NewSchedule';
 import AmendSchedule from './components/AmendSchedule';
+import ConvertSchedule from './components/ConvertSchedule';
+import ViewSchedule from './components/ViewSchedule';
 import ConfigDialog from './components/ConfigDialog';
 
 /**
- * The main application component for managing payment schedule simulations.
+ * Main application component for Payment Schedule Simulator.
  *
- * It initializes state variables for active tab, configuration open status, and API endpoint.
- * It uses useEffect to load saved settings from localStorage and handle OAuth callbacks.
- * It provides a header with navigation buttons and renders different components based on the active tab.
- * It includes a configuration dialog for saving API endpoints.
+ * This function manages the state of the active tab, configuration dialog,
+ * and API endpoint. It handles OAuth callbacks to authenticate users,
+ * and conditionally renders different components based on the active tab.
  *
  * @returns The main application component.
  */
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'new' | 'amend'>('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'amend' | 'convert' | 'view'>('new');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [apiEndpoint, setApiEndpoint] = useState('');
 
@@ -30,14 +31,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    /**
-     * Handles the OAuth callback process to exchange authorization code for an access token.
-     *
-     * This function extracts the 'code' and 'state' from the URL parameters, clears them from the browser history,
-     * retrieves necessary configuration from local storage, and makes a POST request to the token endpoint.
-     * Upon success, it stores the access token in local storage. If there is an error during the token exchange,
-     * it logs the error and sets a flag to open the configuration interface.
-     */
     const handleOAuthCallback = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
@@ -86,7 +79,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-primary text-white shadow-lg">
-        <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Calculator className="w-8 h-8" />
@@ -104,7 +97,7 @@ export default function App() {
       </header>
 
       <nav className="bg-white shadow-sm">
-        <div className="max-w-[90rem] mx-auto px-4">
+        <div className="max-w-screen-2xl mx-auto px-4">
           <div className="flex space-x-8">
             <button
               onClick={() => setActiveTab('new')}
@@ -128,6 +121,28 @@ export default function App() {
               <PencilRuler className="w-5 h-5" />
               Amend Schedule
             </button>
+            <button
+              onClick={() => setActiveTab('convert')}
+              className={`py-4 px-3 inline-flex items-center gap-2 border-b-2 text-sm font-medium ${
+                activeTab === 'convert'
+                  ? 'border-secondary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <ArrowRight className="w-5 h-5" />
+              Convert Schedule
+            </button>
+            <button
+              onClick={() => setActiveTab('view')}
+              className={`py-4 px-3 inline-flex items-center gap-2 border-b-2 text-sm font-medium ${
+                activeTab === 'view'
+                  ? 'border-secondary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Eye className="w-5 h-5" />
+              View Schedule
+            </button>
           </div>
         </div>
       </nav>
@@ -135,8 +150,12 @@ export default function App() {
       <main className="py-8">
         {activeTab === 'new' ? (
           <NewSchedule apiEndpoint={apiEndpoint} />
-        ) : (
+        ) : activeTab === 'amend' ? (
           <AmendSchedule apiEndpoint={apiEndpoint} />
+        ) : activeTab === 'convert' ? (
+          <ConvertSchedule />
+        ) : (
+          <ViewSchedule />
         )}
       </main>
 
