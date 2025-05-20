@@ -52,6 +52,19 @@ export default function ScheduleDisplay({ schedule }: Props) {
     URL.revokeObjectURL(url);
   };
 
+  const downloadJson = () => {
+    const dataStr = JSON.stringify(schedule, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `schedule-${schedule.id}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <>
       <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
@@ -83,9 +96,9 @@ export default function ScheduleDisplay({ schedule }: Props) {
           </div>
           <div className="flex gap-2 ml-4">
             <button
-              onClick={() => setIsJsonModalOpen(true)}
+              onClick={downloadJson}
               className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-              title="View full schedule as JSON"
+              title="Download schedule as JSON"
             >
               <FileJson className="w-5 h-5" />
               JSON
