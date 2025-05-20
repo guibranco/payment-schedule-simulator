@@ -54,7 +54,6 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
       id: 'string',
       collectionfrequency: 'string',
       scheduleitems: 'array',
-      collectionday: 'number',
       coverstartdate: 'string',
       coverenddate: 'string',
       inceptiondate: 'string'
@@ -72,6 +71,12 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
       } else if (type !== 'array' && typeof normalizedJson[field] !== type) {
         throw new Error(`${field} must be a ${type}`);
       }
+    }
+
+    // Validate collection day based on frequency
+    const frequency = normalizedJson.collectionfrequency.toLowerCase();
+    if (frequency === 'monthly' && (!normalizedJson.collectionday || typeof normalizedJson.collectionday !== 'number')) {
+      throw new Error('Monthly schedules must have a valid collection day (1-31)');
     }
 
     // Validate schedule items
@@ -103,7 +108,7 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
       token: json.token || json.Token || '',
       hash: json.hash || json.Hash || '',
       collectionFrequency: json.collectionFrequency || json.CollectionFrequency,
-      collectionDay: json.collectionDay || json.CollectionDay,
+      collectionDay: frequency === 'annual' ? (json.collectionDay || json.CollectionDay || 0) : (json.collectionDay || json.CollectionDay),
       inceptionDate: json.inceptionDate || json.InceptionDate,
       coverStartDate: json.coverStartDate || json.CoverStartDate,
       coverEndDate: json.coverEndDate || json.CoverEndDate,
