@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileUp, Calendar, ArrowRight } from 'lucide-react';
+import { FileUp, Calendar, ArrowRight, Clipboard } from 'lucide-react';
 import { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
 import NewSchedule from './NewSchedule';
 import ScheduleDisplay from './ScheduleDisplay';
@@ -8,18 +8,12 @@ interface Props {
   apiEndpoint: string;
 }
 
-/**
- * Renders a component for amending an existing payment schedule by uploading a JSON file and displaying options to create a new schedule.
- *
- * The component manages state for the existing schedule, whether to show the new schedule form, and any errors encountered during file upload or processing.
- * It handles file uploads, validates the uploaded JSON format, and initializes input data for creating a new schedule based on the existing one.
- *
- * @param apiEndpoint - The API endpoint used for interacting with the backend services.
- */
 export default function AmendSchedule({ apiEndpoint }: Props) {
   const [existingSchedule, setExistingSchedule] = useState<PaymentScheduleResponse | null>(null);
   const [showNewSchedule, setShowNewSchedule] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [jsonInput, setJsonInput] = useState('');
+  const [showPasteInput, setShowPasteInput] = useState(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -29,18 +23,32 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
     reader.onload = (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
-        
-        if (!json.id || !json.collectionFrequency || !json.scheduleItems) {
-          throw new Error('Invalid schedule format');
-        }
-
-        setExistingSchedule(json);
-        setError(null);
+        validateAndSetSchedule(json);
       } catch (err) {
         setError('Invalid JSON file format');
       }
     };
     reader.readAsText(file);
+  };
+
+  const validateAndSetSchedule = (json: any) => {
+    if (!json.id || !json.collectionFrequency || !json.scheduleItems) {
+      throw new Error('Invalid schedule format');
+    }
+    setExistingSchedule(json);
+    setError(null);
+    setShowPasteInput(false);
+    setJsonInput('');
+  };
+
+  const handlePasteSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const json = JSON.parse(jsonInput);
+      validateAndSetSchedule(json);
+    } catch (err) {
+      setError('Invalid JSON format');
+    }
   };
 
   if (showNewSchedule && existingSchedule) {
@@ -72,24 +80,74 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
         </h1>
 
         {!existingSchedule && (
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
-            <FileUp className="mx-auto h-12 w-12 text-gray-400" />
-            <div className="mt-4">
-              <label className="cursor-pointer">
-                <span className="mt-2 block text-sm font-medium text-gray-900">
-                  Upload existing schedule JSON
-                </span>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".json"
-                  onChange={handleFileUpload}
-                />
-                <span className="mt-2 block text-sm text-gray-600">
-                  Click to upload or drag and drop
-                </span>
-              </label>
+          <div className="space-y-6">
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => setShowPasteInput(false)}
+                className={`px-6 py-3 rounded-md transition-colors ${
+                  !showPasteInput 
+                    ? 'bg-primary text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <FileUp className="w-5 h-5" />
+                  Upload File
+                </div>
+              </button>
+              <button
+                onClick={() => setShowPasteInput(true)}
+                className={`px-6 py-3 rounded-md transition-colors ${
+                  showPasteInput 
+                    ? 'bg-primary text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Clipboard className="w-5 h-5" />
+                  Paste JSON
+                </div>
+              </button>
             </div>
+
+            {showPasteInput ? (
+              <form onSubmit={handlePasteSubmit} className="space-y-4">
+                <textarea
+                  value={jsonInput}
+                  onChange={(e) => setJsonInput(e.target.value)}
+                  placeholder="Paste your schedule JSON here..."
+                  className="w-full h-64 p-4 border border-gray-300 rounded-md focus:border-primary focus:ring-primary"
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    className="px-6 py-3 bg-secondary text-white rounded-md hover:bg-secondary-dark transition-colors"
+                  >
+                    Parse JSON
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
+                <FileUp className="mx-auto h-12 w-12 text-gray-400" />
+                <div className="mt-4">
+                  <label className="cursor-pointer">
+                    <span className="mt-2 block text-sm font-medium text-gray-900">
+                      Upload existing schedule JSON
+                    </span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".json"
+                      onChange={handleFileUpload}
+                    />
+                    <span className="mt-2 block text-sm text-gray-600">
+                      Click to upload or drag and drop
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
