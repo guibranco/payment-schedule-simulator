@@ -5,9 +5,10 @@ import Modal from './Modal';
 
 interface Props {
   schedule: PaymentScheduleResponse;
+  onStatusChange?: (index: number) => void;
 }
 
-export default function ScheduleDisplay({ schedule }: Props) {
+export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   
   const totalAmount = schedule.scheduleItems.length > 0 
@@ -92,11 +93,22 @@ export default function ScheduleDisplay({ schedule }: Props) {
     URL.revokeObjectURL(url);
   };
 
-  const getStatusIcon = (succeeded: boolean | null) => {
-    if (succeeded === null) return <MinusCircle className="w-5 h-5 text-gray-400" />;
-    return succeeded ? 
-      <Check className="w-5 h-5 text-green-500" /> : 
-      <X className="w-5 h-5 text-red-500" />;
+  const getStatusIcon = (succeeded: boolean | null, index: number) => {
+    const icon = succeeded === null ? 
+      <MinusCircle className="w-5 h-5 text-gray-400" /> :
+      succeeded ? 
+        <Check className="w-5 h-5 text-green-500" /> : 
+        <X className="w-5 h-5 text-red-500" />;
+
+    return onStatusChange ? (
+      <button
+        onClick={() => onStatusChange(index)}
+        className="hover:bg-gray-100 p-1 rounded-full transition-colors"
+        title="Click to change status"
+      >
+        {icon}
+      </button>
+    ) : icon;
   };
 
   return (
@@ -203,7 +215,7 @@ export default function ScheduleDisplay({ schedule }: Props) {
                     {item.createdDate ? formatDate(item.createdDate) : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {getStatusIcon(item.succeeded)}
+                    {getStatusIcon(item.succeeded, index)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatDate(item.adjustmentDate || '')}

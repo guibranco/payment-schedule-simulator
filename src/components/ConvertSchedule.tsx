@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileUp, Clipboard, ArrowRight } from 'lucide-react';
+import { FileUp, Clipboard, ArrowRight, Check, X, MinusCircle } from 'lucide-react';
 import { PaymentScheduleResponse, PaymentScheduleInput } from '../types';
 import ScheduleDisplay from './ScheduleDisplay';
 import Modal from './Modal';
@@ -94,19 +94,26 @@ export default function ConvertSchedule() {
     }
   };
 
-  const downloadJson = () => {
+  const handleStatusChange = (index: number) => {
     if (!convertedSchedule) return;
+
+    const newSchedule = { ...convertedSchedule };
+    const currentStatus = newSchedule.scheduleItems[index].succeeded;
     
-    const dataStr = JSON.stringify(convertedSchedule, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `converted-schedule-${convertedSchedule.id}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // Cycle through: null -> true -> false -> null
+    const newStatus = currentStatus === null ? true : currentStatus ? false : null;
+    
+    newSchedule.scheduleItems[index].succeeded = newStatus;
+    
+    // If status is null, also clear the createdDate
+    if (newStatus === null) {
+      newSchedule.scheduleItems[index].createdDate = null;
+    } else if (!newSchedule.scheduleItems[index].createdDate) {
+      // If status is being set and no createdDate exists, set it to current date
+      newSchedule.scheduleItems[index].createdDate = new Date().toISOString();
+    }
+    
+    setConvertedSchedule(newSchedule);
   };
 
   if (showNewSchedule && convertedSchedule) {
@@ -228,11 +235,14 @@ export default function ConvertSchedule() {
               <h2 className="text-lg font-semibold text-primary mb-2">Converted Schedule</h2>
               <p className="text-gray-700">
                 The Policy Admin schedule has been converted to Payment Schedule Service format. 
-                Review the schedule below and generate a new schedule if needed.
+                Click on the status icons to toggle between succeeded states (null → true → false).
               </p>
             </div>
             
-            <ScheduleDisplay schedule={convertedSchedule} />
+            <ScheduleDisplay 
+              schedule={convertedSchedule} 
+              onStatusChange={handleStatusChange}
+            />
             
             <div className="flex justify-end items-center gap-4">
               <button
