@@ -8,6 +8,17 @@ interface Props {
   onStatusChange?: (index: number) => void;
 }
 
+/**
+ * ScheduleDisplay component to display and manage schedule items.
+ *
+ * This component renders a table of schedule items, displaying details such as period start and end dates,
+ * due dates, amounts, taxes, admin fees, status icons, and more. It also provides functionality to download
+ * the schedule data in JSON or CSV formats. The component uses hooks for state management and includes utility
+ * functions for formatting dates and generating background colors based on item properties.
+ *
+ * @param schedule - An object containing schedule details including items and metadata.
+ * @param onStatusChange - A callback function triggered when a status icon is clicked, used to change the status of an item.
+ */
 export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   
@@ -21,12 +32,31 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     return date.toLocaleDateString('en-GB');
   };
 
+  /**
+   * Determines the background color based on item properties.
+   *
+   * This function evaluates the admin fees and collection type of the item to determine the appropriate background color.
+   * If there are any admin fees, it returns 'bg-orange-100'.
+   * If the collection type is 'pro-rata', it returns 'bg-yellow-100'.
+   * Otherwise, it defaults to 'bg-green-100'.
+   *
+   * @param item - The object containing adminFees and collectionType properties.
+   */
   const getIndexBackgroundColor = (item: any) => {
     if (Object.keys(item.adminFees).length > 0) return 'bg-orange-100';
     if (item.collectionType === 'pro-rata') return 'bg-yellow-100';
     return 'bg-green-100';
   };
   
+  /**
+   * Generates and downloads a CSV file containing schedule item details.
+   *
+   * This function constructs a CSV with headers and rows derived from the `schedule.scheduleItems` array.
+   * Each row includes formatted data such as dates, amounts, taxes, and fees. The CSV is then created as a Blob,
+   * converted to a downloadable URL, and triggered for download via a temporary anchor element.
+   *
+   * @returns void
+   */
   const downloadCsv = () => {
     const headers = [
       'Index',
