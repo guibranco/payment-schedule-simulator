@@ -20,6 +20,19 @@ interface Props {
   apiEndpoint: string;
 }
 
+/**
+ * A React component for creating or amending payment schedules.
+ *
+ * This component manages state for various aspects of a payment schedule, including collection frequency,
+ * taxes and levies, admin fees, and handles form submissions to generate schedules via an API.
+ *
+ * It includes handlers for input changes, adding/removing taxes/fees, and submitting the form with validation
+ * checks for required fields such as API endpoint and authentication token. The component also displays error
+ * messages and generated schedule responses.
+ *
+ * @param initialSchedule - An optional initial payment schedule object to amend.
+ * @param apiEndpoint - The base URL of the API endpoint used for generating schedules.
+ */
 export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>(initialSchedule || defaultSchedule);
   const [response, setResponse] = useState<PaymentScheduleResponse | null>(null);
@@ -30,6 +43,9 @@ export default function NewSchedule({ initialSchedule, apiEndpoint }: Props) {
   const [feeTax, setFeeTax] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Handles input changes in schedule form fields, updating state and resetting collection day if frequency is set to Annual.
+   */
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setSchedule(prev => ({
