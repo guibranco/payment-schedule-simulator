@@ -5,6 +5,17 @@ import ScheduleDisplay from './ScheduleDisplay';
 import Modal from './Modal';
 import NewSchedule from './NewSchedule';
 
+/**
+ * Convert a Policy Admin schedule to Payment Schedule Service format.
+ *
+ * This component handles file upload and JSON paste input for conversion. It validates the input,
+ * converts it from Policy Admin format to Payment Schedule Service format, and allows users to modify
+ * the converted schedule's status. The component also provides options to view the converted JSON
+ * and generate a new schedule based on the converted data.
+ *
+ * @returns A React functional component that renders UI for uploading or pasting JSON,
+ *          displaying conversion errors, and providing options to interact with the converted schedule.
+ */
 export default function ConvertSchedule() {
   const [policyAdminSchedule, setPolicyAdminSchedule] = useState<any>(null);
   const [convertedSchedule, setConvertedSchedule] = useState<PaymentScheduleResponse | null>(null);
@@ -30,6 +41,18 @@ export default function ConvertSchedule() {
     reader.readAsText(file);
   };
 
+  /**
+   * Validates and converts a JSON object representing a policy admin schedule to a payment schedule service format.
+   *
+   * This function first checks if the required fields (PaymentScheduleId, CollectionFrequency, ScheduleItems) are present in the input JSON.
+   * If any of these fields are missing, it throws an error indicating an invalid policy admin schedule format.
+   * After validation, it sets the policy admin schedule using `setPolicyAdminSchedule`.
+   * Then, it converts the JSON object to a PaymentScheduleResponse format, mapping and transforming each ScheduleItem accordingly.
+   * The conversion includes handling optional fields with default values where necessary.
+   * Finally, it sets the converted schedule using `setConvertedSchedule`, clears any error, hides the paste input field, and resets the JSON input.
+   *
+   * @param json - A JSON object representing the policy admin schedule.
+   */
   const validateAndConvertSchedule = (json: any) => {
     try {
       // Validate required fields for Policy Admin format
@@ -93,6 +116,16 @@ export default function ConvertSchedule() {
     }
   };
 
+  /**
+   * Handles the status change of a schedule item at a specific index.
+   *
+   * This function updates the `succeeded` status of the schedule item at the given index
+   * in the `convertedSchedule`. The status cycles through null, true, and false. If the status is
+   * set to null, it also clears the `collectionItemCreatedDate`. If the status is being set from null
+   * or if no `collectionItemCreatedDate` exists, it sets the date to the current ISO string.
+   *
+   * @param index - The index of the schedule item to update.
+   */
   const handleStatusChange = (index: number) => {
     if (!convertedSchedule) return;
 
