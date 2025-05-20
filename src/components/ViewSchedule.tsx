@@ -4,21 +4,23 @@ import { PaymentScheduleResponse } from '../types';
 import ScheduleDisplay from './ScheduleDisplay';
 
 /**
- * Renders a component to view and manage payment schedules.
+ * A React component for viewing and downloading a payment schedule.
  *
- * The component allows users to input JSON data representing a payment schedule,
- * parse it, and then download the schedule as an HTML or PDF document. It manages
- * state for the parsed schedule, any errors encountered during parsing, and user inputs.
- * The component includes buttons for parsing new schedules and downloading the current
- * schedule in different formats.
+ * This component manages the state of a payment schedule, allowing users to input JSON data,
+ * parse it, and view the schedule details. It also provides functionality to download the
+ * schedule in both HTML and PDF formats. The component uses hooks like `useState` for managing
+ * state and conditional rendering based on whether a schedule is available.
  *
- * @returns JSX element representing the ViewSchedule component.
+ * @returns A React element representing the ViewSchedule component.
  */
 export default function ViewSchedule() {
   const [schedule, setSchedule] = useState<PaymentScheduleResponse | null>(null);
   const [jsonInput, setJsonInput] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Handles JSON submission, parsing and setting the schedule or error.
+   */
   const handleJsonSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -30,6 +32,9 @@ export default function ViewSchedule() {
     }
   };
 
+  /**
+   * Generates and downloads an HTML file containing payment schedule details.
+   */
   const downloadHtml = () => {
     if (!schedule) return;
 
@@ -104,11 +109,13 @@ export default function ViewSchedule() {
   };
 
   /**
-   * Generates a PDF document containing payment schedule details.
-   * The function first checks if a schedule is available. If not, it returns early.
-   * It then creates a new PDF document using jsPDF and adds headers, schedule information,
-   * and a table of schedule items. If an error occurs during the process, it logs the error
-   * and sets an error message.
+   * Generates and downloads a PDF document containing payment schedule details.
+   *
+   * This function creates a PDF document using the jsPDF library, populates it with
+   * header information such as Schedule ID, Collection Frequency, and Cover Period,
+   * calculates the total amount due from schedule items, and adds a table listing
+   * each item's due date and amount. The PDF is then saved with a filename based on
+   * the schedule ID.
    */
   const downloadPdf = async () => {
     if (!schedule) return;

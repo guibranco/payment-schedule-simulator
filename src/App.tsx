@@ -6,6 +6,15 @@ import ConvertSchedule from './components/ConvertSchedule';
 import ViewSchedule from './components/ViewSchedule';
 import ConfigDialog from './components/ConfigDialog';
 
+/**
+ * Main application component for Payment Schedule Simulator.
+ *
+ * This function manages the state of the active tab, configuration dialog,
+ * and API endpoint. It handles OAuth callbacks to authenticate users,
+ * and conditionally renders different components based on the active tab.
+ *
+ * @returns The main application component.
+ */
 export default function App() {
   const [activeTab, setActiveTab] = useState<'new' | 'amend' | 'convert' | 'view'>('new');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
