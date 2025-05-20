@@ -8,6 +8,9 @@ interface Props {
   apiEndpoint: string;
 }
 
+/**
+ * Handles file uploads and manages schedule amendments.
+ */
 export default function AmendSchedule({ apiEndpoint }: Props) {
   const [existingSchedule, setExistingSchedule] = useState<PaymentScheduleResponse | null>(null);
   const [showNewSchedule, setShowNewSchedule] = useState(false);
@@ -15,6 +18,9 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
   const [jsonInput, setJsonInput] = useState('');
   const [showPasteInput, setShowPasteInput] = useState(false);
 
+  /**
+   * Handles file upload from a change event.
+   */
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.
   }
