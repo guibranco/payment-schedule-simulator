@@ -25,16 +25,60 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
         const json = JSON.parse(event.target?.result as string);
         validateAndSetSchedule(json);
       } catch (err) {
-        setError('Invalid JSON file format');
+        setError('Invalid JSON syntax. Please check for missing commas, quotes, or brackets.');
       }
     };
     reader.readAsText(file);
   };
 
   const validateAndSetSchedule = (json: any) => {
-    if (!json.id || !json.collectionFrequency || !json.scheduleItems) {
-      throw new Error('Invalid schedule format');
+    const requiredFields = {
+      id: 'string',
+      collectionFrequency: 'string',
+      scheduleItems: 'array',
+      collectionDay: 'number',
+      coverStartDate: 'string',
+      coverEndDate: 'string',
+      inceptionDate: 'string'
+    };
+
+    // Check for missing required fields
+    for (const [field, type] of Object.entries(requiredFields)) {
+      if (!json[field]) {
+        throw new Error(`Missing required field: ${field}`);
+      }
+
+      // Type validation
+      if (type === 'array' && !Array.isArray(json[field])) {
+        throw new Error(`${field} must be an array`);
+      } else if (type !== 'array' && typeof json[field] !== type) {
+        throw new Error(`${field} must be a ${type}`);
+      }
     }
+
+    // Validate schedule items
+    if (json.scheduleItems.length === 0) {
+      throw new Error('Schedule must contain at least one item');
+    }
+
+    for (const [index, item] of json.scheduleItems.entries()) {
+      if (!item.id) {
+        throw new Error(`Schedule item at index ${index} is missing an id`);
+      }
+      if (!item.dueDate) {
+        throw new Error(`Schedule item at index ${index} is missing a due date`);
+      }
+      if (typeof item.netAmount !== 'number') {
+        throw new Error(`Schedule item at index ${index} has invalid net amount`);
+      }
+      if (typeof item.amountDue !== 'number') {
+        throw new Error(`Schedule item at index ${index} has invalid amount due`);
+      }
+      if (!item.periodStartDate || !item.periodEndDate) {
+        throw new Error(`Schedule item at index ${index} is missing period dates`);
+      }
+    }
+
     setExistingSchedule(json);
     setError(null);
     setShowPasteInput(false);
@@ -47,7 +91,11 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
       const json = JSON.parse(jsonInput);
       validateAndSetSchedule(json);
     } catch (err) {
-      setError('Invalid JSON format');
+      if (err instanceof SyntaxError) {
+        setError('Invalid JSON syntax. Please check for missing commas, quotes, or brackets.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Invalid schedule format');
+      }
     }
   };
 
