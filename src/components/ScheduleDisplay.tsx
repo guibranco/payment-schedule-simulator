@@ -23,6 +23,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   };
 
   const getIndexBackgroundColor = (item: any) => {
+    if (Number(item.amountDue) < 0) return 'bg-blue-100';
     if (Object.keys(item.adminFees).length > 0) return 'bg-orange-100';
     if (item.collectionType === 'proRata') return 'bg-yellow-100';
     return 'bg-green-100';
@@ -162,6 +163,28 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
               <FileSpreadsheet className="w-5 h-5" />
               CSV
             </button>
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-gray-900 mb-2">Legend</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-green-100 rounded"></div>
+              <span className="text-sm text-gray-600">Full Collection</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-yellow-100 rounded"></div>
+              <span className="text-sm text-gray-600">Pro Rata Collection</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-orange-100 rounded"></div>
+              <span className="text-sm text-gray-600">Admin Fee</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-blue-100 rounded"></div>
+              <span className="text-sm text-gray-600">Refund</span>
+            </div>
           </div>
         </div>
 
