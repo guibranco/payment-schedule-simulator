@@ -22,7 +22,7 @@ export default function ScheduleDisplay({ schedule }: Props) {
         .join('; ');
       
       const feesStr = Object.entries(item.adminFees)
-        .map(([key, value]) => `${key}: €${Number(value.amountDue || 0).toFixed(2)}${Number(value.taxAmount || 0) > 0 ? ` + €${Number(value.taxAmount || 0).toFixed(2)} tax` : ''}`)
+        .map(([key, value]) => `${key}: €${value.amountDue.toFixed(2)}${value.taxAmount > 0 ? ` + €${value.taxAmount.toFixed(2)} tax` : ''}`)
         .join('; ');
 
       return [
@@ -141,15 +141,15 @@ export default function ScheduleDisplay({ schedule }: Props) {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {Object.entries(item.taxesAndLevies).map(([key, value]) => (
                       <div key={key}>
-                        {key}: €{Number(value || 0).toFixed(2)}
+                        {key}: €{value.toFixed(2)}
                       </div>
                     ))}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {Object.entries(item.adminFees).map(([key, value]) => (
                       <div key={key}>
-                        {key}: €{Number(value.amountDue || 0).toFixed(2)}
-                        {Number(value.taxAmount || 0) > 0 && ` + €${Number(value.taxAmount || 0).toFixed(2)} tax`}
+                        {key}: €{value.amountDue.toFixed(2)}
+                        {value.taxAmount > 0 && ` + €${value.taxAmount.toFixed(2)} tax`}
                       </div>
                     ))}
                   </td>
