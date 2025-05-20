@@ -175,3 +175,5 @@ export default function ScheduleDisplay({ schedule }: Props) {
     </>
   );
 }
+
+export default ScheduleDisplay
