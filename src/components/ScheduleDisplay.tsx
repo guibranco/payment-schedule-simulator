@@ -7,6 +7,16 @@ interface Props {
   schedule: PaymentScheduleResponse;
 }
 
+/**
+ * Renders a schedule display component with options to download as JSON or CSV.
+ *
+ * This component displays schedule details such as total amount, collection day,
+ * cover period, and schedule ID. It also provides buttons to download the schedule
+ * data in JSON or CSV format. The JSON download opens a modal displaying the raw JSON.
+ * The CSV download generates a downloadable CSV file with detailed item information.
+ *
+ * @param {Props} props - The component properties, including the schedule data.
+ */
 export default function ScheduleDisplay({ schedule }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   
@@ -14,6 +24,15 @@ export default function ScheduleDisplay({ schedule }: Props) {
     ? schedule.scheduleItems.reduce((sum, item) => sum + Number(item?.amountDue ?? 0), 0) 
     : 0;
   
+  /**
+   * Downloads a CSV file containing schedule items.
+   *
+   * This function constructs a CSV file from the `schedule.scheduleItems` array,
+   * mapping each item to a row with formatted dates and financial values.
+   * It then creates a Blob object, generates a URL for it, and triggers a download
+   * using an anchor element. The link is removed after the download, and the object URL
+   * is revoked to free up memory.
+   */
   const downloadCsv = () => {
     const headers = ['Period Start', 'Period End', 'Due Date', 'Net Amount', 'Taxes & Levies', 'Admin Fees', 'Total Amount'];
     const rows = schedule.scheduleItems.map(item => {
