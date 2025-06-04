@@ -59,7 +59,7 @@ export default function ConvertSchedule() {
             dueDate: item.DueDate,
             amountDue: Number(item.AmountDue || 0),
             netAmount: Number(item.NetAmount || 0),
-            taxesAndLevies: item.Taxes AndLevies || {},
+            taxesAndLevies: item.TaxesAndLevies || {},
             adminFees: item.AdminFees || {},
             collectionItemCreatedDate: item.CollectionItemCreatedDate || null,
             succeeded,
