@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Euro, X } from 'lucide-react';
+import { Calendar, Euro, X, ArrowLeft } from 'lucide-react';
 import { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
 import ScheduleDisplay from './ScheduleDisplay';
 import Modal from './Modal';
@@ -19,9 +19,11 @@ const defaultSchedule: PaymentScheduleInput = {
 interface Props {
   initialSchedule?: PaymentScheduleInput;
   apiEndpoint: string;
+  onBack?: () => void;
+  existingSchedule?: PaymentScheduleResponse;
 }
 
-export default function NewSchedule({ initialSchedule, apiEndpoint, existingSchedule }: Props & { existingSchedule?: PaymentScheduleResponse }) {
+export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, existingSchedule }: Props) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>({
     ...initialSchedule || defaultSchedule,
     currentSchedule: existingSchedule
@@ -148,10 +150,21 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, existingSche
   return (
     <div className="max-w-screen-2xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <h1 className="text-2xl font-bold mb-6 flex items-center gap-2 text-primary">
-          <Calendar className="w-6 h-6" />
-          {initialSchedule ? 'Amend Payment Schedule' : 'New Payment Schedule'}
-        </h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold flex items-center gap-2 text-primary">
+            <Calendar className="w-6 h-6" />
+            {initialSchedule ? 'Amend Payment Schedule' : 'New Payment Schedule'}
+          </h1>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back
+            </button>
+          )}
+        </div>
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
@@ -161,7 +174,6 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, existingSche
 
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="grid grid-cols-1 gap-8">
-            {/* First line: Collection Frequency and Collection Day */}
             <div className="flex gap-6">
               <div className="flex-1">
                 <label className="block text-base font-semibold text-gray-700 mb-2">
@@ -196,7 +208,6 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, existingSche
               </div>
             </div>
 
-            {/* Second line: Schedule Start and End Dates */}
             <div className="flex gap-6">
               <div className="flex-1">
                 <label className="block text-base font-semibold text-gray-700 mb-2">
@@ -225,7 +236,6 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, existingSche
               </div>
             </div>
 
-            {/* Third line: Effective Date and Due Date */}
             <div className="flex gap-6">
               <div className="flex-1">
                 <label className="block text-base font-semibold text-gray-700 mb-2">
@@ -254,7 +264,6 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, existingSche
               </div>
             </div>
 
-            {/* Fourth line: Net Amount */}
             <div>
               <label className="block text-base font-semibold text-gray-700 mb-2">
                 Net Amount (€)
