@@ -23,8 +23,10 @@ interface Props {
 export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   
-  const totalAmount = schedule.scheduleItems.length > 0 
-    ? schedule.scheduleItems.reduce((sum, item) => sum + Number(item?.amountDue ?? 0), 0) 
+  const scheduleItems = schedule?.scheduleItems || [];
+  
+  const totalAmount = scheduleItems.length > 0 
+    ? scheduleItems.reduce((sum, item) => sum + Number(item?.amountDue ?? 0), 0) 
     : 0;
 
   const formatDate = (dateStr: string) => {
@@ -72,7 +74,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
       'Type'
     ];
     
-    const rows = schedule.scheduleItems.map((item, index) => {
+    const rows = scheduleItems.map((item, index) => {
       const periodStart = new Date(item.periodStartDate);
       const periodEnd = new Date(item.periodEndDate);
       const dueDate = new Date(item.dueDate);
@@ -129,7 +131,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `schedule-${schedule.id}.csv`;
+    link.download = `schedule-${schedule?.id || 'export'}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -142,7 +144,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `schedule-${schedule.id}.json`;
+    link.download = `schedule-${schedule?.id || 'export'}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -166,6 +168,10 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
       </button>
     ) : icon;
   };
+
+  if (!schedule) {
+    return <div className="p-4 text-gray-600">No schedule data available.</div>;
+  }
 
   return (
     <>
@@ -256,7 +262,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {schedule.scheduleItems.map((item, index) => (
+              {scheduleItems.map((item, index) => (
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${getIndexBackgroundColor(item)}`}>
                     {index}
