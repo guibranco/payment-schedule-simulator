@@ -36,7 +36,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
 
   const getIndexBackgroundColor = (item: any) => {
     if (Number(item.amountDue) < 0) return 'bg-blue-100';
-    if (Object.keys(item.adminFees).length > 0) return 'bg-orange-100';
+    if (item.adminFees && Object.keys(item.adminFees).length > 0) return 'bg-orange-100';
     if (item.collectionType === 'proRata') return 'bg-yellow-100';
     return 'bg-green-100';
   };
@@ -87,14 +87,14 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
       const now = new Date();
       const daysRemainingInPeriod = Math.floor((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-      const adminFeesTotal = Object.values(item.adminFees).reduce((sum, fee) => sum + (fee.amountDue || 0), 0);
-      const taxesAndLeviesTotal = Object.values(item.taxesAndLevies).reduce((sum, value) => sum + (value || 0), 0);
+      const adminFeesTotal = Object.values(item.adminFees || {}).reduce((sum, fee) => sum + (fee.amountDue || 0), 0);
+      const taxesAndLeviesTotal = Object.values(item.taxesAndLevies || {}).reduce((sum, value) => sum + (value || 0), 0);
 
-      const adminFeesStr = Object.entries(item.adminFees)
+      const adminFeesStr = Object.entries(item.adminFees || {})
         .map(([key, value]) => `${key}|${value.amountDue}|${value.taxAmount}`)
         .join(':');
 
-      const taxesAndLeviesStr = Object.entries(item.taxesAndLevies)
+      const taxesAndLeviesStr = Object.entries(item.taxesAndLevies || {})
         .map(([key, value]) => `${key}|${value}`)
         .join(':');
 
@@ -271,7 +271,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                     €{Number(item?.netAmount ?? 0).toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {Object.entries(item.taxesAndLevies).length > 0 ? (
+                    {item.taxesAndLevies && Object.entries(item.taxesAndLevies).length > 0 ? (
                       Object.entries(item.taxesAndLevies).map(([key, value]) => (
                         <div key={key}>
                           {key}: €{Number(value || 0).toFixed(2)}
@@ -282,7 +282,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {Object.entries(item.adminFees).length > 0 ? (
+                    {item.adminFees && Object.entries(item.adminFees).length > 0 ? (
                       Object.entries(item.adminFees).map(([key, value]) => (
                         <div key={key}>
                           {key}: €{Number(value.amountDue || 0).toFixed(2)}
