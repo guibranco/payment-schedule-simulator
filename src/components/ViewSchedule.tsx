@@ -158,7 +158,12 @@ export default function ViewSchedule() {
       }), {})
     };
 
-    return <NewSchedule initialSchedule={initialInput} apiEndpoint="" existingSchedule={schedule} />;
+    return <NewSchedule 
+      initialSchedule={initialInput} 
+      apiEndpoint="" 
+      existingSchedule={schedule} 
+      onBack={() => setShowAmendSchedule(false)}
+    />;
   }
 
   return (

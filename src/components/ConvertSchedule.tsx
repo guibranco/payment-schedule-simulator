@@ -32,14 +32,12 @@ export default function ConvertSchedule() {
 
   const validateAndConvertSchedule = (json: any) => {
     try {
-      // Validate required fields for Policy Admin format
       if (!json.PaymentScheduleId || !json.CollectionFrequency || !json.ScheduleItems) {
         throw new Error('Invalid Policy Admin schedule format');
       }
 
       setPolicyAdminSchedule(json);
 
-      // Convert to Payment Schedule Service format
       const convertedSchedule: PaymentScheduleResponse = {
         id: json.PaymentScheduleId,
         token: json.Token || '',
@@ -61,7 +59,7 @@ export default function ConvertSchedule() {
             dueDate: item.DueDate,
             amountDue: Number(item.AmountDue || 0),
             netAmount: Number(item.NetAmount || 0),
-            taxesAndLevies: item.TaxesAndLevies || {},
+            taxesAndLevies: item.Taxes AndLevies || {},
             adminFees: item.AdminFees || {},
             collectionItemCreatedDate: item.CollectionItemCreatedDate || null,
             succeeded,
@@ -99,16 +97,13 @@ export default function ConvertSchedule() {
     const newSchedule = { ...convertedSchedule };
     const currentStatus = newSchedule.scheduleItems[index].succeeded;
     
-    // Cycle through: null -> true -> false -> null
     const newStatus = currentStatus === null ? true : currentStatus ? false : null;
     
     newSchedule.scheduleItems[index].succeeded = newStatus;
     
-    // If status is null, also clear the collectionItemCreatedDate
     if (newStatus === null) {
       newSchedule.scheduleItems[index].collectionItemCreatedDate = null;
     } else if (!newSchedule.scheduleItems[index].collectionItemCreatedDate) {
-      // If status is being set and no collectionItemCreatedDate exists, set it to current date
       newSchedule.scheduleItems[index].collectionItemCreatedDate = new Date().toISOString();
     }
     
@@ -128,18 +123,22 @@ export default function ConvertSchedule() {
       taxesAndLevies: convertedSchedule.scheduleItems[0]?.taxesAndLevies || {},
       adminFees: convertedSchedule.scheduleItems.reduce((fees, item) => ({
         ...fees,
-        ...Object.entries(item.adminFees).reduce((acc, [key, value]) => ({
+        ...Object.entries(item.adminFees || {}).reduce((acc, [key, value]) => ({
           ...acc,
           [key]: {
             amountDue: Number(value.amountDue || 0),
             taxAmount: Number(value.taxAmount || 0)
           }
         }), {})
-      }), {}),
-      currentSchedule: convertedSchedule
+      }), {})
     };
 
-    return <NewSchedule initialSchedule={initialInput} apiEndpoint="" existingSchedule={convertedSchedule} />;
+    return <NewSchedule 
+      initialSchedule={initialInput} 
+      apiEndpoint="" 
+      existingSchedule={convertedSchedule} 
+      onBack={() => setShowNewSchedule(false)}
+    />;
   }
 
   return (
