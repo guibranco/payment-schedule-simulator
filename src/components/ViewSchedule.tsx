@@ -1,26 +1,15 @@
 import React, { useState } from 'react';
-import { FileJson, FileSpreadsheet, FileText, File as FilePdf, Eye } from 'lucide-react';
-import { PaymentScheduleResponse } from '../types';
+import { FileJson, FileSpreadsheet, FileText, File as FilePdf, Eye, PencilRuler } from 'lucide-react';
+import { PaymentScheduleResponse, PaymentScheduleInput } from '../types';
 import ScheduleDisplay from './ScheduleDisplay';
+import NewSchedule from './NewSchedule';
 
-/**
- * A React component for viewing and downloading a payment schedule.
- *
- * This component manages the state of a payment schedule, allowing users to input JSON data,
- * parse it, and view the schedule details. It also provides functionality to download the
- * schedule in both HTML and PDF formats. The component uses hooks like `useState` for managing
- * state and conditional rendering based on whether a schedule is available.
- *
- * @returns A React element representing the ViewSchedule component.
- */
 export default function ViewSchedule() {
   const [schedule, setSchedule] = useState<PaymentScheduleResponse | null>(null);
   const [jsonInput, setJsonInput] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [showAmendSchedule, setShowAmendSchedule] = useState(false);
 
-  /**
-   * Handles JSON submission, parsing and setting the schedule or error.
-   */
   const handleJsonSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -32,9 +21,6 @@ export default function ViewSchedule() {
     }
   };
 
-  /**
-   * Generates and downloads an HTML file containing payment schedule details.
-   */
   const downloadHtml = () => {
     if (!schedule) return;
 
@@ -84,9 +70,9 @@ export default function ViewSchedule() {
                   <td>${new Date(item.periodStartDate).toLocaleDateString()} - ${new Date(item.periodEndDate).toLocaleDateString()}</td>
                   <td>${new Date(item.dueDate).toLocaleDateString()}</td>
                   <td>€${item.netAmount.toFixed(2)}</td>
-                  <td>${Object.entries(item.taxesAndLevies).map(([key, value]) => 
+                  <td>${Object.entries(item.taxesAndLevies || {}).map(([key, value]) => 
                     `${key}: €${value.toFixed(2)}`).join('<br>')}</td>
-                  <td>${Object.entries(item.adminFees).map(([key, value]) => 
+                  <td>${Object.entries(item.adminFees || {}).map(([key, value]) => 
                     `${key}: €${value.amountDue.toFixed(2)}`).join('<br>')}</td>
                   <td>€${item.amountDue.toFixed(2)}</td>
                 </tr>
@@ -108,15 +94,6 @@ export default function ViewSchedule() {
     URL.revokeObjectURL(url);
   };
 
-  /**
-   * Generates and downloads a PDF document containing payment schedule details.
-   *
-   * This function creates a PDF document using the jsPDF library, populates it with
-   * header information such as Schedule ID, Collection Frequency, and Cover Period,
-   * calculates the total amount due from schedule items, and adds a table listing
-   * each item's due date and amount. The PDF is then saved with a filename based on
-   * the schedule ID.
-   */
   const downloadPdf = async () => {
     if (!schedule) return;
     
@@ -124,7 +101,6 @@ export default function ViewSchedule() {
       const jsPDFModule = await import('jspdf');
       const doc = new jsPDFModule.default();
 
-      // Add header
       doc.setFontSize(16);
       doc.text('Payment Schedule Details', 20, 20);
       
@@ -136,7 +112,6 @@ export default function ViewSchedule() {
       const totalAmount = schedule.scheduleItems.reduce((sum, item) => sum + item.amountDue, 0);
       doc.text(`Total Amount: €${totalAmount.toFixed(2)}`, 20, 60);
 
-      // Add table
       let y = 80;
       const itemHeight = 10;
       const pageHeight = doc.internal.pageSize.height;
@@ -159,6 +134,32 @@ export default function ViewSchedule() {
       setError('Failed to generate PDF. Please try again.');
     }
   };
+
+  if (showAmendSchedule && schedule) {
+    const initialInput: PaymentScheduleInput = {
+      collectionFrequency: schedule.collectionFrequency.charAt(0).toUpperCase() + 
+                          schedule.collectionFrequency.slice(1) as 'Monthly' | 'Annual',
+      scheduleStartDate: schedule.coverStartDate,
+      scheduleEndDate: schedule.coverEndDate,
+      collectionDay: schedule.collectionDay,
+      effectiveDate: schedule.inceptionDate,
+      dueDate: schedule.scheduleItems[0]?.dueDate || null,
+      netAmount: schedule.scheduleItems.reduce((sum, item) => sum + item.netAmount, 0),
+      taxesAndLevies: schedule.scheduleItems[0]?.taxesAndLevies || {},
+      adminFees: schedule.scheduleItems.reduce((fees, item) => ({
+        ...fees,
+        ...Object.entries(item.adminFees || {}).reduce((acc, [key, value]) => ({
+          ...acc,
+          [key]: {
+            amountDue: Number(value.amountDue || 0),
+            taxAmount: Number(value.taxAmount || 0)
+          }
+        }), {})
+      }), {})
+    };
+
+    return <NewSchedule initialSchedule={initialInput} apiEndpoint="" existingSchedule={schedule} />;
+  }
 
   return (
     <div className="max-w-screen-2xl mx-auto p-6">
@@ -211,6 +212,13 @@ export default function ViewSchedule() {
                 className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
               >
                 Parse New Schedule
+              </button>
+              <button
+                onClick={() => setShowAmendSchedule(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+              >
+                <PencilRuler className="w-5 h-5" />
+                Amend Schedule
               </button>
               <button
                 onClick={downloadHtml}
