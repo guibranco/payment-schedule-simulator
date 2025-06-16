@@ -5,6 +5,7 @@ import AmendSchedule from './components/AmendSchedule';
 import ConvertSchedule from './components/ConvertSchedule';
 import ViewSchedule from './components/ViewSchedule';
 import ConfigDialog from './components/ConfigDialog';
+import { STORAGE_KEYS } from './constants';
 
 /**
  * Main application component for Payment Schedule Simulator.
@@ -21,10 +22,15 @@ export default function App() {
   const [apiEndpoint, setApiEndpoint] = useState('');
 
   useEffect(() => {
-    const savedEndpoint = localStorage.getItem('apiEndpoint');
-    const accessToken = localStorage.getItem('accessToken');
+    const savedEndpoint = localStorage.getItem(STORAGE_KEYS.API_ENDPOINT);
+    const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    const configCancelled = localStorage.getItem(STORAGE_KEYS.CONFIG_CANCELLED);
+    
     if (!savedEndpoint || !accessToken) {
-      setIsConfigOpen(true);
+      // Only show config dialog if it hasn't been cancelled before
+      if (!configCancelled) {
+        setIsConfigOpen(true);
+      }
     } else {
       setApiEndpoint(savedEndpoint);
     }
@@ -39,10 +45,10 @@ export default function App() {
       if (code && state) {
         window.history.replaceState({}, document.title, window.location.pathname);
         
-        const tenantId = localStorage.getItem('tenantId');
+        const tenantId = localStorage.getItem(STORAGE_KEYS.TENANT_ID);
         const tokenEndpoint = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
-        const clientId = localStorage.getItem('clientId');
-        const environment = localStorage.getItem('environment') || 'prod';
+        const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID);
+        const environment = localStorage.getItem(STORAGE_KEYS.ENVIRONMENT) || 'prod';
         const envSuffix = environment === 'prod' ? '' : `-${environment}`;
         
         fetch(tokenEndpoint, {
@@ -60,7 +66,7 @@ export default function App() {
         })
         .then(response => response.json())
         .then(data => {
-          localStorage.setItem('accessToken', data.access_token);
+          localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token);
         })
         .catch(error => {
           console.error('Error exchanging code for token:', error);
@@ -74,6 +80,14 @@ export default function App() {
 
   const handleSaveConfig = (endpoint: string) => {
     setApiEndpoint(endpoint);
+    // Clear the cancellation flag when config is successfully saved
+    localStorage.removeItem(STORAGE_KEYS.CONFIG_CANCELLED);
+  };
+
+  const handleOpenConfig = () => {
+    // Clear the cancellation flag when manually opening config
+    localStorage.removeItem(STORAGE_KEYS.CONFIG_CANCELLED);
+    setIsConfigOpen(true);
   };
 
   return (
@@ -86,7 +100,7 @@ export default function App() {
               Payment Schedule Simulator
             </h1>
             <button
-              onClick={() => setIsConfigOpen(true)}
+              onClick={handleOpenConfig}
               className="p-2 rounded-full hover:bg-primary-light transition-colors"
               title="Settings"
             >

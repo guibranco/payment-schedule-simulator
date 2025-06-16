@@ -23,8 +23,10 @@ interface Props {
 export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   
-  const totalAmount = schedule.scheduleItems.length > 0 
-    ? schedule.scheduleItems.reduce((sum, item) => sum + Number(item?.amountDue ?? 0), 0) 
+  const scheduleItems = schedule?.scheduleItems || [];
+  
+  const totalAmount = scheduleItems.length > 0 
+    ? scheduleItems.reduce((sum, item) => sum + Number(item?.amountDue ?? 0), 0) 
     : 0;
 
   const formatDate = (dateStr: string) => {
@@ -36,7 +38,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
 
   const getIndexBackgroundColor = (item: any) => {
     if (Number(item.amountDue) < 0) return 'bg-blue-100';
-    if (Object.keys(item.adminFees).length > 0) return 'bg-orange-100';
+    if (item.adminFees && Object.keys(item.adminFees).length > 0) return 'bg-orange-100';
     if (item.collectionType === 'proRata') return 'bg-yellow-100';
     return 'bg-green-100';
   };
@@ -72,7 +74,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
       'Type'
     ];
     
-    const rows = schedule.scheduleItems.map((item, index) => {
+    const rows = scheduleItems.map((item, index) => {
       const periodStart = new Date(item.periodStartDate);
       const periodEnd = new Date(item.periodEndDate);
       const dueDate = new Date(item.dueDate);
@@ -87,14 +89,14 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
       const now = new Date();
       const daysRemainingInPeriod = Math.floor((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-      const adminFeesTotal = Object.values(item.adminFees).reduce((sum, fee) => sum + (fee.amountDue || 0), 0);
-      const taxesAndLeviesTotal = Object.values(item.taxesAndLevies).reduce((sum, value) => sum + (value || 0), 0);
+      const adminFeesTotal = Object.values(item.adminFees || {}).reduce((sum, fee) => sum + (fee.amountDue || 0), 0);
+      const taxesAndLeviesTotal = Object.values(item.taxesAndLevies || {}).reduce((sum, value) => sum + (value || 0), 0);
 
-      const adminFeesStr = Object.entries(item.adminFees)
+      const adminFeesStr = Object.entries(item.adminFees || {})
         .map(([key, value]) => `${key}|${value.amountDue}|${value.taxAmount}`)
         .join(':');
 
-      const taxesAndLeviesStr = Object.entries(item.taxesAndLevies)
+      const taxesAndLeviesStr = Object.entries(item.taxesAndLevies || {})
         .map(([key, value]) => `${key}|${value}`)
         .join(':');
 
@@ -129,7 +131,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `schedule-${schedule.id}.csv`;
+    link.download = `schedule-${schedule?.id || 'export'}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -142,7 +144,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `schedule-${schedule.id}.json`;
+    link.download = `schedule-${schedule?.id || 'export'}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -166,6 +168,10 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
       </button>
     ) : icon;
   };
+
+  if (!schedule) {
+    return <div className="p-4 text-gray-600">No schedule data available.</div>;
+  }
 
   return (
     <>
@@ -256,7 +262,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {schedule.scheduleItems.map((item, index) => (
+              {scheduleItems.map((item, index) => (
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${getIndexBackgroundColor(item)}`}>
                     {index}
@@ -271,7 +277,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                     €{Number(item?.netAmount ?? 0).toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {Object.entries(item.taxesAndLevies).length > 0 ? (
+                    {item.taxesAndLevies && Object.entries(item.taxesAndLevies).length > 0 ? (
                       Object.entries(item.taxesAndLevies).map(([key, value]) => (
                         <div key={key}>
                           {key}: €{Number(value || 0).toFixed(2)}
@@ -282,7 +288,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {Object.entries(item.adminFees).length > 0 ? (
+                    {item.adminFees && Object.entries(item.adminFees).length > 0 ? (
                       Object.entries(item.adminFees).map(([key, value]) => (
                         <div key={key}>
                           {key}: €{Number(value.amountDue || 0).toFixed(2)}
