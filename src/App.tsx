@@ -23,8 +23,13 @@ export default function App() {
   useEffect(() => {
     const savedEndpoint = localStorage.getItem('apiEndpoint');
     const accessToken = localStorage.getItem('accessToken');
+    const configCancelled = localStorage.getItem('configCancelled');
+    
     if (!savedEndpoint || !accessToken) {
-      setIsConfigOpen(true);
+      // Only show config dialog if it hasn't been cancelled before
+      if (!configCancelled) {
+        setIsConfigOpen(true);
+      }
     } else {
       setApiEndpoint(savedEndpoint);
     }
@@ -74,6 +79,14 @@ export default function App() {
 
   const handleSaveConfig = (endpoint: string) => {
     setApiEndpoint(endpoint);
+    // Clear the cancellation flag when config is successfully saved
+    localStorage.removeItem('configCancelled');
+  };
+
+  const handleOpenConfig = () => {
+    // Clear the cancellation flag when manually opening config
+    localStorage.removeItem('configCancelled');
+    setIsConfigOpen(true);
   };
 
   return (
@@ -86,7 +99,7 @@ export default function App() {
               Payment Schedule Simulator
             </h1>
             <button
-              onClick={() => setIsConfigOpen(true)}
+              onClick={handleOpenConfig}
               className="p-2 rounded-full hover:bg-primary-light transition-colors"
               title="Settings"
             >

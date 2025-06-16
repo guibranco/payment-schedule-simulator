@@ -112,6 +112,12 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     onClose();
   };
 
+  const handleClose = () => {
+    // Save the cancellation state to localStorage
+    localStorage.setItem('configCancelled', 'true');
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -123,7 +129,7 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
             Configuration
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-400 hover:text-gray-500"
           >
             <X className="w-5 h-5" />
@@ -218,7 +224,7 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
             <div className="flex justify-end gap-3">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
               >
                 Cancel
