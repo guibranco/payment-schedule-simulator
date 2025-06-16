@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Settings, X } from 'lucide-react';
+import { STORAGE_KEYS } from '../constants';
 
 interface Props {
   isOpen: boolean;
@@ -35,10 +36,10 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
 
   useEffect(() => {
     if (isOpen) {
-      const savedEndpoint = localStorage.getItem('apiEndpoint') || '';
-      const savedClientId = localStorage.getItem('clientId') || '';
-      const savedTenantId = localStorage.getItem('tenantId') || '';
-      const savedEnvironment = (localStorage.getItem('environment') || 'prod') as 'prod' | 'int' | 'stg';
+      const savedEndpoint = localStorage.getItem(STORAGE_KEYS.API_ENDPOINT) || '';
+      const savedClientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID) || '';
+      const savedTenantId = localStorage.getItem(STORAGE_KEYS.TENANT_ID) || '';
+      const savedEnvironment = (localStorage.getItem(STORAGE_KEYS.ENVIRONMENT) || 'prod') as 'prod' | 'int' | 'stg';
 
       try {
         const url = new URL(savedEndpoint);
@@ -58,7 +59,7 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
   /**
    * Generates the authorization URL for OAuth 2.0 authentication.
    */
-  const getAuthorizationUrl = (config: OAuthConfig) => {
+  const getAuthorizationUrl = useCallback((config: OAuthConfig) => {
     const baseUrl = `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/authorize`;
     const envSuffix = config.environment === 'prod' ? '' : `-${config.environment}`;
     const scope = config.scopes.map(scope => 
@@ -74,13 +75,13 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     });
 
     return `${baseUrl}?${params.toString()}`;
-  };
+  }, []);
 
   /**
    * Handles form submission by preventing default behavior, validating and storing API endpoint details,
    * generating an authorization URL, and redirecting to it. Also saves configuration and closes the form.
    */
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     
     try {
@@ -88,15 +89,15 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
       if (port) {
         url.port = port;
       }
-      localStorage.setItem('apiEndpoint', url.toString());
+      localStorage.setItem(STORAGE_KEYS.API_ENDPOINT, url.toString());
     } catch (error) {
       console.error('Invalid URL:', error);
       return;
     }
 
-    localStorage.setItem('clientId', clientId);
-    localStorage.setItem('tenantId', tenantId);
-    localStorage.setItem('environment', environment);
+    localStorage.setItem(STORAGE_KEYS.CLIENT_ID, clientId);
+    localStorage.setItem(STORAGE_KEYS.TENANT_ID, tenantId);
+    localStorage.setItem(STORAGE_KEYS.ENVIRONMENT, environment);
     
     const config: OAuthConfig = {
       clientId,
@@ -110,13 +111,13 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     
     onSave(baseUrl);
     onClose();
-  };
+  }, [baseUrl, port, clientId, tenantId, environment, selectedScopes, getAuthorizationUrl, onSave, onClose]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     // Save the cancellation state to localStorage
-    localStorage.setItem('configCancelled', 'true');
+    localStorage.setItem(STORAGE_KEYS.CONFIG_CANCELLED, 'true');
     onClose();
-  };
+  }, [onClose]);
 
   if (!isOpen) return null;
 
