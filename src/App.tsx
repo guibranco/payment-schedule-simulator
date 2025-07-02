@@ -78,8 +78,6 @@ export default function App() {
         const tenantId = localStorage.getItem(STORAGE_KEYS.TENANT_ID);
         const tokenEndpoint = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
         const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID);
-        const environment = localStorage.getItem(STORAGE_KEYS.ENVIRONMENT) || 'prod';
-        const envSuffix = environment === 'prod' ? '' : `-${environment}`;
         const codeVerifier = localStorage.getItem(STORAGE_KEYS.CODE_VERIFIER);
         
         if (!codeVerifier) {
@@ -97,11 +95,10 @@ export default function App() {
               'Content-Type': 'application/x-www-form-urlencoded',
             },
             body: new URLSearchParams({
-              client_id: clientId || '',
-              code: code,
               grant_type: 'authorization_code',
+              code: code,
+              client_id: clientId || '',
               redirect_uri: redirectUri,
-              scope: `api://schedule-api${envSuffix}/user_impersonation`,
               code_verifier: codeVerifier,
             }),
           });
