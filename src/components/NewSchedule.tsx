@@ -26,16 +26,13 @@ interface Props {
 }
 
 /**
- * Renders a form to create or amend a payment schedule.
+ * Renders a form for creating or editing payment schedules.
  *
- * This component manages state for various schedule details, including collection frequency,
- * taxes and levies, admin fees, and authentication tokens. It handles input changes,
- * adds/removes taxes and fees, and submits the schedule data to an API endpoint.
- *
- * @param initialSchedule - The initial schedule data if any, otherwise uses defaultSchedule.
- * @param apiEndpoint - The API endpoint URL for submitting the schedule.
- * @param onBack - A callback function to handle back navigation.
- * @param existingSchedule - An existing schedule to amend.
+ * @param {Object} props - The component props.
+ * @param {Object} [props.initialSchedule] - The initial schedule data to populate the form with.
+ * @param {string} props.apiEndpoint - The endpoint to send the schedule data to for processing.
+ * @param {boolean} [props.isEditing=false] - Indicates whether the form is being used to edit an existing schedule.
+ * @returns {JSX.Element} - The rendered payment schedule form component.
  */
 export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, existingSchedule }: Props) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>({
@@ -114,6 +111,9 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
     });
   };
 
+  /**
+   * Handles JSON load by setting the schedule and clearing any errors.
+   */
   const handleJsonLoad = (data: PaymentScheduleInput) => {
     setSchedule(data);
     setError(null);
