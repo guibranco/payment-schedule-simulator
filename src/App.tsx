@@ -6,6 +6,7 @@ import ConvertSchedule from './components/ConvertSchedule';
 import ViewSchedule from './components/ViewSchedule';
 import ConfigDialog from './components/ConfigDialog';
 import { STORAGE_KEYS } from './constants';
+import { getRedirectUri } from './utils/url';
 
 /**
  * Main application component for Payment Schedule Simulator.
@@ -59,6 +60,8 @@ export default function App() {
         }
 
         try {
+          const redirectUri = getRedirectUri();
+          
           const response = await fetch(tokenEndpoint, {
             method: 'POST',
             headers: {
@@ -68,7 +71,7 @@ export default function App() {
               client_id: clientId || '',
               code: code,
               grant_type: 'authorization_code',
-              redirect_uri: window.location.origin,
+              redirect_uri: redirectUri,
               scope: `api://schedule-api${envSuffix}/user_impersonation`,
               code_verifier: codeVerifier,
             }),

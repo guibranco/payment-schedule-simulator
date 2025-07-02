@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Settings, X } from 'lucide-react';
 import { STORAGE_KEYS } from '../constants';
 import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
+import { getRedirectUri } from '../utils/url';
 
 interface Props {
   isOpen: boolean;
@@ -74,10 +75,12 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     // Store code_verifier for later use in token exchange
     localStorage.setItem(STORAGE_KEYS.CODE_VERIFIER, codeVerifier);
 
+    const redirectUri = getRedirectUri();
+
     const params = new URLSearchParams({
       client_id: config.clientId,
       response_type: 'code',
-      redirect_uri: window.location.origin,
+      redirect_uri: redirectUri,
       scope,
       state: crypto.randomUUID(),
       code_challenge: codeChallenge,
@@ -130,6 +133,8 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
   }, [onClose]);
 
   if (!isOpen) return null;
+
+  const redirectUri = getRedirectUri();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -219,6 +224,17 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
                 <option value="int">Integration</option>
                 <option value="stg">Staging</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Redirect URI
+              </label>
+              <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-600 break-all">
+                {redirectUri}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Use this URL in your Azure AD app registration
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
