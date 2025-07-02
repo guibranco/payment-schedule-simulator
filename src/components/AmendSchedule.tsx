@@ -13,9 +13,9 @@ interface Props {
 /**
  * Function to amend a payment schedule by uploading or pasting JSON data.
  *
- * This function handles file uploads and JSON input, validates the structure and types of the JSON,
+ * This function manages file uploads and JSON input, validates the structure and types of the JSON,
  * normalizes keys for case-insensitive comparison, and sets the validated schedule state.
- * It also provides UI elements for users to upload files or paste JSON directly into a textarea.
+ * It provides UI elements for users to upload files or paste JSON directly into a textarea.
  *
  * @param {Props} props - An object containing the API endpoint as a property.
  */

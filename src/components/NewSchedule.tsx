@@ -24,6 +24,18 @@ interface Props {
   existingSchedule?: PaymentScheduleResponse;
 }
 
+/**
+ * Renders a form to create or amend a payment schedule.
+ *
+ * This component manages state for various schedule details, including collection frequency,
+ * taxes and levies, admin fees, and authentication tokens. It handles input changes,
+ * adds/removes taxes and fees, and submits the schedule data to an API endpoint.
+ *
+ * @param initialSchedule - The initial schedule data if any, otherwise uses defaultSchedule.
+ * @param apiEndpoint - The API endpoint URL for submitting the schedule.
+ * @param onBack - A callback function to handle back navigation.
+ * @param existingSchedule - An existing schedule to amend.
+ */
 export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, existingSchedule }: Props) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>({
     ...initialSchedule || defaultSchedule,
@@ -100,6 +112,15 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
     });
   };
 
+  /**
+   * Handles form submission by scheduling a task using an API endpoint.
+   *
+   * It first prevents the default form submission behavior, then checks if the API endpoint and access token are configured.
+   * If the token is expired, it refreshes the token. It constructs the function URL, sends a POST request with necessary headers,
+   * and handles errors such as authentication failures. Upon successful response, it updates the state with the schedule data.
+   *
+   * @param e - The form event object.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);

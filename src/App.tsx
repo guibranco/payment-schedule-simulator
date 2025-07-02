@@ -39,6 +39,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    /**
+     * Handles the OAuth callback after user authorization.
+     *
+     * This function processes the OAuth response, checks for errors, and exchanges the authorization code for an access token.
+     * It manages various states and errors, including retrying with different parameters on interaction required errors.
+     * The function updates local storage with tokens and handles redirection based on stored URLs.
+     *
+     * @returns void
+     */
     const handleOAuthCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
