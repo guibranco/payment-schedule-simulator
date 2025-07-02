@@ -9,17 +9,20 @@ interface Props {
 
 /**
  * Component for loading and parsing JSON request data to populate schedule forms.
- * 
+ *
  * This component provides a modal interface for users to paste JSON request data,
  * validates the structure, normalizes the data format, and calls the onLoad callback
- * with the parsed PaymentScheduleInput data.
+ * with the parsed PaymentScheduleInput data. It handles JSON validation, parsing,
+ * error handling, and file uploads.
+ *
+ * @param props - The properties passed to the JsonLoader component, including `onLoad` and `onClose` callbacks.
  */
 export default function JsonLoader({ onLoad, onClose }: Props) {
   const [jsonInput, setJsonInput] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Normalizes collection frequency to match the expected format
+   * Converts collection frequency to 'Monthly' or 'Annual'.
    */
   const normalizeCollectionFrequency = (frequency: string): 'Monthly' | 'Annual' => {
     const normalized = frequency.toLowerCase();
@@ -27,7 +30,15 @@ export default function JsonLoader({ onLoad, onClose }: Props) {
   };
 
   /**
-   * Validates and parses the JSON input into PaymentScheduleInput format
+   * Validates and parses the JSON input into PaymentScheduleInput format.
+   *
+   * This function performs several validations on the input JSON, ensuring that all required fields are present
+   * and correctly typed. It also processes nested structures like admin fees and taxes/levies, converting
+   * string values to numbers where necessary. The collection frequency is normalized using an external function.
+   *
+   * @param json - A JSON object representing the payment schedule input data.
+   * @returns An object conforming to the PaymentScheduleInput format.
+   * @throws Error If any required field is missing or if the types of fields are incorrect.
    */
   const parseJsonInput = (json: any): PaymentScheduleInput => {
     // Validate required fields
@@ -85,6 +96,14 @@ export default function JsonLoader({ onLoad, onClose }: Props) {
     };
   };
 
+  /**
+   * Handles form submission by parsing JSON input and invoking callbacks.
+   *
+   * This function prevents the default form event, clears any existing errors,
+   * attempts to parse the provided JSON input, and processes the parsed data
+   * using a callback. If an error occurs during parsing, it sets an appropriate
+   * error message.
+   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -103,6 +122,16 @@ export default function JsonLoader({ onLoad, onClose }: Props) {
     }
   };
 
+  /**
+   * Handles file upload events from an input element.
+   *
+   * This function processes a file uploaded by a user through an HTML input element.
+   * It reads the file as text and updates the state with the file content or sets an error
+   * if the file cannot be read. The function checks for the presence of a file, creates a FileReader,
+   * and handles the onload event to extract and store the file's content.
+   *
+   * @param e - React ChangeEvent object containing the uploaded file.
+   */
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
