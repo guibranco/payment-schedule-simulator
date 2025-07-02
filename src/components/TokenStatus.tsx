@@ -4,9 +4,13 @@ import { useTokenManager } from '../hooks/useTokenManager';
 
 /**
  * Component that displays the current token status and provides refresh functionality.
- * 
- * Shows different states: valid, expiring soon, expired, or refreshing.
- * Provides a manual refresh button and displays time until expiration.
+ *
+ * It retrieves token information from the `useTokenManager` hook and shows different states: valid, expiring soon,
+ * expired, or refreshing. It also includes a manual refresh button and displays the time until expiration.
+ * The component handles various conditions based on the token's state and renders appropriate icons and text
+ * accordingly. If an error occurs during token management, it is displayed below the status.
+ *
+ * @returns JSX element representing the token status component.
  */
 export default function TokenStatus() {
   const { tokenInfo, refreshToken, isRefreshing, error } = useTokenManager();
@@ -15,6 +19,12 @@ export default function TokenStatus() {
     return null;
   }
 
+  /**
+   * Determines and returns an icon based on the current status of token expiration and refresh state.
+   *
+   * The function checks if the application is refreshing, if the token has expired, or if it is expiring soon,
+   * and returns a corresponding icon component with appropriate styling.
+   */
   const getStatusIcon = () => {
     if (isRefreshing) {
       return <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />;
@@ -28,6 +38,13 @@ export default function TokenStatus() {
     return <CheckCircle className="w-4 h-4 text-green-500" />;
   };
 
+  /**
+   * Determines the status text based on token validity and refresh state.
+   *
+   * The function checks if the token is currently being refreshed, if it has expired,
+   * or if it is expiring soon. Depending on these conditions, it returns an appropriate
+   * status message indicating the current state of the token.
+   */
   const getStatusText = () => {
     if (isRefreshing) {
       return 'Refreshing token...';
@@ -41,6 +58,13 @@ export default function TokenStatus() {
     return 'Token valid';
   };
 
+  /**
+   * Determines the time remaining until a token expires.
+   *
+   * This function calculates the time difference between the current timestamp and the token's expiry timestamp.
+   * If the token has expired, it returns 'Expired'. Otherwise, it formats the remaining time into days, hours, or minutes,
+   * depending on the duration. The calculation is done by converting milliseconds to larger units of time as needed.
+   */
   const getTimeUntilExpiry = () => {
     if (!tokenInfo.expiresAt) return null;
     
@@ -58,6 +82,9 @@ export default function TokenStatus() {
     return `${minutes}m`;
   };
 
+  /**
+   * Handles refresh logic by checking if a refresh is already in progress and calling refreshToken if not.
+   */
   const handleRefresh = () => {
     if (!isRefreshing) {
       refreshToken();
