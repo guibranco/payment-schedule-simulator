@@ -9,11 +9,18 @@ interface Props {
 }
 
 /**
- * Component for displaying API errors with proper formatting and styling
+ * Component for displaying API errors with proper formatting and styling.
+ *
+ * This component determines whether the error is a validation error or a general error,
+ * and renders an appropriate icon and styles accordingly. It displays the error message,
+ * details, and provides an option to dismiss the error if `onDismiss` is provided.
  */
 export default function ErrorDisplay({ error, onDismiss, className = '' }: Props) {
   const isValidation = isValidationError(error);
   
+  /**
+   * Returns an Info icon if validation is true, otherwise returns an AlertTriangle icon.
+   */
   const getErrorIcon = () => {
     if (isValidation) {
       return <Info className="w-5 h-5 text-orange-500" />;
@@ -21,6 +28,9 @@ export default function ErrorDisplay({ error, onDismiss, className = '' }: Props
     return <AlertTriangle className="w-5 h-5 text-red-500" />;
   };
 
+  /**
+   * Returns CSS styles based on validation status.
+   */
   const getErrorStyles = () => {
     if (isValidation) {
       return 'bg-orange-50 border-orange-200 text-orange-800';

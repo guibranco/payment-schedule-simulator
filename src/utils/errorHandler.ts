@@ -1,7 +1,15 @@
 import { ValidationError, ProblemDetailsError, ApiErrorResponse } from '../types';
 
 /**
- * Parses API error responses and returns a standardized error format
+ * Parses API error responses and returns a standardized error format.
+ *
+ * This function handles different types of error formats including validation errors,
+ * problem details format (RFC 7807), and generic error objects. It extracts relevant
+ * information such as messages, details, and type to provide a consistent error structure.
+ *
+ * @param response - The HTTP response object containing status and status text.
+ * @param errorData - The raw error data from the API response.
+ * @returns An object representing the standardized error format with message, details, and type.
  */
 export function parseApiError(response: Response, errorData: any): ApiErrorResponse {
   // Handle validation errors (array format)
@@ -64,7 +72,14 @@ export function parseApiError(response: Response, errorData: any): ApiErrorRespo
 }
 
 /**
- * Formats error details for display in the UI
+ * Formats error details from an API response for display in the UI.
+ *
+ * This function constructs a formatted error message string based on the content of the `ApiErrorResponse`.
+ * If there are no details, it returns just the error message.
+ * If there is one detail, it appends the detail to the error message.
+ * For multiple details, it lists each detail on a new line prefixed by a bullet point.
+ *
+ * @param apiError - The API error response containing the error message and details.
  */
 export function formatErrorMessage(apiError: ApiErrorResponse): string {
   if (apiError.details.length === 0) {
@@ -79,7 +94,7 @@ export function formatErrorMessage(apiError: ApiErrorResponse): string {
 }
 
 /**
- * Checks if an error is a validation error that can be fixed by the user
+ * Determines if an API error is a validation or problem-details error.
  */
 export function isValidationError(apiError: ApiErrorResponse): boolean {
   return apiError.type === 'validation' || apiError.type === 'problem-details';
