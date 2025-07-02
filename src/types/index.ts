@@ -45,3 +45,28 @@ export interface PaymentScheduleResponse {
   coverEndDate: string;
   scheduleItems: ScheduleItem[];
 }
+
+// API Error Types
+export interface ValidationError {
+  propertyName: string;
+  errorMessage: string;
+  attemptedValue: any;
+  customState: any;
+  severity: string;
+  errorCode: string;
+  formattedMessagePlaceholderValues: Record<string, any>;
+}
+
+export interface ProblemDetailsError {
+  type: string;
+  title: string;
+  status: number;
+  errors: Record<string, string[]>;
+  traceId: string;
+}
+
+export interface ApiErrorResponse {
+  message: string;
+  details: string[];
+  type: 'validation' | 'problem-details' | 'generic';
+}
