@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Calendar, Euro, X, ArrowLeft, FileJson } from 'lucide-react';
-import { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
+import { PaymentScheduleInput, PaymentScheduleResponse, ApiErrorResponse } from '../types';
 import { useTokenManager } from '../hooks/useTokenManager';
+import { parseApiError } from '../utils/errorHandler';
 import ScheduleDisplay from './ScheduleDisplay';
+import ErrorDisplay from './ErrorDisplay';
 import Modal from './Modal';
 import JsonLoader from './JsonLoader';
 
@@ -45,7 +47,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
   const [feeKey, setFeeKey] = useState('');
   const [feeAmount, setFeeAmount] = useState('');
   const [feeTax, setFeeTax] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<ApiErrorResponse | null>(null);
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   const [isJsonLoaderOpen, setIsJsonLoaderOpen] = useState(false);
   const { tokenInfo, refreshToken } = useTokenManager();
@@ -116,7 +118,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
    */
   const handleJsonLoad = (data: PaymentScheduleInput) => {
     setSchedule(data);
-    setError(null);
+    setApiError(null);
   };
 
   /**
@@ -130,21 +132,33 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setApiError(null);
     setResponse(null);
     
     if (!apiEndpoint) {
-      setError('API endpoint not configured. Please configure it in settings.');
+      setApiError({
+        message: 'API endpoint not configured',
+        details: ['Please configure the API endpoint in settings.'],
+        type: 'generic'
+      });
       return;
     }
 
     if (!tokenInfo.accessToken) {
-      setError('Not authenticated. Please configure the application settings.');
+      setApiError({
+        message: 'Authentication required',
+        details: ['Please configure the application settings to authenticate.'],
+        type: 'generic'
+      });
       return;
     }
 
     if (tokenInfo.isExpired) {
-      setError('Token has expired. Refreshing...');
+      setApiError({
+        message: 'Token has expired',
+        details: ['Refreshing authentication token...'],
+        type: 'generic'
+      });
       await refreshToken();
       return;
     }
@@ -166,19 +180,37 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
       
       if (!response.ok) {
         if (response.status === 401) {
-          setError('Authentication expired. Refreshing token...');
+          setApiError({
+            message: 'Authentication expired',
+            details: ['Refreshing token...'],
+            type: 'generic'
+          });
           await refreshToken();
           return;
         }
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
+
+        // Parse error response
+        let errorData = null;
+        try {
+          errorData = await response.json();
+        } catch {
+          // If JSON parsing fails, we'll handle it as a generic error
+        }
+
+        const parsedError = parseApiError(response, errorData);
+        setApiError(parsedError);
+        return;
       }
 
       const data = await response.json();
       setResponse(data);
     } catch (error) {
       console.error('Error generating schedule:', error);
-      setError(error instanceof Error ? error.message : 'Failed to generate schedule. Please try again.');
+      setApiError({
+        message: 'Network error',
+        details: [error instanceof Error ? error.message : 'Failed to generate schedule. Please try again.'],
+        type: 'generic'
+      });
     }
   };
 
@@ -211,10 +243,12 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
           </div>
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-red-700">{error}</p>
-          </div>
+        {apiError && (
+          <ErrorDisplay 
+            error={apiError} 
+            onDismiss={() => setApiError(null)}
+            className="mb-6"
+          />
         )}
 
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -430,7 +464,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
               onClick={() => {
                 setSchedule(initialSchedule || defaultSchedule);
                 setResponse(null);
-                setError(null);
+                setApiError(null);
               }}
               className="px-6 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-base font-medium"
             >
