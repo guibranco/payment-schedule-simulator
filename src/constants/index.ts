@@ -4,5 +4,6 @@ export const STORAGE_KEYS = {
   CLIENT_ID: 'clientId',
   TENANT_ID: 'tenantId',
   ENVIRONMENT: 'environment',
-  CONFIG_CANCELLED: 'configCancelled'
+  CONFIG_CANCELLED: 'configCancelled',
+  CODE_VERIFIER: 'codeVerifier'
 } as const;
