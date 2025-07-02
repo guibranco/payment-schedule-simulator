@@ -15,6 +15,9 @@ import { getRedirectUri } from './utils/url';
  * This function manages the state of the active tab, configuration dialog,
  * and API endpoint. It handles OAuth callbacks to authenticate users with PKCE support,
  * and conditionally renders different components based on the active tab.
+ * The component also processes OAuth responses, checks for errors, and exchanges
+ * authorization codes for access tokens. It updates local storage with tokens
+ * and manages redirection based on stored URLs.
  *
  * @returns The main application component.
  */
