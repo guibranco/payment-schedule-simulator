@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Calendar, Euro, X, ArrowLeft } from 'lucide-react';
+import { Calendar, Euro, X, ArrowLeft, FileJson } from 'lucide-react';
 import { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
 import { useTokenManager } from '../hooks/useTokenManager';
 import ScheduleDisplay from './ScheduleDisplay';
 import Modal from './Modal';
+import JsonLoader from './JsonLoader';
 
 const defaultSchedule: PaymentScheduleInput = {
   collectionFrequency: 'Monthly',
@@ -49,6 +50,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
   const [feeTax, setFeeTax] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
+  const [isJsonLoaderOpen, setIsJsonLoaderOpen] = useState(false);
   const { tokenInfo, refreshToken } = useTokenManager();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -110,6 +112,11 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
         adminFees: newFees
       };
     });
+  };
+
+  const handleJsonLoad = (data: PaymentScheduleInput) => {
+    setSchedule(data);
+    setError(null);
   };
 
   /**
@@ -183,15 +190,25 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
             <Calendar className="w-6 h-6" />
             {initialSchedule ? 'Amend Payment Schedule' : 'New Payment Schedule'}
           </h1>
-          {onBack && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={onBack}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              onClick={() => setIsJsonLoaderOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              title="Load from JSON"
             >
-              <ArrowLeft className="w-5 h-5" />
-              Back
+              <FileJson className="w-5 h-5" />
+              Load JSON
             </button>
-          )}
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                Back
+              </button>
+            )}
+          </div>
         </div>
 
         {error && (
@@ -448,6 +465,13 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
           <code>{JSON.stringify(schedule, null, 2)}</code>
         </pre>
       </Modal>
+
+      {isJsonLoaderOpen && (
+        <JsonLoader
+          onLoad={handleJsonLoad}
+          onClose={() => setIsJsonLoaderOpen(false)}
+        />
+      )}
     </div>
   );
 }

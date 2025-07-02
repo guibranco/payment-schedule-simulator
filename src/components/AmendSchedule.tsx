@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { FileUp, Clipboard, Calendar, ArrowRight } from 'lucide-react';
+import { FileUp, Clipboard, Calendar, ArrowRight, FileJson } from 'lucide-react';
 import { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
 import { useTokenManager } from '../hooks/useTokenManager';
 import NewSchedule from './NewSchedule';
 import ScheduleDisplay from './ScheduleDisplay';
 import Modal from './Modal';
+import JsonLoader from './JsonLoader';
 
 interface Props {
   apiEndpoint: string;
@@ -26,6 +27,7 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
   const [jsonInput, setJsonInput] = useState('');
   const [showPasteInput, setShowPasteInput] = useState(false);
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
+  const [isJsonLoaderOpen, setIsJsonLoaderOpen] = useState(false);
   const { tokenInfo } = useTokenManager();
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -183,6 +185,15 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
     }
   };
 
+  const handleJsonLoad = (data: PaymentScheduleInput) => {
+    if (data.currentSchedule) {
+      setExistingSchedule(data.currentSchedule);
+      setError(null);
+    } else {
+      setError('No current schedule found in the JSON request. Please ensure the JSON contains a currentSchedule object.');
+    }
+  };
+
   if (showNewSchedule && existingSchedule) {
     const initialInput: PaymentScheduleInput = {
       collectionFrequency: existingSchedule.collectionFrequency.charAt(0).toUpperCase() + 
@@ -212,10 +223,20 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
   return (
     <div className="max-w-screen-2xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <h1 className="text-2xl font-bold mb-6 flex items-center gap-2 text-primary">
-          <Calendar className="w-6 h-6" />
-          Amend Payment Schedule
-        </h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold flex items-center gap-2 text-primary">
+            <Calendar className="w-6 h-6" />
+            Amend Payment Schedule
+          </h1>
+          <button
+            onClick={() => setIsJsonLoaderOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+            title="Load from JSON Request"
+          >
+            <FileJson className="w-5 h-5" />
+            Load JSON Request
+          </button>
+        </div>
 
         {!tokenInfo.accessToken && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
@@ -342,6 +363,13 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
           <code>{JSON.stringify(existingSchedule, null, 2)}</code>
         </pre>
       </Modal>
+
+      {isJsonLoaderOpen && (
+        <JsonLoader
+          onLoad={handleJsonLoad}
+          onClose={() => setIsJsonLoaderOpen(false)}
+        />
+      )}
     </div>
   );
 }
