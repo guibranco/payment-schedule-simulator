@@ -6,12 +6,13 @@ import ConvertSchedule from './components/ConvertSchedule';
 import ViewSchedule from './components/ViewSchedule';
 import ConfigDialog from './components/ConfigDialog';
 import { STORAGE_KEYS } from './constants';
+import { getRedirectUri } from './utils/url';
 
 /**
  * Main application component for Payment Schedule Simulator.
  *
  * This function manages the state of the active tab, configuration dialog,
- * and API endpoint. It handles OAuth callbacks to authenticate users,
+ * and API endpoint. It handles OAuth callbacks to authenticate users with PKCE support,
  * and conditionally renders different components based on the active tab.
  *
  * @returns The main application component.
@@ -37,7 +38,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const handleOAuthCallback = () => {
+    const handleOAuthCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const state = urlParams.get('state');
@@ -50,28 +51,47 @@ export default function App() {
         const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID);
         const environment = localStorage.getItem(STORAGE_KEYS.ENVIRONMENT) || 'prod';
         const envSuffix = environment === 'prod' ? '' : `-${environment}`;
+        const codeVerifier = localStorage.getItem(STORAGE_KEYS.CODE_VERIFIER);
         
-        fetch(tokenEndpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            client_id: clientId || '',
-            code: code,
-            grant_type: 'authorization_code',
-            redirect_uri: window.location.origin,
-            scope: `api://schedule-api${envSuffix}/user_impersonation`,
-          }),
-        })
-        .then(response => response.json())
-        .then(data => {
-          localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token);
-        })
-        .catch(error => {
-          console.error('Error exchanging code for token:', error);
+        if (!codeVerifier) {
+          console.error('Code verifier not found');
           setIsConfigOpen(true);
-        });
+          return;
+        }
+
+        try {
+          const redirectUri = getRedirectUri();
+          
+          const response = await fetch(tokenEndpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+              client_id: clientId || '',
+              code: code,
+              grant_type: 'authorization_code',
+              redirect_uri: redirectUri,
+              scope: `api://schedule-api${envSuffix}/user_impersonation`,
+              code_verifier: codeVerifier,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Token exchange failed: ${response.status}`);
+          }
+
+          const data = await response.json();
+          localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token);
+          
+          // Clean up the code verifier
+          localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
+        } catch (error) {
+          console.error('Error exchanging code for token:', error);
+          // Clean up the code verifier on error
+          localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
+          setIsConfigOpen(true);
+        }
       }
     };
 

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Settings, X } from 'lucide-react';
 import { STORAGE_KEYS } from '../constants';
+import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
+import { getRedirectUri } from '../utils/url';
 
 interface Props {
   isOpen: boolean;
@@ -20,7 +22,7 @@ interface OAuthConfig {
  *
  * This component renders a dialog to configure an API endpoint, including base URL, port,
  * client ID, tenant ID, environment, and scopes. It also handles form submission to save the
- * configurations and redirects to the authorization URL for OAuth2 authentication.
+ * configurations and redirects to the authorization URL for OAuth2 authentication with PKCE.
  *
  * @param isOpen - A boolean indicating whether the dialog is open or closed.
  * @param onClose - A function to close the dialog.
@@ -57,21 +59,32 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
   }, [isOpen]);
 
   /**
-   * Generates the authorization URL for OAuth 2.0 authentication.
+   * Generates the authorization URL for OAuth 2.0 authentication with PKCE.
    */
-  const getAuthorizationUrl = useCallback((config: OAuthConfig) => {
+  const getAuthorizationUrl = useCallback(async (config: OAuthConfig) => {
     const baseUrl = `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/authorize`;
     const envSuffix = config.environment === 'prod' ? '' : `-${config.environment}`;
     const scope = config.scopes.map(scope => 
       scope.replace('{environment-suffix}', envSuffix)
     ).join(' ');
 
+    // Generate PKCE parameters
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+    
+    // Store code_verifier for later use in token exchange
+    localStorage.setItem(STORAGE_KEYS.CODE_VERIFIER, codeVerifier);
+
+    const redirectUri = getRedirectUri();
+
     const params = new URLSearchParams({
       client_id: config.clientId,
       response_type: 'code',
-      redirect_uri: window.location.origin,
+      redirect_uri: redirectUri,
       scope,
-      state: crypto.randomUUID()
+      state: crypto.randomUUID(),
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256'
     });
 
     return `${baseUrl}?${params.toString()}`;
@@ -79,9 +92,9 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
 
   /**
    * Handles form submission by preventing default behavior, validating and storing API endpoint details,
-   * generating an authorization URL, and redirecting to it. Also saves configuration and closes the form.
+   * generating an authorization URL with PKCE, and redirecting to it. Also saves configuration and closes the form.
    */
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
@@ -106,7 +119,7 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
       scopes: selectedScopes
     };
 
-    const authUrl = getAuthorizationUrl(config);
+    const authUrl = await getAuthorizationUrl(config);
     window.location.href = authUrl;
     
     onSave(baseUrl);
@@ -120,6 +133,8 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
   }, [onClose]);
 
   if (!isOpen) return null;
+
+  const redirectUri = getRedirectUri();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -209,6 +224,17 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
                 <option value="int">Integration</option>
                 <option value="stg">Staging</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Redirect URI
+              </label>
+              <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-600 break-all">
+                {redirectUri}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Use this URL in your Azure AD app registration
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
