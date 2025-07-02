@@ -5,6 +5,7 @@ import AmendSchedule from './components/AmendSchedule';
 import ConvertSchedule from './components/ConvertSchedule';
 import ViewSchedule from './components/ViewSchedule';
 import ConfigDialog from './components/ConfigDialog';
+import TokenStatus from './components/TokenStatus';
 import { STORAGE_KEYS } from './constants';
 import { getRedirectUri } from './utils/url';
 
@@ -42,6 +43,25 @@ export default function App() {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const state = urlParams.get('state');
+      const error = urlParams.get('error');
+      
+      if (error) {
+        console.error('OAuth error:', error);
+        // If silent refresh failed, try with prompt
+        if (error === 'interaction_required' || error === 'login_required') {
+          const returnUrl = localStorage.getItem(STORAGE_KEYS.RETURN_URL);
+          if (returnUrl) {
+            localStorage.removeItem(STORAGE_KEYS.RETURN_URL);
+            // Retry without prompt=none
+            const currentUrl = new URL(window.location.href);
+            const newUrl = currentUrl.href.replace('prompt=none&', '').replace('&prompt=none', '');
+            window.location.href = newUrl;
+            return;
+          }
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
       
       if (code && state) {
         window.history.replaceState({}, document.title, window.location.pathname);
@@ -84,12 +104,26 @@ export default function App() {
           const data = await response.json();
           localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token);
           
+          // Calculate and store expiration time
+          const expiresIn = data.expires_in || 3600; // Default to 1 hour if not provided
+          const expiresAt = Date.now() + (expiresIn * 1000);
+          localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, expiresAt.toString());
+          
           // Clean up the code verifier
           localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
+          
+          // Return to the original URL if available
+          const returnUrl = localStorage.getItem(STORAGE_KEYS.RETURN_URL);
+          if (returnUrl && returnUrl !== window.location.href) {
+            localStorage.removeItem(STORAGE_KEYS.RETURN_URL);
+            window.location.href = returnUrl;
+            return;
+          }
         } catch (error) {
           console.error('Error exchanging code for token:', error);
           // Clean up the code verifier on error
           localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
+          localStorage.removeItem(STORAGE_KEYS.RETURN_URL);
           setIsConfigOpen(true);
         }
       }
@@ -119,13 +153,16 @@ export default function App() {
               <Calculator className="w-8 h-8" />
               Payment Schedule Simulator
             </h1>
-            <button
-              onClick={handleOpenConfig}
-              className="p-2 rounded-full hover:bg-primary-light transition-colors"
-              title="Settings"
-            >
-              <Settings className="w-6 h-6" />
-            </button>
+            <div className="flex items-center gap-4">
+              <TokenStatus />
+              <button
+                onClick={handleOpenConfig}
+                className="p-2 rounded-full hover:bg-primary-light transition-colors"
+                title="Settings"
+              >
+                <Settings className="w-6 h-6" />
+              </button>
+            </div>
           </div>
         </div>
       </header>

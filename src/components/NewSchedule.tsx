@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, Euro, X, ArrowLeft } from 'lucide-react';
 import { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
+import { useTokenManager } from '../hooks/useTokenManager';
 import ScheduleDisplay from './ScheduleDisplay';
 import Modal from './Modal';
 
@@ -36,6 +37,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
   const [feeTax, setFeeTax] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
+  const { tokenInfo, refreshToken } = useTokenManager();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -108,9 +110,14 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
       return;
     }
 
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) {
+    if (!tokenInfo.accessToken) {
       setError('Not authenticated. Please configure the application settings.');
+      return;
+    }
+
+    if (tokenInfo.isExpired) {
+      setError('Token has expired. Refreshing...');
+      await refreshToken();
       return;
     }
     
@@ -121,7 +128,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${tokenInfo.accessToken}`,
           'Accept': 'application/json'
         },
         mode: 'cors',
@@ -131,8 +138,8 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
       
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('accessToken');
-          setError('Authentication expired. Please reconfigure the application settings.');
+          setError('Authentication expired. Refreshing token...');
+          await refreshToken();
           return;
         }
         const errorData = await response.json().catch(() => null);
@@ -400,7 +407,8 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
             </button>
             <button
               type="submit"
-              className="px-6 py-3 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors text-base font-medium"
+              disabled={tokenInfo.isExpired}
+              className="px-6 py-3 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Generate Schedule
             </button>

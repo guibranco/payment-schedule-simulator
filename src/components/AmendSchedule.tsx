@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FileUp, Clipboard, Calendar, ArrowRight } from 'lucide-react';
 import { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
+import { useTokenManager } from '../hooks/useTokenManager';
 import NewSchedule from './NewSchedule';
 import ScheduleDisplay from './ScheduleDisplay';
 import Modal from './Modal';
@@ -25,6 +26,7 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
   const [jsonInput, setJsonInput] = useState('');
   const [showPasteInput, setShowPasteInput] = useState(false);
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
+  const { tokenInfo } = useTokenManager();
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -215,6 +217,12 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
           Amend Payment Schedule
         </h1>
 
+        {!tokenInfo.accessToken && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-yellow-700">Please configure authentication to use this feature.</p>
+          </div>
+        )}
+
         {!existingSchedule && (
           <div className="space-y-6">
             <div className="flex gap-4 justify-center">
@@ -314,7 +322,8 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
               </button>
               <button
                 onClick={() => setShowNewSchedule(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-md hover:bg-secondary-dark transition-colors"
+                disabled={!tokenInfo.accessToken}
+                className="flex items-center gap-2 px-6 py-3 bg-secondary text-white rounded-md hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create New Schedule
                 <ArrowRight className="w-5 h-5" />
