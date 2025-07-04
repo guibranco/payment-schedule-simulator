@@ -22,8 +22,8 @@ export default function TokenStatus() {
   /**
    * Determines and returns an icon based on the current status of token expiration and refresh state.
    *
-   * The function checks if the application is refreshing, if the token has expired, or if it is expiring soon,
-   * and returns a corresponding icon component with appropriate styling.
+   * The function evaluates whether the application is refreshing, if the token has expired,
+   * or if it is expiring soon, and returns a corresponding icon component with appropriate styling.
    */
   const getStatusIcon = () => {
     if (isRefreshing) {
@@ -41,9 +41,9 @@ export default function TokenStatus() {
   /**
    * Determines the status text based on token validity and refresh state.
    *
-   * The function checks if the token is currently being refreshed, if it has expired,
-   * or if it is expiring soon. Depending on these conditions, it returns an appropriate
-   * status message indicating the current state of the token.
+   * This function checks if the token is currently being refreshed, has expired,
+   * or is expiring soon. It returns an appropriate status message indicating
+   * the current state of the token.
    */
   const getStatusText = () => {
     if (isRefreshing) {
@@ -62,8 +62,9 @@ export default function TokenStatus() {
    * Determines the time remaining until a token expires.
    *
    * This function calculates the time difference between the current timestamp and the token's expiry timestamp.
-   * If the token has expired, it returns 'Expired'. Otherwise, it formats the remaining time into days, hours, or minutes,
-   * depending on the duration. The calculation is done by converting milliseconds to larger units of time as needed.
+   * If the token has expired, it returns 'Expired'. Otherwise, it formats the remaining time into days, hours,
+   * or minutes, depending on the duration. The calculation is done by converting milliseconds to larger units
+   * of time as needed.
    */
   const getTimeUntilExpiry = () => {
     if (!tokenInfo.expiresAt) return null;
@@ -83,7 +84,7 @@ export default function TokenStatus() {
   };
 
   /**
-   * Handles refresh logic by checking if a refresh is already in progress and calling refreshToken if not.
+   * Checks if a refresh is already in progress and calls refreshToken if not.
    */
   const handleRefresh = () => {
     if (!isRefreshing) {
