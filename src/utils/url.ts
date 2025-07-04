@@ -3,7 +3,7 @@
  */
 
 /**
- * Gets the full redirect URI including the base path from vite config
+ * Constructs the full redirect URI by combining the window origin and the base path from vite config.
  */
 export function getRedirectUri(): string {
   const origin = window.location.origin;
@@ -16,7 +16,7 @@ export function getRedirectUri(): string {
 }
 
 /**
- * Gets the current full URL including base path
+ * Retrieves the current full URL, including the base path.
  */
 export function getCurrentUrl(): string {
   return window.location.href;
