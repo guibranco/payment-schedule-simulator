@@ -74,7 +74,7 @@ export function parseApiError(response: Response, errorData: any): ApiErrorRespo
 /**
  * Formats error details from an API response for display in the UI.
  *
- * This function constructs a formatted error message string based on the content of the `ApiErrorResponse`.
+ * Constructs a formatted error message string based on the content of the `ApiErrorResponse`.
  * If there are no details, it returns just the error message.
  * If there is one detail, it appends the detail to the error message.
  * For multiple details, it lists each detail on a new line prefixed by a bullet point.
