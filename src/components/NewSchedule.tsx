@@ -28,16 +28,18 @@ interface Props {
 }
 
 /**
- * PaymentForm component for handling payment schedules.
+ * PaymentScheduleForm component
  *
- * This component provides a user interface for creating and managing payment schedules.
- * It includes fields for schedule start date, end date, effective date, due date, net amount,
- * taxes and levies, and admin fees. Users can add and remove items in the taxes and fees sections.
- * The form also allows users to view and reset their inputs, and generate a payment schedule
- * based on the provided data.
+ * This React component renders a form for creating or editing a payment schedule.
+ * It includes fields for scheduling start and end dates, effective date, due date,
+ * net amount, taxes/levies, admin fees, and actions to generate the schedule, reset,
+ * view JSON request, and load from JSON.
  *
- * @param {Object} props - Component properties.
- * @param {Function} props.handlePayment - Callback function for handling payment submission.
+ * @component
+ * @param {Object} props - Component properties
+ * @param {Function} props.handleJsonLoad - Callback function to handle JSON loading
+ * @param {Function} props.parseJson - Function to parse JSON data
+ * @returns {JSX.Element} Rendered component
  */
 export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, existingSchedule }: Props) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>({
@@ -117,7 +119,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
   };
 
   /**
-   * Sets the schedule and clears any API errors based on the provided JSON data.
+   * Updates the schedule and clears any API errors based on the provided JSON data.
    */
   const handleJsonLoad = (data: PaymentScheduleInput) => {
     setSchedule(data);
