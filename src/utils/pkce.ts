@@ -3,7 +3,7 @@
  */
 
 /**
- * Generates a cryptographically random string for use as code_verifier
+ * Generates a cryptographically random string suitable as a code verifier.
  */
 export function generateCodeVerifier(): string {
   const array = new Uint8Array(32);
@@ -12,7 +12,7 @@ export function generateCodeVerifier(): string {
 }
 
 /**
- * Creates a code_challenge from the code_verifier using SHA256
+ * Generates a code challenge from the given code verifier using SHA-256 hashing.
  */
 export async function generateCodeChallenge(codeVerifier: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -22,7 +22,7 @@ export async function generateCodeChallenge(codeVerifier: string): Promise<strin
 }
 
 /**
- * Base64 URL encode without padding
+ * Encodes a Uint8Array to a Base64 URL string without padding.
  */
 function base64URLEncode(array: Uint8Array): string {
   return btoa(String.fromCharCode(...array))

@@ -28,17 +28,18 @@ interface Props {
 }
 
 /**
- * PaymentRequestForm component
+ * PaymentScheduleForm component
  *
- * This component renders a form for creating or updating a payment request.
- * It includes fields for various payment details, such as recipient name,
- * account number, bank code, amount, currency, purpose of the transfer, and
- * additional information. The form also provides options to add or remove
- * beneficiaries and senders.
+ * This React component renders a form for creating or editing a payment schedule.
+ * It includes fields for scheduling start and end dates, effective date, due date,
+ * net amount, taxes/levies, admin fees, and actions to generate the schedule, reset,
+ * view JSON request, and load from JSON.
  *
  * @component
- * @example
- * <PaymentRequestForm />
+ * @param {Object} props - Component properties
+ * @param {Function} props.handleJsonLoad - Callback function to handle JSON loading
+ * @param {Function} props.parseJson - Function to parse JSON data
+ * @returns {JSX.Element} Rendered component
  */
 export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, existingSchedule }: Props) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>({
@@ -118,7 +119,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
   };
 
   /**
-   * Updates the schedule and clears any API errors with the given data.
+   * Updates the schedule and clears any API errors based on the provided JSON data.
    */
   const handleJsonLoad = (data: PaymentScheduleInput) => {
     setSchedule(data);
