@@ -22,7 +22,7 @@ export default function JsonLoader({ onLoad, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Converts collection frequency to 'Monthly' or 'Annual'.
+   * Converts collection frequency to either 'Monthly' or 'Annual'.
    */
   const normalizeCollectionFrequency = (frequency: string): 'Monthly' | 'Annual' => {
     const normalized = frequency.toLowerCase();
@@ -100,9 +100,9 @@ export default function JsonLoader({ onLoad, onClose }: Props) {
    * Handles form submission by parsing JSON input and invoking callbacks.
    *
    * This function prevents the default form event, clears any existing errors,
-   * attempts to parse the provided JSON input, and processes the parsed data
-   * using a callback. If an error occurs during parsing, it sets an appropriate
-   * error message.
+   * attempts to parse the provided JSON input using `JSON.parse`, and processes
+   * the parsed data using a callback. If an error occurs during parsing, it sets
+   * an appropriate error message based on the type of error encountered.
    */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
