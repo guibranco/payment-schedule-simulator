@@ -21,8 +21,9 @@ interface OAuthConfig {
  * ConfigDialog component for managing API configuration settings.
  *
  * This component renders a dialog to configure an API endpoint, including base URL, port,
- * client ID, tenant ID, environment, and scopes. It also handles form submission to save the
- * configurations and redirects to the authorization URL for OAuth2 authentication with PKCE.
+ * client ID, tenant ID, environment, and scopes. It handles form submission to save the configurations
+ * and redirects to the authorization URL for OAuth2 authentication with PKCE. The component also manages
+ * state using React hooks such as `useState` and `useEffect`, and uses callbacks for handling events.
  *
  * @param isOpen - A boolean indicating whether the dialog is open or closed.
  * @param onClose - A function to close the dialog.

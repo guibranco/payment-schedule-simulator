@@ -186,7 +186,7 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
   };
 
   /**
-   * Handles JSON data by setting an existing schedule or error based on the input.
+   * Updates existing schedule or sets error based on JSON data.
    */
   const handleJsonLoad = (data: PaymentScheduleInput) => {
     if (data.currentSchedule) {
