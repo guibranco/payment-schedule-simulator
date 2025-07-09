@@ -30,16 +30,18 @@ interface Props {
 /**
  * PaymentScheduleForm component
  *
- * This React component renders a form for creating or editing a payment schedule.
- * It includes fields for scheduling start and end dates, effective date, due date,
- * net amount, taxes/levies, admin fees, and actions to generate the schedule, reset,
- * view JSON request, and load from JSON.
+ * This component renders a form for creating or editing payment schedules. It includes fields for
+ * schedule start date, end date, effective date, due date, net amount, taxes and levies, admin fees,
+ * and buttons for adding/removing these items. The form also provides options to reset the inputs,
+ * view the JSON request preview, and generate the schedule.
  *
- * @component
  * @param {Object} props - Component properties
- * @param {Function} props.handleJsonLoad - Callback function to handle JSON loading
- * @param {Function} props.parseJson - Function to parse JSON data
- * @returns {JSX.Element} Rendered component
+ * @param {Object} [props.initialSchedule] - Initial schedule data (for editing)
+ * @param {string} [props.apiEndpoint] - API endpoint for generating the schedule
+ * @param {Function} [props.onSuccess] - Callback function to handle successful generation of the schedule
+ * @param {Function} [props.onError] - Callback function to handle errors during schedule generation
+ *
+ * @returns {JSX.Element} PaymentScheduleForm component
  */
 export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, existingSchedule }: Props) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>({
@@ -107,6 +109,9 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
     setFeeTax('');
   };
 
+  /**
+   * Removes a fee by key from the schedule's admin fees.
+   */
   const removeFee = (key: string) => {
     setSchedule(prev => {
       const newFees = { ...prev.adminFees };
@@ -119,7 +124,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
   };
 
   /**
-   * Updates the schedule and clears any API errors based on the provided JSON data.
+   * Updates the schedule and clears API errors with given JSON data.
    */
   const handleJsonLoad = (data: PaymentScheduleInput) => {
     setSchedule(data);
