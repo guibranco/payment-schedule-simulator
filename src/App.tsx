@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, PencilRuler, Settings, ArrowRight, Eye } from 'lucide-react';
+import { Calculator, PencilRuler, Settings, ArrowRight, Eye, GitCompare } from 'lucide-react';
 import NewSchedule from './components/NewSchedule';
 import AmendSchedule from './components/AmendSchedule';
 import ConvertSchedule from './components/ConvertSchedule';
 import ViewSchedule from './components/ViewSchedule';
+import CompareSchedules from './components/CompareSchedules';
 import ConfigDialog from './components/ConfigDialog';
 import TokenStatus from './components/TokenStatus';
 import { STORAGE_KEYS } from './constants';
@@ -22,7 +23,7 @@ import { getRedirectUri } from './utils/url';
  * @returns The main application component.
  */
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'new' | 'amend' | 'convert' | 'view'>('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'amend' | 'convert' | 'view' | 'compare'>('new');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [apiEndpoint, setApiEndpoint] = useState('');
 
@@ -223,6 +224,17 @@ export default function App() {
               <Eye className="w-5 h-5" />
               View Schedule
             </button>
+            <button
+              onClick={() => setActiveTab('compare')}
+              className={`py-4 px-3 inline-flex items-center gap-2 border-b-2 text-sm font-medium ${
+                activeTab === 'compare'
+                  ? 'border-secondary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <GitCompare className="w-5 h-5" />
+              Compare Schedules
+            </button>
           </div>
         </div>
       </nav>
@@ -234,8 +246,10 @@ export default function App() {
           <AmendSchedule apiEndpoint={apiEndpoint} />
         ) : activeTab === 'convert' ? (
           <ConvertSchedule />
-        ) : (
+        ) : activeTab === 'view' ? (
           <ViewSchedule />
+        ) : (
+          <CompareSchedules />
         )}
       </main>
 
