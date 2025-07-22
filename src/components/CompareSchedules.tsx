@@ -55,6 +55,19 @@ export default function CompareSchedules() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file type and size
+    if (!file.type.includes('json') && !file.name.endsWith('.json')) {
+      const setError = scheduleNumber === 1 ? setError1 : setError2;
+      setError('Please select a valid JSON file.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      const setError = scheduleNumber === 1 ? setError1 : setError2;
+      setError('File size too large. Please select a file smaller than 10MB.');
+      return;
+    }
+
     const setJsonInput = scheduleNumber === 1 ? setJsonInput1 : setJsonInput2;
     const setError = scheduleNumber === 1 ? setError1 : setError2;
 
@@ -65,8 +78,11 @@ export default function CompareSchedules() {
         setJsonInput(content);
         setError(null);
       } catch (err) {
-        setError('Failed to read file');
+        setError('Failed to read file. Please ensure it is a valid text file.');
       }
+    };
+    reader.onerror = () => {
+      setError('Error reading file. Please try again.');
     };
     reader.readAsText(file);
   };
