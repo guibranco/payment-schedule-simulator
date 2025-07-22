@@ -150,8 +150,8 @@ export default function CompareSchedules() {
   const renderComparisonSummary = () => {
     if (!schedule1 || !schedule2) return null;
 
-    const total1 = schedule1.scheduleItems.reduce((sum, item) => sum + item.amountDue, 0);
-    const total2 = schedule2.scheduleItems.reduce((sum, item) => sum + item.amountDue, 0);
+    const total1 = (schedule1?.scheduleItems || []).reduce((sum, item) => sum + item.amountDue, 0);
+    const total2 = (schedule2?.scheduleItems || []).reduce((sum, item) => sum + item.amountDue, 0);
     const difference = total2 - total1;
 
     return (
@@ -178,12 +178,12 @@ export default function CompareSchedules() {
         </div>
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
-            <p className="text-blue-700"><strong>Schedule 1:</strong> {schedule1.scheduleItems.length} items</p>
+            <p className="text-blue-700"><strong>Schedule 1:</strong> {(schedule1?.scheduleItems || []).length} items</p>
             <p className="text-blue-700"><strong>Frequency:</strong> {schedule1.collectionFrequency}</p>
             <p className="text-blue-700"><strong>Period:</strong> {new Date(schedule1.coverStartDate).toLocaleDateString()} - {new Date(schedule1.coverEndDate).toLocaleDateString()}</p>
           </div>
           <div>
-            <p className="text-blue-700"><strong>Schedule 2:</strong> {schedule2.scheduleItems.length} items</p>
+            <p className="text-blue-700"><strong>Schedule 2:</strong> {(schedule2?.scheduleItems || []).length} items</p>
             <p className="text-blue-700"><strong>Frequency:</strong> {schedule2.collectionFrequency}</p>
             <p className="text-blue-700"><strong>Period:</strong> {new Date(schedule2.coverStartDate).toLocaleDateString()} - {new Date(schedule2.coverEndDate).toLocaleDateString()}</p>
           </div>
