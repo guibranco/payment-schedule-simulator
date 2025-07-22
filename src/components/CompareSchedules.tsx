@@ -4,6 +4,14 @@ import { PaymentScheduleResponse } from '../types';
 import ScheduleDisplay from './ScheduleDisplay';
 import Modal from './Modal';
 
+/**
+ * Component to compare two payment schedules by uploading or pasting JSON data.
+ *
+ * This component manages state for two payment schedules and allows users to upload JSON files or paste JSON content.
+ * It validates the JSON input, displays the schedules with totals and differences, and provides options to view raw JSON in modals.
+ *
+ * @returns A React functional component rendering the comparison interface.
+ */
 export default function CompareSchedules() {
   const [schedule1, setSchedule1] = useState<PaymentScheduleResponse | null>(null);
   const [schedule2, setSchedule2] = useState<PaymentScheduleResponse | null>(null);
@@ -15,6 +23,15 @@ export default function CompareSchedules() {
   const [isJsonModal2Open, setIsJsonModal2Open] = useState(false);
   const [activeInput, setActiveInput] = useState<1 | 2>(1);
 
+  /**
+   * Handles submission of JSON data for a specified schedule number.
+   *
+   * This function prevents default form behavior, parses the JSON input,
+   * validates required properties, and updates the state with the parsed schedule or an error message.
+   *
+   * @param scheduleNumber - The schedule number (1 or 2) to update.
+   * @returns A function that handles the form submission event.
+   */
   const handleJsonSubmit = (scheduleNumber: 1 | 2) => (e: React.FormEvent) => {
     e.preventDefault();
     const jsonInput = scheduleNumber === 1 ? jsonInput1 : jsonInput2;
@@ -39,6 +56,9 @@ export default function CompareSchedules() {
     }
   };
 
+  /**
+   * Clears a specified schedule by resetting its state and error messages.
+   */
   const clearSchedule = (scheduleNumber: 1 | 2) => {
     if (scheduleNumber === 1) {
       setSchedule1(null);
@@ -51,6 +71,16 @@ export default function CompareSchedules() {
     }
   };
 
+  /**
+   * Handles file upload for JSON files, validating type and size before processing.
+   *
+   * It checks if the uploaded file is a valid JSON file and within the size limit (10MB).
+   * Upon successful validation, it reads the file content and updates the corresponding input state.
+   * If any validation fails or an error occurs during file reading, it sets appropriate error messages.
+   *
+   * @param scheduleNumber - A number indicating which schedule to update (either 1 or 2).
+   * @returns A function that takes a React ChangeEvent for file input handling.
+   */
   const handleFileUpload = (scheduleNumber: 1 | 2) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -87,6 +117,15 @@ export default function CompareSchedules() {
     reader.readAsText(file);
   };
 
+  /**
+   * Renders a schedule input component based on the provided schedule number.
+   *
+   * This function determines which schedule, JSON input, error message, and state setters to use based on the `scheduleNumber`.
+   * It renders either a display of an existing schedule or an interface for uploading or pasting a new JSON schedule.
+   * The component includes buttons for viewing the JSON in a modal, clearing the schedule, and loading a new one.
+   *
+   * @param {1 | 2} scheduleNumber - The number indicating which schedule to render (either 1 or 2).
+   */
   const renderScheduleInput = (scheduleNumber: 1 | 2) => {
     const schedule = scheduleNumber === 1 ? schedule1 : schedule2;
     const jsonInput = scheduleNumber === 1 ? jsonInput1 : jsonInput2;
@@ -172,6 +211,16 @@ export default function CompareSchedules() {
     );
   };
 
+  /**
+   * Renders a comparison summary of two schedules.
+   *
+   * This function calculates and displays the total amounts due, difference,
+   * and other relevant details such as item count, frequency, and period for each schedule.
+   * It uses a helper function `formatDate` to convert date strings into a formatted locale date string.
+   * If either `schedule1` or `schedule2` is not provided, it returns null.
+   *
+   * @returns A JSX element containing the comparison summary or null if schedules are missing.
+   */
   const renderComparisonSummary = () => {
     if (!schedule1 || !schedule2) return null;
 
@@ -179,6 +228,9 @@ export default function CompareSchedules() {
     const total2 = (schedule2?.scheduleItems || []).reduce((sum, item) => sum + item.amountDue, 0);
     const difference = total2 - total1;
 
+    /**
+     * Formats a date string to a local date representation.
+     */
     const formatDate = (dateString: string) => {
       try {
         return new Date(dateString).toLocaleDateString();
