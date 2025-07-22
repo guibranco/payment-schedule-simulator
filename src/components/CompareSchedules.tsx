@@ -154,6 +154,14 @@ export default function CompareSchedules() {
     const total2 = (schedule2?.scheduleItems || []).reduce((sum, item) => sum + item.amountDue, 0);
     const difference = total2 - total1;
 
+    const formatDate = (dateString: string) => {
+      try {
+        return new Date(dateString).toLocaleDateString();
+      } catch {
+        return 'Invalid date';
+      }
+    };
+
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
         <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center gap-2">
@@ -180,12 +188,16 @@ export default function CompareSchedules() {
           <div>
             <p className="text-blue-700"><strong>Schedule 1:</strong> {(schedule1?.scheduleItems || []).length} items</p>
             <p className="text-blue-700"><strong>Frequency:</strong> {schedule1.collectionFrequency}</p>
-            <p className="text-blue-700"><strong>Period:</strong> {new Date(schedule1.coverStartDate).toLocaleDateString()} - {new Date(schedule1.coverEndDate).toLocaleDateString()}</p>
+            <p className="text-blue-700">
+              <strong>Period:</strong> {formatDate(schedule1.coverStartDate)} - {formatDate(schedule1.coverEndDate)}
+            </p>
           </div>
           <div>
             <p className="text-blue-700"><strong>Schedule 2:</strong> {(schedule2?.scheduleItems || []).length} items</p>
             <p className="text-blue-700"><strong>Frequency:</strong> {schedule2.collectionFrequency}</p>
-            <p className="text-blue-700"><strong>Period:</strong> {new Date(schedule2.coverStartDate).toLocaleDateString()} - {new Date(schedule2.coverEndDate).toLocaleDateString()}</p>
+            <p className="text-blue-700">
+              <strong>Period:</strong> {formatDate(schedule2.coverStartDate)} - {formatDate(schedule2.coverEndDate)}
+            </p>
           </div>
         </div>
       </div>
