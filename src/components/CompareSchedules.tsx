@@ -23,6 +23,15 @@ export default function CompareSchedules() {
 
     try {
       const parsedSchedule = JSON.parse(jsonInput);
+      // Basic validation to ensure required properties exist
+      if (!parsedSchedule.scheduleItems || !Array.isArray(parsedSchedule.scheduleItems)) {
+        setError('Invalid schedule format: scheduleItems array is required.');
+        return;
+      }
+      if (!parsedSchedule.collectionFrequency || !parsedSchedule.coverStartDate || !parsedSchedule.coverEndDate) {
+        setError('Invalid schedule format: missing required fields.');
+        return;
+      }
       setSchedule(parsedSchedule);
       setError(null);
     } catch (err) {
