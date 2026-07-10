@@ -11,7 +11,7 @@ interface Props {
 }
 
 /**
- * Merged "View / Convert Schedule" page.
+ * Merged "View Schedule" page.
  *
  * Accepts any of the 4 supported payment schedule JSON shapes (Payment Schedule
  * Service Response/Request, Policy Admin CosmosDB Document, Rerates CosmosDB
@@ -36,6 +36,9 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
       setScheduleInput(detected.input);
       setError(null);
     } catch (err) {
+      setFormat(null);
+      setSchedule(null);
+      setScheduleInput(null);
       if (err instanceof SyntaxError) {
         setError('Invalid JSON syntax. Please check for missing commas, quotes, or brackets.');
       } else {
@@ -233,7 +236,7 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h1 className="text-2xl font-bold mb-6 flex items-center gap-2 text-primary">
           <Eye className="w-6 h-6" />
-          View / Convert Schedule
+          View Schedule
         </h1>
 
         {!hasResult && (
@@ -283,10 +286,11 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
             {showPasteInput ? (
               <form onSubmit={handlePasteSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="schedule-json-example" className="block text-sm font-medium text-gray-700 mb-2">
                     Load Example
                   </label>
                   <select
+                    id="schedule-json-example"
                     value={selectedExample}
                     onChange={handleExampleChange}
                     className="w-full h-11 px-4 border border-gray-300 rounded-md focus:border-primary focus:ring focus:ring-primary/20"
