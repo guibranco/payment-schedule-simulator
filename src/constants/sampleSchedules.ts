@@ -66,7 +66,7 @@ export const SAMPLE_SCHEDULES: SampleSchedule[] = [
       effectiveDate: '2026-07-10',
       dueDate: '0001-01-01',
       netAmount: 749.06,
-      taxesAndLevies: { LVY: 22.47, ICF: 7.49 },
+      taxesAndLevies: { LVY: { '2024-01-01': 22.47 }, ICF: { '2026-01-01': 7.49 } },
       adminFees: {},
       currentSchedule: {
         id: 'b679beb3-b37d-42e5-b075-ae0ce2374009',

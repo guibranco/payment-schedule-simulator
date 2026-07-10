@@ -50,6 +50,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
   });
   const [response, setResponse] = useState<PaymentScheduleResponse | null>(null);
   const [taxKey, setTaxKey] = useState('');
+  const [taxDate, setTaxDate] = useState('');
   const [taxValue, setTaxValue] = useState('');
   const [feeKey, setFeeKey] = useState('');
   const [feeAmount, setFeeAmount] = useState('');
@@ -70,21 +71,33 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
 
   const addTax = () => {
     if (!taxKey || !taxValue) return;
+    const effectiveDate = taxDate || '0001-01-01';
     setSchedule(prev => ({
       ...prev,
       taxesAndLevies: {
         ...prev.taxesAndLevies,
-        [taxKey]: parseFloat(taxValue)
+        [taxKey]: { ...(prev.taxesAndLevies[taxKey] || {}), [effectiveDate]: parseFloat(taxValue) }
       }
     }));
     setTaxKey('');
+    setTaxDate('');
     setTaxValue('');
   };
 
-  const removeTax = (key: string) => {
+  /**
+   * Removes a single effective-date entry for a tax label, dropping the label
+   * entirely once its last date entry is removed.
+   */
+  const removeTax = (key: string, date: string) => {
     setSchedule(prev => {
       const newTaxes = { ...prev.taxesAndLevies };
-      delete newTaxes[key];
+      const dates = { ...(newTaxes[key] || {}) };
+      delete dates[date];
+      if (Object.keys(dates).length === 0) {
+        delete newTaxes[key];
+      } else {
+        newTaxes[key] = dates;
+      }
       return {
         ...prev,
         taxesAndLevies: newTaxes
@@ -174,7 +187,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
     }
     
     try {
-      const functionUrl = new URL('/api/v1/schedule/calculate', apiEndpoint).toString();
+      const functionUrl = new URL('/api/v2/schedule/calculate', apiEndpoint).toString();
       
       const response = await fetch(functionUrl, {
         method: 'POST',
@@ -384,6 +397,14 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
                 className="flex-1 h-12 px-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base"
               />
               <input
+                type="date"
+                placeholder="Effective Date"
+                value={taxDate}
+                onChange={(e) => setTaxDate(e.target.value)}
+                title="Effective Date (defaults to unspecified)"
+                className="flex-1 h-12 px-4 rounded-lg border-2 border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary/20 transition-all text-base"
+              />
+              <input
                 type="number"
                 placeholder="Amount"
                 value={taxValue}
@@ -399,21 +420,25 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
                 Add Tax
               </button>
             </div>
-            {Object.entries(schedule.taxesAndLevies).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
-                <span className="text-base">
-                  <span className="font-medium">{key}:</span> €{value}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => removeTax(key)}
-                  className="text-red-600 hover:text-red-800 p-2"
-                  title="Remove tax"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            ))}
+            {Object.entries(schedule.taxesAndLevies).flatMap(([key, dates]) =>
+              Object.entries(dates).map(([date, value]) => (
+                <div key={`${key}-${date}`} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+                  <span className="text-base">
+                    <span className="font-medium">{key}</span>
+                    {date !== '0001-01-01' && <span className="text-gray-500"> (effective {date})</span>}
+                    <span>: €{value}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeTax(key, date)}
+                    className="text-red-600 hover:text-red-800 p-2"
+                    title="Remove tax"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              ))
+            )}
           </div>
 
           <div className="space-y-6">
