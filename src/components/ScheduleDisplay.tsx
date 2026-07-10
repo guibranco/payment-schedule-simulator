@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Euro, FileJson, FileSpreadsheet, Check, X, MinusCircle } from 'lucide-react';
+import { Euro, FileJson, FileSpreadsheet, Image as ImageIcon, Check, X, MinusCircle } from 'lucide-react';
 import { PaymentScheduleResponse } from '../types';
+import { exportScheduleImage } from '../utils/scheduleImage';
 import Modal from './Modal';
 
 interface Props {
@@ -22,7 +23,8 @@ interface Props {
  */
 export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
-  
+  const [imageError, setImageError] = useState<string | null>(null);
+
   const scheduleItems = schedule?.scheduleItems || [];
   
   const totalAmount = scheduleItems.length > 0 
@@ -151,6 +153,16 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     URL.revokeObjectURL(url);
   };
 
+  const downloadImage = async (format: 'png' | 'svg') => {
+    setImageError(null);
+    try {
+      await exportScheduleImage(schedule, format);
+    } catch (err) {
+      console.error('Error generating image:', err);
+      setImageError('Failed to generate image. Please try again.');
+    }
+  };
+
   const getStatusIcon = (succeeded: boolean | null, index: number) => {
     const icon = succeeded === null ? 
       <MinusCircle className="w-5 h-5 text-gray-400" /> :
@@ -176,8 +188,57 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   return (
     <>
       <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
-        <div className="flex justify-between items-center mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-grow">
+        <div className="flex justify-end flex-wrap gap-2 mb-6">
+          <button
+            onClick={() => setIsJsonModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+            title="View schedule JSON"
+          >
+            <FileJson className="w-5 h-5" />
+            View JSON
+          </button>
+          <button
+            onClick={downloadJson}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+            title="Download schedule as JSON"
+          >
+            <FileJson className="w-5 h-5" />
+            JSON
+          </button>
+          <button
+            onClick={downloadCsv}
+            className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary-dark"
+            title="Download schedule items as CSV"
+          >
+            <FileSpreadsheet className="w-5 h-5" />
+            CSV
+          </button>
+          <button
+            onClick={() => downloadImage('png')}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+            title="Download rendered schedule as PNG"
+          >
+            <ImageIcon className="w-5 h-5" />
+            PNG
+          </button>
+          <button
+            onClick={() => downloadImage('svg')}
+            className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary-dark"
+            title="Download rendered schedule as SVG"
+          >
+            <ImageIcon className="w-5 h-5" />
+            SVG
+          </button>
+        </div>
+
+        {imageError && (
+          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md">
+            {imageError}
+          </div>
+        )}
+
+        <div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="p-4 bg-primary/10 rounded-lg">
               <h3 className="text-sm font-medium text-primary">Total Amount</h3>
               <p className="mt-2 flex items-center text-2xl font-semibold text-primary">
@@ -197,38 +258,11 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
               <h3 className="text-sm font-medium text-gray-900">Schedule ID</h3>
-              <p className="mt-2 text-sm font-medium text-gray-900 truncate" title={schedule.id}>
+              <p className="mt-2 text-sm font-medium text-gray-900 break-all">
                 {schedule.id}
               </p>
             </div>
           </div>
-          <div className="flex gap-2 ml-4">
-            <button
-              onClick={() => setIsJsonModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-              title="View schedule JSON"
-            >
-              <FileJson className="w-5 h-5" />
-              View JSON
-            </button>
-            <button
-              onClick={downloadJson}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-              title="Download schedule as JSON"
-            >
-              <FileJson className="w-5 h-5" />
-              JSON
-            </button>
-            <button
-              onClick={downloadCsv}
-              className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary-dark"
-              title="Download schedule items as CSV"
-            >
-              <FileSpreadsheet className="w-5 h-5" />
-              CSV
-            </button>
-          </div>
-        </div>
 
         <div className="mb-6">
           <h3 className="text-sm font-medium text-gray-900 mb-2">Legend</h3>
@@ -326,6 +360,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
               ))}
             </tbody>
           </table>
+        </div>
         </div>
       </div>
 

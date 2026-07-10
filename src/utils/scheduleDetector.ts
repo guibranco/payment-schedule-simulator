@@ -111,7 +111,8 @@ export function detectScheduleFormat(json: any): ScheduleFormat {
     keys.has('collectionfrequency') &&
     keys.has('schedulestartdate') &&
     keys.has('effectivedate') &&
-    typeof getCI(json, 'netAmount') === 'number'
+    getCI(json, 'netAmount') != null &&
+    !isNaN(Number(getCI(json, 'netAmount')))
   ) {
     return 'request';
   }
