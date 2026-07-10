@@ -1,7 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Euro, FileJson, Download, ChevronDown, Check, X, MinusCircle } from 'lucide-react';
+import {
+  Euro,
+  FileJson,
+  FileSpreadsheet,
+  FileText,
+  FileCode,
+  Image,
+  Shapes,
+  ChevronDown,
+  Check,
+  X,
+  MinusCircle
+} from 'lucide-react';
 import { PaymentScheduleResponse } from '../types';
 import { exportScheduleImage } from '../utils/scheduleImage';
+import { convertResponseToFormat, ScheduleFormat } from '../utils/scheduleDetector';
 import { STORAGE_KEYS } from '../constants';
 import Modal from './Modal';
 
@@ -11,6 +24,7 @@ interface Props {
 }
 
 type ExportFormat = 'json' | 'csv' | 'pdf' | 'html' | 'png' | 'svg';
+type IconComponent = React.ComponentType<{ className?: string }>;
 
 const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
   json: 'JSON',
@@ -21,10 +35,46 @@ const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
   svg: 'SVG'
 };
 
+const EXPORT_FORMAT_ICONS: Record<ExportFormat, IconComponent> = {
+  json: FileJson,
+  csv: FileSpreadsheet,
+  pdf: FileText,
+  html: FileCode,
+  png: Image,
+  svg: Shapes
+};
+
 const EXPORT_FORMATS = Object.keys(EXPORT_FORMAT_LABELS) as ExportFormat[];
 
 function isExportFormat(value: string | null): value is ExportFormat {
   return !!value && (EXPORT_FORMATS as string[]).includes(value);
+}
+
+const VIEW_JSON_FORMAT_LABELS: Record<ScheduleFormat, string> = {
+  policyAdmin: 'Policy Admin CosmosDB Document',
+  rerates: 'Rerates CosmosDB Document',
+  request: 'Payment Schedule Request (Amendment)',
+  response: 'Payment Schedule Response'
+};
+
+const VIEW_JSON_FORMATS: ScheduleFormat[] = ['policyAdmin', 'rerates', 'request', 'response'];
+
+/**
+ * Closes an open dropdown when clicking outside of the given container ref.
+ */
+function useCloseOnOutsideClick(ref: React.RefObject<HTMLElement | null>, isOpen: boolean, onClose: () => void) {
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, ref, onClose]);
 }
 
 /**
@@ -41,6 +91,16 @@ function isExportFormat(value: string | null): value is ExportFormat {
  */
 export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
+  const [isViewJsonMenuOpen, setIsViewJsonMenuOpen] = useState(false);
+  const [viewJsonFormat, setViewJsonFormat] = useState<ScheduleFormat>('response');
+  const viewJsonMenuRef = useRef<HTMLDivElement>(null);
+  useCloseOnOutsideClick(viewJsonMenuRef, isViewJsonMenuOpen, () => setIsViewJsonMenuOpen(false));
+
+  const selectViewJsonFormat = (format: ScheduleFormat) => {
+    setViewJsonFormat(format);
+    setIsViewJsonMenuOpen(false);
+  };
+
   const [exportError, setExportError] = useState<string | null>(null);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>(() => {
@@ -48,19 +108,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     return isExportFormat(saved) ? saved : 'json';
   });
   const exportMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isExportMenuOpen) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-        setIsExportMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isExportMenuOpen]);
+  useCloseOnOutsideClick(exportMenuRef, isExportMenuOpen, () => setIsExportMenuOpen(false));
 
   const selectExportFormat = (format: ExportFormat) => {
     setExportFormat(format);
@@ -358,21 +406,56 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     <>
       <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
         <div className="flex justify-end flex-wrap gap-2 mb-6">
-          <button
-            onClick={() => setIsJsonModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-            title="View schedule JSON"
-          >
-            <FileJson className="w-5 h-5" />
-            View JSON
-          </button>
+          <div className="relative inline-flex" ref={viewJsonMenuRef}>
+            <button
+              onClick={() => setIsJsonModalOpen(true)}
+              className="flex items-center gap-2 pl-4 pr-3 py-2 bg-gray-100 text-gray-700 rounded-l-md hover:bg-gray-200"
+              title={`View schedule JSON as ${VIEW_JSON_FORMAT_LABELS[viewJsonFormat]}`}
+            >
+              <FileJson className="w-5 h-5" />
+              View JSON as {VIEW_JSON_FORMAT_LABELS[viewJsonFormat]}
+            </button>
+            <button
+              onClick={() => setIsViewJsonMenuOpen((open) => !open)}
+              className="flex items-center px-2 py-2 bg-gray-100 text-gray-700 rounded-r-md hover:bg-gray-200 border-l border-gray-300"
+              aria-label="Choose JSON view format"
+              aria-haspopup="menu"
+              aria-expanded={isViewJsonMenuOpen}
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+
+            {isViewJsonMenuOpen && (
+              <div
+                role="menu"
+                className="absolute left-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-10 overflow-hidden"
+              >
+                {VIEW_JSON_FORMATS.map((format) => (
+                  <button
+                    key={format}
+                    role="menuitem"
+                    onClick={() => selectViewJsonFormat(format)}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                      format === viewJsonFormat ? 'font-semibold text-primary' : 'text-gray-700'
+                    }`}
+                  >
+                    {VIEW_JSON_FORMAT_LABELS[format]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="relative inline-flex" ref={exportMenuRef}>
             <button
               onClick={handleExport}
               className="flex items-center gap-2 pl-4 pr-3 py-2 bg-primary text-white rounded-l-md hover:bg-primary-dark"
               title={`Export schedule as ${EXPORT_FORMAT_LABELS[exportFormat]}`}
             >
-              <Download className="w-5 h-5" />
+              {(() => {
+                const CurrentExportIcon = EXPORT_FORMAT_ICONS[exportFormat];
+                return <CurrentExportIcon className="w-5 h-5" />;
+              })()}
               Export as {EXPORT_FORMAT_LABELS[exportFormat]}
             </button>
             <button
@@ -390,18 +473,22 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                 role="menu"
                 className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-10 overflow-hidden"
               >
-                {EXPORT_FORMATS.map((format) => (
-                  <button
-                    key={format}
-                    role="menuitem"
-                    onClick={() => selectExportFormat(format)}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                      format === exportFormat ? 'font-semibold text-primary' : 'text-gray-700'
-                    }`}
-                  >
-                    {EXPORT_FORMAT_LABELS[format]}
-                  </button>
-                ))}
+                {EXPORT_FORMATS.map((format) => {
+                  const Icon = EXPORT_FORMAT_ICONS[format];
+                  return (
+                    <button
+                      key={format}
+                      role="menuitem"
+                      onClick={() => selectExportFormat(format)}
+                      className={`w-full flex items-center gap-2 text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                        format === exportFormat ? 'font-semibold text-primary' : 'text-gray-700'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {EXPORT_FORMAT_LABELS[format]}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -543,10 +630,10 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
       <Modal
         isOpen={isJsonModalOpen}
         onClose={() => setIsJsonModalOpen(false)}
-        title="Schedule JSON"
+        title={`Schedule JSON — ${VIEW_JSON_FORMAT_LABELS[viewJsonFormat]}`}
       >
         <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
-          <code>{JSON.stringify(schedule, null, 2)}</code>
+          <code>{JSON.stringify(convertResponseToFormat(schedule, viewJsonFormat), null, 2)}</code>
         </pre>
       </Modal>
     </>

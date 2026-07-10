@@ -1,174 +1,164 @@
 import React, { useState } from 'react';
-import { FileJson, Eye, ArrowLeftRight, X } from 'lucide-react';
+import { FileUp, Eye, ArrowLeftRight, Info } from 'lucide-react';
 import { PaymentScheduleResponse } from '../types';
+import { detectAndNormalizeSchedule, FORMAT_LABELS, ScheduleFormat } from '../utils/scheduleDetector';
+import { SAMPLE_SCHEDULES, PLACEHOLDER_SAMPLE_JSON } from '../constants/sampleSchedules';
 import ScheduleDisplay from './ScheduleDisplay';
-import Modal from './Modal';
+
+interface SlotState {
+  schedule: PaymentScheduleResponse | null;
+  format: ScheduleFormat | null;
+  jsonInput: string;
+  selectedExample: string;
+  error: string | null;
+}
+
+const emptySlot: SlotState = {
+  schedule: null,
+  format: null,
+  jsonInput: '',
+  selectedExample: '',
+  error: null
+};
 
 /**
  * Component to compare two payment schedules by uploading or pasting JSON data.
  *
- * This component manages state for two payment schedules and allows users to upload JSON files or paste JSON content.
- * It validates the JSON input, displays the schedules with totals and differences, and provides options to view raw JSON in modals.
+ * Accepts any of the 4 supported payment schedule JSON shapes (Payment Schedule
+ * Service Response/Request, Policy Admin CosmosDB Document, Rerates CosmosDB
+ * Document) on either side, auto-detecting which one was provided — the same
+ * way the View Schedule page does.
  *
  * @returns A React functional component rendering the comparison interface.
  */
 export default function CompareSchedules() {
-  const [schedule1, setSchedule1] = useState<PaymentScheduleResponse | null>(null);
-  const [schedule2, setSchedule2] = useState<PaymentScheduleResponse | null>(null);
-  const [jsonInput1, setJsonInput1] = useState('');
-  const [jsonInput2, setJsonInput2] = useState('');
-  const [error1, setError1] = useState<string | null>(null);
-  const [error2, setError2] = useState<string | null>(null);
-  const [isJsonModal1Open, setIsJsonModal1Open] = useState(false);
-  const [isJsonModal2Open, setIsJsonModal2Open] = useState(false);
-  const [activeInput, setActiveInput] = useState<1 | 2>(1);
+  const [slot1, setSlot1] = useState<SlotState>(emptySlot);
+  const [slot2, setSlot2] = useState<SlotState>(emptySlot);
 
-  /**
-   * Handles submission of JSON data for a specified schedule number.
-   *
-   * This function prevents default form behavior, parses the JSON input,
-   * validates required properties, and updates the state with the parsed schedule or an error message.
-   *
-   * @param scheduleNumber - The schedule number (1 or 2) to update.
-   * @returns A function that handles the form submission event.
-   */
-  const handleJsonSubmit = (scheduleNumber: 1 | 2) => (e: React.FormEvent) => {
-    e.preventDefault();
-    const jsonInput = scheduleNumber === 1 ? jsonInput1 : jsonInput2;
-    const setSchedule = scheduleNumber === 1 ? setSchedule1 : setSchedule2;
-    const setError = scheduleNumber === 1 ? setError1 : setError2;
+  const getSlot = (scheduleNumber: 1 | 2) => (scheduleNumber === 1 ? slot1 : slot2);
+  const setSlot = (scheduleNumber: 1 | 2) => (scheduleNumber === 1 ? setSlot1 : setSlot2);
+
+  const processJson = (scheduleNumber: 1 | 2, raw: string) => {
+    const update = setSlot(scheduleNumber);
 
     try {
-      const parsedSchedule = JSON.parse(jsonInput);
-      // Basic validation to ensure required properties exist
-      if (!parsedSchedule.scheduleItems || !Array.isArray(parsedSchedule.scheduleItems)) {
-        setError('Invalid schedule format: scheduleItems array is required.');
+      const json = JSON.parse(raw);
+      const detected = detectAndNormalizeSchedule(json);
+
+      if (!detected.schedule) {
+        update((prev) => ({
+          ...prev,
+          schedule: null,
+          format: null,
+          error: 'This request does not include an embedded currentSchedule, so there is nothing to compare.'
+        }));
         return;
       }
-      if (!parsedSchedule.collectionFrequency || !parsedSchedule.coverStartDate || !parsedSchedule.coverEndDate) {
-        setError('Invalid schedule format: missing required fields.');
-        return;
-      }
-      setSchedule(parsedSchedule);
-      setError(null);
+
+      update((prev) => ({
+        ...prev,
+        schedule: detected.schedule,
+        format: detected.format,
+        error: null
+      }));
     } catch (err) {
-      setError('Invalid JSON format. Please check your input.');
+      update((prev) => ({
+        ...prev,
+        schedule: null,
+        format: null,
+        error:
+          err instanceof SyntaxError
+            ? 'Invalid JSON syntax. Please check for missing commas, quotes, or brackets.'
+            : err instanceof Error
+              ? err.message
+              : 'Invalid schedule format'
+      }));
     }
   };
 
-  /**
-   * Clears a specified schedule by resetting its state and error messages.
-   */
+  const handleJsonSubmit = (scheduleNumber: 1 | 2) => (e: React.FormEvent) => {
+    e.preventDefault();
+    processJson(scheduleNumber, getSlot(scheduleNumber).jsonInput);
+  };
+
   const clearSchedule = (scheduleNumber: 1 | 2) => {
-    if (scheduleNumber === 1) {
-      setSchedule1(null);
-      setJsonInput1('');
-      setError1(null);
-    } else {
-      setSchedule2(null);
-      setJsonInput2('');
-      setError2(null);
-    }
+    setSlot(scheduleNumber)(emptySlot);
   };
 
-  /**
-   * Handles file upload for JSON files, validating type and size before processing.
-   *
-   * It checks if the uploaded file is a valid JSON file and within the size limit (10MB).
-   * Upon successful validation, it reads the file content and updates the corresponding input state.
-   * If any validation fails or an error occurs during file reading, it sets appropriate error messages.
-   *
-   * @param scheduleNumber - A number indicating which schedule to update (either 1 or 2).
-   * @returns A function that takes a React ChangeEvent for file input handling.
-   */
   const handleFileUpload = (scheduleNumber: 1 | 2) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const update = setSlot(scheduleNumber);
 
-    // Validate file type and size
     if (!file.type.includes('json') && !file.name.endsWith('.json')) {
-      const setError = scheduleNumber === 1 ? setError1 : setError2;
-      setError('Please select a valid JSON file.');
+      update((prev) => ({ ...prev, error: 'Please select a valid JSON file.' }));
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      const setError = scheduleNumber === 1 ? setError1 : setError2;
-      setError('File size too large. Please select a file smaller than 10MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      update((prev) => ({ ...prev, error: 'File size too large. Please select a file smaller than 10MB.' }));
       return;
     }
-
-    const setJsonInput = scheduleNumber === 1 ? setJsonInput1 : setJsonInput2;
-    const setError = scheduleNumber === 1 ? setError1 : setError2;
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      try {
-        const content = event.target?.result as string;
-        setJsonInput(content);
-        setError(null);
-      } catch (err) {
-        setError('Failed to read file. Please ensure it is a valid text file.');
-      }
+      const content = event.target?.result as string;
+      update((prev) => ({ ...prev, jsonInput: content }));
+      processJson(scheduleNumber, content);
     };
     reader.onerror = () => {
-      setError('Error reading file. Please try again.');
+      update((prev) => ({ ...prev, error: 'Error reading file. Please try again.' }));
     };
     reader.readAsText(file);
   };
 
+  const handleExampleChange = (scheduleNumber: 1 | 2) => (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    const sample = SAMPLE_SCHEDULES.find((s) => s.format === value);
+    setSlot(scheduleNumber)((prev) => ({
+      ...prev,
+      selectedExample: value,
+      jsonInput: sample ? JSON.stringify(sample.json, null, 2) : prev.jsonInput
+    }));
+  };
+
   /**
    * Renders a schedule input component based on the provided schedule number.
-   *
-   * This function determines which schedule, JSON input, error message, and state setters to use based on the `scheduleNumber`.
-   * It renders either a display of an existing schedule or an interface for uploading or pasting a new JSON schedule.
-   * The component includes buttons for viewing the JSON in a modal, clearing the schedule, and loading a new one.
-   *
-   * @param {1 | 2} scheduleNumber - The number indicating which schedule to render (either 1 or 2).
    */
   const renderScheduleInput = (scheduleNumber: 1 | 2) => {
-    const schedule = scheduleNumber === 1 ? schedule1 : schedule2;
-    const jsonInput = scheduleNumber === 1 ? jsonInput1 : jsonInput2;
-    const error = scheduleNumber === 1 ? error1 : error2;
-    const setJsonInput = scheduleNumber === 1 ? setJsonInput1 : setJsonInput2;
-    const setIsJsonModalOpen = scheduleNumber === 1 ? setIsJsonModal1Open : setIsJsonModal2Open;
+    const { schedule, format, jsonInput, selectedExample, error } = getSlot(scheduleNumber);
 
     if (schedule) {
       return (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-primary">
-              Schedule {scheduleNumber}
-            </h3>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setIsJsonModalOpen(true)}
-                className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-              >
-                View JSON
-              </button>
-              <button
-                onClick={() => clearSchedule(scheduleNumber)}
-                className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-              >
-                Clear
-              </button>
+            <div>
+              <h3 className="text-lg font-semibold text-primary">Schedule {scheduleNumber}</h3>
+              {format && <p className="text-xs text-gray-500">Detected format: {FORMAT_LABELS[format]}</p>}
             </div>
+            <button
+              onClick={() => clearSchedule(scheduleNumber)}
+              className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+            >
+              Clear
+            </button>
           </div>
           <ScheduleDisplay schedule={schedule} />
         </div>
       );
     }
 
+    const exampleSelectId = `schedule-${scheduleNumber}-example`;
+
     return (
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-primary">
           Schedule {scheduleNumber}
         </h3>
-        
-        <div className="flex gap-4 justify-center mb-4">
+
+        <div className="flex gap-4 justify-center">
           <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors cursor-pointer">
-            <FileJson className="w-5 h-5" />
+            <FileUp className="w-5 h-5" />
             Upload JSON File
             <input
               type="file"
@@ -181,14 +171,33 @@ export default function CompareSchedules() {
 
         <form onSubmit={handleJsonSubmit(scheduleNumber)} className="space-y-4">
           <div>
+            <label htmlFor={exampleSelectId} className="block text-sm font-medium text-gray-700 mb-2">
+              Load Example
+            </label>
+            <select
+              id={exampleSelectId}
+              value={selectedExample}
+              onChange={handleExampleChange(scheduleNumber)}
+              className="w-full h-11 px-4 border border-gray-300 rounded-md focus:border-primary focus:ring focus:ring-primary/20"
+            >
+              <option value="">-- Select an example to fill the textarea --</option>
+              {SAMPLE_SCHEDULES.map((sample) => (
+                <option key={sample.format} value={sample.format}>
+                  {sample.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Paste Schedule {scheduleNumber} JSON
             </label>
             <textarea
               value={jsonInput}
-              onChange={(e) => setJsonInput(e.target.value)}
-              className="w-full h-48 p-4 border border-gray-300 rounded-md focus:border-primary focus:ring focus:ring-primary/20"
-              placeholder={`Paste schedule ${scheduleNumber} JSON here...`}
+              onChange={(e) => setSlot(scheduleNumber)((prev) => ({ ...prev, jsonInput: e.target.value }))}
+              className="w-full h-48 p-4 border border-gray-300 rounded-md focus:border-primary focus:ring focus:ring-primary/20 font-mono text-sm"
+              placeholder={PLACEHOLDER_SAMPLE_JSON}
             />
           </div>
 
@@ -213,24 +222,16 @@ export default function CompareSchedules() {
 
   /**
    * Renders a comparison summary of two schedules.
-   *
-   * This function calculates and displays the total amounts due, difference,
-   * and other relevant details such as item count, frequency, and period for each schedule.
-   * It uses a helper function `formatDate` to convert date strings into a formatted locale date string.
-   * If either `schedule1` or `schedule2` is not provided, it returns null.
-   *
-   * @returns A JSX element containing the comparison summary or null if schedules are missing.
    */
   const renderComparisonSummary = () => {
+    const schedule1 = slot1.schedule;
+    const schedule2 = slot2.schedule;
     if (!schedule1 || !schedule2) return null;
 
     const total1 = (schedule1?.scheduleItems || []).reduce((sum, item) => sum + item.amountDue, 0);
     const total2 = (schedule2?.scheduleItems || []).reduce((sum, item) => sum + item.amountDue, 0);
     const difference = total2 - total1;
 
-    /**
-     * Formats a date string to a local date representation.
-     */
     const formatDate = (dateString: string) => {
       try {
         return new Date(dateString).toLocaleDateString();
@@ -289,6 +290,18 @@ export default function CompareSchedules() {
           Compare Schedules
         </h1>
 
+        <div className="flex gap-3 p-4 mb-6 bg-blue-50 border border-blue-200 rounded-md">
+          <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-900">
+            <p className="font-medium mb-1">Each side accepts any of these 4 JSON formats — the format is detected automatically:</p>
+            <ul className="list-disc list-inside space-y-0.5">
+              {Object.values(FORMAT_LABELS).map((label) => (
+                <li key={label}>{label}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
         {renderComparisonSummary()}
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
@@ -296,26 +309,6 @@ export default function CompareSchedules() {
           {renderScheduleInput(2)}
         </div>
       </div>
-
-      <Modal
-        isOpen={isJsonModal1Open}
-        onClose={() => setIsJsonModal1Open(false)}
-        title="Schedule 1 JSON"
-      >
-        <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
-          <code>{JSON.stringify(schedule1, null, 2)}</code>
-        </pre>
-      </Modal>
-
-      <Modal
-        isOpen={isJsonModal2Open}
-        onClose={() => setIsJsonModal2Open(false)}
-        title="Schedule 2 JSON"
-      >
-        <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
-          <code>{JSON.stringify(schedule2, null, 2)}</code>
-        </pre>
-      </Modal>
     </div>
   );
 }
