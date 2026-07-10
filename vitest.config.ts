@@ -10,6 +10,9 @@ export default mergeConfig(
       setupFiles: ['./tests/setup.ts'],
       include: ['tests/**/*.test.{ts,tsx}'],
       css: false,
+      // Running test files in worker threads crashes intermittently on Windows in this
+      // environment; run them sequentially in a single process for reliability.
+      fileParallelism: false,
       coverage: {
         provider: 'v8',
         reporter: ['text', 'html', 'lcov'],

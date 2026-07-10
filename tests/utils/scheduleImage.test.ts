@@ -39,8 +39,8 @@ describe('exportScheduleImage', () => {
   beforeEach(() => {
     createObjectURL = vi.fn(() => 'blob:fake-url');
     revokeObjectURL = vi.fn();
-    (global.URL as any).createObjectURL = createObjectURL;
-    (global.URL as any).revokeObjectURL = revokeObjectURL;
+    (globalThis.URL as any).createObjectURL = createObjectURL;
+    (globalThis.URL as any).revokeObjectURL = revokeObjectURL;
     clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   });
 
