@@ -263,33 +263,6 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
               </p>
             </div>
           </div>
-          <div className="flex gap-2 ml-4">
-            <button
-              onClick={() => setIsJsonModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-              title="View schedule JSON"
-            >
-              <FileJson className="w-5 h-5" />
-              View JSON
-            </button>
-            <button
-              onClick={downloadJson}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-              title="Download schedule as JSON"
-            >
-              <FileJson className="w-5 h-5" />
-              JSON
-            </button>
-            <button
-              onClick={downloadCsv}
-              className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary-dark"
-              title="Download schedule items as CSV"
-            >
-              <FileSpreadsheet className="w-5 h-5" />
-              CSV
-            </button>
-          </div>
-        </div>
 
         <div className="mb-6">
           <h3 className="text-sm font-medium text-gray-900 mb-2">Legend</h3>
