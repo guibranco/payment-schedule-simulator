@@ -134,11 +134,11 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
                     <li key={label}>{label}</li>
                   ))}
                 </ul>
-                <p className="mt-2">Use the "Load Example" dropdown below to try a sample of each format.</p>
+                <p className="mt-2">Use the "Load Example" dropdown next to the buttons below to try a sample of each format.</p>
               </div>
             </div>
 
-            <div className="flex gap-4 justify-center">
+            <div className="flex gap-3 justify-center items-center flex-wrap">
               <button
                 onClick={() => setShowPasteInput(true)}
                 className={`px-6 py-3 rounded-md transition-colors ${
@@ -165,29 +165,26 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
                   Upload File
                 </div>
               </button>
+              {showPasteInput && (
+                <select
+                  id="schedule-json-example"
+                  value={selectedExample}
+                  onChange={handleExampleChange}
+                  aria-label="Load Example"
+                  className="text-sm px-3 py-2 border border-gray-300 rounded-md text-gray-600 bg-white hover:bg-gray-50 focus:border-primary focus:ring focus:ring-primary/20"
+                >
+                  <option value="">Load Example…</option>
+                  {SAMPLE_SCHEDULES.map((sample) => (
+                    <option key={sample.format} value={sample.format}>
+                      {sample.label}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {showPasteInput ? (
               <form onSubmit={handlePasteSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="schedule-json-example" className="block text-sm font-medium text-gray-700 mb-2">
-                    Load Example
-                  </label>
-                  <select
-                    id="schedule-json-example"
-                    value={selectedExample}
-                    onChange={handleExampleChange}
-                    className="w-full h-11 px-4 border border-gray-300 rounded-md focus:border-primary focus:ring focus:ring-primary/20"
-                  >
-                    <option value="">-- Select an example to fill the textarea --</option>
-                    {SAMPLE_SCHEDULES.map((sample) => (
-                      <option key={sample.format} value={sample.format}>
-                        {sample.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
                 <textarea
                   value={jsonInput}
                   onChange={(e) => setJsonInput(e.target.value)}
