@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileUp, Clipboard, Eye, PencilRuler, FileText, File as FilePdf, Info, RotateCcw } from 'lucide-react';
+import { FileUp, Clipboard, Eye, PencilRuler, Info, RotateCcw } from 'lucide-react';
 import { PaymentScheduleResponse, PaymentScheduleInput } from '../types';
 import { detectAndNormalizeSchedule, FORMAT_LABELS, ScheduleFormat } from '../utils/scheduleDetector';
 import { SAMPLE_SCHEDULES, PLACEHOLDER_SAMPLE_JSON } from '../constants/sampleSchedules';
@@ -100,122 +100,6 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
     };
 
     setSchedule(newSchedule);
-  };
-
-  const downloadHtml = () => {
-    if (!schedule) return;
-    const scheduleItems = schedule.scheduleItems || [];
-
-    const styles = `
-      <style>
-        body { font-family: system-ui, -apple-system, sans-serif; margin: 2rem; }
-        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
-        th, td { border: 1px solid #e5e7eb; padding: 0.75rem; text-align: left; }
-        th { background-color: #f9fafb; }
-        .header { margin-bottom: 2rem; }
-        .total { font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; }
-      </style>
-    `;
-
-    const totalAmount = scheduleItems.reduce((sum, item) => sum + item.amountDue, 0);
-
-    const content = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Payment Schedule ${schedule.id}</title>
-          ${styles}
-        </head>
-        <body>
-          <div class="header">
-            <h1>Payment Schedule Details</h1>
-            <p>Schedule ID: ${schedule.id}</p>
-            <p>Collection Frequency: ${schedule.collectionFrequency}</p>
-            <p>Cover Period: ${new Date(schedule.coverStartDate).toLocaleDateString()} - ${new Date(schedule.coverEndDate).toLocaleDateString()}</p>
-            <div class="total">Total Amount: €${totalAmount.toFixed(2)}</div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Period</th>
-                <th>Due Date</th>
-                <th>Net Amount</th>
-                <th>Taxes & Levies</th>
-                <th>Admin Fees</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${scheduleItems.map(item => `
-                <tr>
-                  <td>${new Date(item.periodStartDate).toLocaleDateString()} - ${new Date(item.periodEndDate).toLocaleDateString()}</td>
-                  <td>${new Date(item.dueDate).toLocaleDateString()}</td>
-                  <td>€${item.netAmount.toFixed(2)}</td>
-                  <td>${Object.entries(item.taxesAndLevies || {}).map(([key, value]) =>
-                    `${key}: €${value.toFixed(2)}`).join('<br>')}</td>
-                  <td>${Object.entries(item.adminFees || {}).map(([key, value]) =>
-                    `${key}: €${value.amountDue.toFixed(2)}`).join('<br>')}</td>
-                  <td>€${item.amountDue.toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `;
-
-    const blob = new Blob([content], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `schedule-${schedule.id}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const downloadPdf = async () => {
-    if (!schedule) return;
-    const scheduleItems = schedule.scheduleItems || [];
-
-    try {
-      const jsPDFModule = await import('jspdf');
-      const doc = new jsPDFModule.default();
-
-      doc.setFontSize(16);
-      doc.text('Payment Schedule Details', 20, 20);
-
-      doc.setFontSize(12);
-      doc.text(`Schedule ID: ${schedule.id}`, 20, 30);
-      doc.text(`Collection Frequency: ${schedule.collectionFrequency}`, 20, 40);
-      doc.text(`Cover Period: ${new Date(schedule.coverStartDate).toLocaleDateString()} - ${new Date(schedule.coverEndDate).toLocaleDateString()}`, 20, 50);
-
-      const totalAmount = scheduleItems.reduce((sum, item) => sum + item.amountDue, 0);
-      doc.text(`Total Amount: €${totalAmount.toFixed(2)}`, 20, 60);
-
-      let y = 80;
-      const itemHeight = 10;
-      const pageHeight = doc.internal.pageSize.height;
-
-      scheduleItems.forEach((item, index) => {
-        if (y + itemHeight > pageHeight - 20) {
-          doc.addPage();
-          y = 20;
-        }
-
-        doc.text(`${index + 1}. Due Date: ${new Date(item.dueDate).toLocaleDateString()}`, 20, y);
-        doc.text(`Amount: €${item.amountDue.toFixed(2)}`, 20, y + 5);
-
-        y += itemHeight;
-      });
-
-      doc.save(`schedule-${schedule.id}.pdf`);
-    } catch (err) {
-      console.error('Error generating PDF:', err);
-      setError('Failed to generate PDF. Please try again.');
-    }
   };
 
   if (showAmendSchedule && scheduleInput) {
@@ -377,24 +261,6 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
                 <PencilRuler className="w-5 h-5" />
                 Amend Schedule
               </button>
-              {schedule && (
-                <>
-                  <button
-                    onClick={downloadHtml}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-                  >
-                    <FileText className="w-5 h-5" />
-                    HTML
-                  </button>
-                  <button
-                    onClick={downloadPdf}
-                    className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary-dark"
-                  >
-                    <FilePdf className="w-5 h-5" />
-                    PDF
-                  </button>
-                </>
-              )}
             </div>
 
             {schedule ? (

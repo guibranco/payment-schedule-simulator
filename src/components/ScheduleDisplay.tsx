@@ -1,12 +1,30 @@
 import React, { useState } from 'react';
-import { Euro, FileJson, FileSpreadsheet, Image as ImageIcon, Check, X, MinusCircle } from 'lucide-react';
+import { Euro, FileJson, Download, Check, X, MinusCircle } from 'lucide-react';
 import { PaymentScheduleResponse } from '../types';
 import { exportScheduleImage } from '../utils/scheduleImage';
+import { STORAGE_KEYS } from '../constants';
 import Modal from './Modal';
 
 interface Props {
   schedule: PaymentScheduleResponse;
   onStatusChange?: (index: number) => void;
+}
+
+type ExportFormat = 'json' | 'csv' | 'pdf' | 'html' | 'png' | 'svg';
+
+const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
+  json: 'JSON',
+  csv: 'CSV',
+  pdf: 'PDF',
+  html: 'HTML',
+  png: 'PNG',
+  svg: 'SVG'
+};
+
+const EXPORT_FORMATS = Object.keys(EXPORT_FORMAT_LABELS) as ExportFormat[];
+
+function isExportFormat(value: string | null): value is ExportFormat {
+  return !!value && (EXPORT_FORMATS as string[]).includes(value);
 }
 
 /**
@@ -23,7 +41,17 @@ interface Props {
  */
 export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
-  const [imageError, setImageError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT);
+    return isExportFormat(saved) ? saved : 'json';
+  });
+
+  const handleExportFormatChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const format = e.target.value as ExportFormat;
+    setExportFormat(format);
+    localStorage.setItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT, format);
+  };
 
   const scheduleItems = schedule?.scheduleItems || [];
   
@@ -153,13 +181,139 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     URL.revokeObjectURL(url);
   };
 
-  const downloadImage = async (format: 'png' | 'svg') => {
-    setImageError(null);
+  const escapeHtml = (value: unknown): string =>
+    String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const downloadHtml = () => {
+    const styles = `
+      <style>
+        body { font-family: system-ui, -apple-system, sans-serif; margin: 2rem; }
+        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+        th, td { border: 1px solid #e5e7eb; padding: 0.75rem; text-align: left; }
+        th { background-color: #f9fafb; }
+        .header { margin-bottom: 2rem; }
+        .total { font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; }
+      </style>
+    `;
+
+    const content = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Payment Schedule ${escapeHtml(schedule.id)}</title>
+          ${styles}
+        </head>
+        <body>
+          <div class="header">
+            <h1>Payment Schedule Details</h1>
+            <p>Schedule ID: ${escapeHtml(schedule.id)}</p>
+            <p>Collection Frequency: ${escapeHtml(schedule.collectionFrequency)}</p>
+            <p>Cover Period: ${new Date(schedule.coverStartDate).toLocaleDateString()} - ${new Date(schedule.coverEndDate).toLocaleDateString()}</p>
+            <div class="total">Total Amount: €${totalAmount.toFixed(2)}</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Due Date</th>
+                <th>Net Amount</th>
+                <th>Taxes & Levies</th>
+                <th>Admin Fees</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${scheduleItems.map(item => `
+                <tr>
+                  <td>${new Date(item.periodStartDate).toLocaleDateString()} - ${new Date(item.periodEndDate).toLocaleDateString()}</td>
+                  <td>${new Date(item.dueDate).toLocaleDateString()}</td>
+                  <td>€${item.netAmount.toFixed(2)}</td>
+                  <td>${Object.entries(item.taxesAndLevies || {}).map(([key, value]) =>
+                    `${escapeHtml(key)}: €${value.toFixed(2)}`).join('<br>')}</td>
+                  <td>${Object.entries(item.adminFees || {}).map(([key, value]) =>
+                    `${escapeHtml(key)}: €${value.amountDue.toFixed(2)}`).join('<br>')}</td>
+                  <td>€${item.amountDue.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([content], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `schedule-${schedule.id}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadPdf = async () => {
+    const jsPDFModule = await import('jspdf');
+    const doc = new jsPDFModule.default();
+
+    doc.setFontSize(16);
+    doc.text('Payment Schedule Details', 20, 20);
+
+    doc.setFontSize(12);
+    doc.text(`Schedule ID: ${schedule.id}`, 20, 30);
+    doc.text(`Collection Frequency: ${schedule.collectionFrequency}`, 20, 40);
+    doc.text(`Cover Period: ${new Date(schedule.coverStartDate).toLocaleDateString()} - ${new Date(schedule.coverEndDate).toLocaleDateString()}`, 20, 50);
+    doc.text(`Total Amount: €${totalAmount.toFixed(2)}`, 20, 60);
+
+    let y = 80;
+    const itemHeight = 10;
+    const pageHeight = doc.internal.pageSize.height;
+
+    scheduleItems.forEach((item, index) => {
+      if (y + itemHeight > pageHeight - 20) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.text(`${index + 1}. Due Date: ${new Date(item.dueDate).toLocaleDateString()}`, 20, y);
+      doc.text(`Amount: €${item.amountDue.toFixed(2)}`, 20, y + 5);
+
+      y += itemHeight;
+    });
+
+    doc.save(`schedule-${schedule.id}.pdf`);
+  };
+
+  const handleExport = async () => {
+    setExportError(null);
     try {
-      await exportScheduleImage(schedule, format);
+      switch (exportFormat) {
+        case 'json':
+          downloadJson();
+          break;
+        case 'csv':
+          downloadCsv();
+          break;
+        case 'html':
+          downloadHtml();
+          break;
+        case 'pdf':
+          await downloadPdf();
+          break;
+        case 'png':
+        case 'svg':
+          await exportScheduleImage(schedule, exportFormat);
+          break;
+      }
     } catch (err) {
-      console.error('Error generating image:', err);
-      setImageError('Failed to generate image. Please try again.');
+      console.error('Error exporting schedule:', err);
+      setExportError(`Failed to export schedule as ${EXPORT_FORMAT_LABELS[exportFormat]}. Please try again.`);
     }
   };
 
@@ -197,43 +351,31 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
             <FileJson className="w-5 h-5" />
             View JSON
           </button>
+          <select
+            value={exportFormat}
+            onChange={handleExportFormatChange}
+            aria-label="Export format"
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 focus:border-primary focus:ring focus:ring-primary/20"
+          >
+            {EXPORT_FORMATS.map((format) => (
+              <option key={format} value={format}>
+                {EXPORT_FORMAT_LABELS[format]}
+              </option>
+            ))}
+          </select>
           <button
-            onClick={downloadJson}
+            onClick={handleExport}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-            title="Download schedule as JSON"
+            title={`Export schedule as ${EXPORT_FORMAT_LABELS[exportFormat]}`}
           >
-            <FileJson className="w-5 h-5" />
-            JSON
-          </button>
-          <button
-            onClick={downloadCsv}
-            className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary-dark"
-            title="Download schedule items as CSV"
-          >
-            <FileSpreadsheet className="w-5 h-5" />
-            CSV
-          </button>
-          <button
-            onClick={() => downloadImage('png')}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-            title="Download rendered schedule as PNG"
-          >
-            <ImageIcon className="w-5 h-5" />
-            PNG
-          </button>
-          <button
-            onClick={() => downloadImage('svg')}
-            className="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary-dark"
-            title="Download rendered schedule as SVG"
-          >
-            <ImageIcon className="w-5 h-5" />
-            SVG
+            <Download className="w-5 h-5" />
+            Export
           </button>
         </div>
 
-        {imageError && (
+        {exportError && (
           <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md">
-            {imageError}
+            {exportError}
           </div>
         )}
 

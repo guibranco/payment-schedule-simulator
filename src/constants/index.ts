@@ -7,5 +7,6 @@ export const STORAGE_KEYS = {
   ENVIRONMENT: 'environment',
   CONFIG_CANCELLED: 'configCancelled',
   CODE_VERIFIER: 'codeVerifier',
-  RETURN_URL: 'returnUrl'
+  RETURN_URL: 'returnUrl',
+  SCHEDULE_EXPORT_FORMAT: 'scheduleExportFormat'
 } as const;

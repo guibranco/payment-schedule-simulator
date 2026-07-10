@@ -1,21 +1,53 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import ScheduleDisplay from '../../src/components/ScheduleDisplay';
 import { detectAndNormalizeSchedule } from '../../src/utils/scheduleDetector';
 import { SAMPLE_SCHEDULES } from '../../src/constants/sampleSchedules';
+import { STORAGE_KEYS } from '../../src/constants';
 
 vi.mock('../../src/utils/scheduleImage', () => ({
   exportScheduleImage: vi.fn()
 }));
-
 import { exportScheduleImage } from '../../src/utils/scheduleImage';
+
+vi.mock('jspdf', () => ({
+  default: vi.fn().mockImplementation(() => ({
+    setFontSize: vi.fn(),
+    text: vi.fn(),
+    addPage: vi.fn(),
+    save: vi.fn(),
+    internal: { pageSize: { height: 800 } }
+  }))
+}));
 
 const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!.json;
 const { schedule } = detectAndNormalizeSchedule(responseSample);
 
+function selectFormat(format: string) {
+  fireEvent.change(screen.getByLabelText('Export format'), { target: { value: format } });
+}
+
+function clickExport() {
+  fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+}
+
 describe('ScheduleDisplay', () => {
+  let clickSpy: ReturnType<typeof vi.spyOn>;
+  let createObjectURL: ReturnType<typeof vi.fn>;
+  let revokeObjectURL: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
     vi.mocked(exportScheduleImage).mockReset();
+    localStorage.clear();
+    createObjectURL = vi.fn(() => 'blob:fake-url');
+    revokeObjectURL = vi.fn();
+    (globalThis.URL as any).createObjectURL = createObjectURL;
+    (globalThis.URL as any).revokeObjectURL = revokeObjectURL;
+    clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('shows the fully visible schedule id (not truncated)', () => {
@@ -51,35 +83,131 @@ describe('ScheduleDisplay', () => {
     expect(within(modal).getByText(new RegExp(schedule!.id))).toBeInTheDocument();
   });
 
-  it('exports a PNG via the scheduleImage util when "PNG" is clicked', async () => {
+  it('defaults the export format to JSON when nothing is saved', () => {
+    render(<ScheduleDisplay schedule={schedule!} />);
+    expect(screen.getByLabelText('Export format')).toHaveValue('json');
+  });
+
+  it('restores the previously selected export format from localStorage', () => {
+    localStorage.setItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT, 'svg');
+    render(<ScheduleDisplay schedule={schedule!} />);
+    expect(screen.getByLabelText('Export format')).toHaveValue('svg');
+  });
+
+  it('ignores an invalid saved export format and falls back to JSON', () => {
+    localStorage.setItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT, 'not-a-format');
+    render(<ScheduleDisplay schedule={schedule!} />);
+    expect(screen.getByLabelText('Export format')).toHaveValue('json');
+  });
+
+  it('saves the selected export format to localStorage when changed', () => {
+    render(<ScheduleDisplay schedule={schedule!} />);
+    selectFormat('csv');
+    expect(localStorage.getItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT)).toBe('csv');
+  });
+
+  it('exports JSON via the single Export button', () => {
+    render(<ScheduleDisplay schedule={schedule!} />);
+    selectFormat('json');
+    clickExport();
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const blobArg = createObjectURL.mock.calls[0][0] as Blob;
+    expect(blobArg.type).toBe('application/json');
+  });
+
+  it('exports CSV via the single Export button', () => {
+    render(<ScheduleDisplay schedule={schedule!} />);
+    selectFormat('csv');
+    clickExport();
+
+    const blobArg = createObjectURL.mock.calls[0][0] as Blob;
+    expect(blobArg.type).toContain('text/csv');
+  });
+
+  it('exports HTML via the single Export button', () => {
+    render(<ScheduleDisplay schedule={schedule!} />);
+    selectFormat('html');
+    clickExport();
+
+    const blobArg = createObjectURL.mock.calls[0][0] as Blob;
+    expect(blobArg.type).toBe('text/html');
+  });
+
+  it('exports a PNG via the scheduleImage util through the Export button', async () => {
     vi.mocked(exportScheduleImage).mockResolvedValueOnce(undefined);
     render(<ScheduleDisplay schedule={schedule!} />);
-
-    fireEvent.click(screen.getByText('PNG'));
+    selectFormat('png');
+    clickExport();
 
     await waitFor(() => {
       expect(exportScheduleImage).toHaveBeenCalledWith(schedule, 'png');
     });
   });
 
-  it('exports an SVG via the scheduleImage util when "SVG" is clicked', async () => {
+  it('exports an SVG via the scheduleImage util through the Export button', async () => {
     vi.mocked(exportScheduleImage).mockResolvedValueOnce(undefined);
     render(<ScheduleDisplay schedule={schedule!} />);
-
-    fireEvent.click(screen.getByText('SVG'));
+    selectFormat('svg');
+    clickExport();
 
     await waitFor(() => {
       expect(exportScheduleImage).toHaveBeenCalledWith(schedule, 'svg');
     });
   });
 
-  it('shows an error message when image export fails', async () => {
+  it('exports a PDF via jsPDF through the Export button', async () => {
+    const jsPDFModule = await import('jspdf');
+    render(<ScheduleDisplay schedule={schedule!} />);
+    selectFormat('pdf');
+    clickExport();
+
+    await waitFor(() => {
+      expect(vi.mocked(jsPDFModule.default)).toHaveBeenCalled();
+    });
+  });
+
+  it('shows a format-specific error message when an export fails', async () => {
     vi.mocked(exportScheduleImage).mockRejectedValueOnce(new Error('boom'));
     render(<ScheduleDisplay schedule={schedule!} />);
+    selectFormat('png');
+    clickExport();
 
-    fireEvent.click(screen.getByText('PNG'));
+    expect(await screen.findByText('Failed to export schedule as PNG. Please try again.')).toBeInTheDocument();
+  });
 
-    expect(await screen.findByText('Failed to generate image. Please try again.')).toBeInTheDocument();
+  it('escapes HTML special characters in the HTML export to prevent injection', () => {
+    const maliciousSchedule = {
+      ...schedule!,
+      id: '<script>alert(1)</script>',
+      scheduleItems: [
+        {
+          ...schedule!.scheduleItems[0],
+          taxesAndLevies: { '<img src=x onerror=alert(1)>': 1 }
+        }
+      ]
+    };
+
+    let capturedHtml = '';
+    class CapturingBlob extends Blob {
+      constructor(parts: BlobPart[] = [], options?: BlobPropertyBag) {
+        super(parts, options);
+        capturedHtml = String(parts[0]);
+      }
+    }
+    vi.stubGlobal('Blob', CapturingBlob);
+
+    render(<ScheduleDisplay schedule={maliciousSchedule as any} />);
+    selectFormat('html');
+    clickExport();
+
+    expect(capturedHtml).not.toContain('<script>alert(1)</script>');
+    expect(capturedHtml).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(capturedHtml).not.toContain('<img src=x onerror=alert(1)>');
+    expect(capturedHtml).toContain('&lt;img src=x onerror=alert(1)&gt;');
+
+    vi.unstubAllGlobals();
   });
 
   it('renders a fallback message when no schedule is provided', () => {
