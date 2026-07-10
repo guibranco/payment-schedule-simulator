@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, PencilRuler, Settings, ArrowRight, Eye, GitCompare } from 'lucide-react';
+import { Calculator, PencilRuler, Settings, Eye, GitCompare } from 'lucide-react';
 import NewSchedule from './components/NewSchedule';
 import AmendSchedule from './components/AmendSchedule';
-import ConvertSchedule from './components/ConvertSchedule';
 import ViewSchedule from './components/ViewSchedule';
 import CompareSchedules from './components/CompareSchedules';
 import ConfigDialog from './components/ConfigDialog';
@@ -23,7 +22,7 @@ import { getRedirectUri } from './utils/url';
  * @returns The main application component.
  */
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'new' | 'amend' | 'convert' | 'view' | 'compare'>('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'amend' | 'view' | 'compare'>('new');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [apiEndpoint, setApiEndpoint] = useState('');
 
@@ -203,17 +202,6 @@ export default function App() {
               Amend Schedule
             </button>
             <button
-              onClick={() => setActiveTab('convert')}
-              className={`py-4 px-3 inline-flex items-center gap-2 border-b-2 text-sm font-medium ${
-                activeTab === 'convert'
-                  ? 'border-secondary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <ArrowRight className="w-5 h-5" />
-              Convert Schedule
-            </button>
-            <button
               onClick={() => setActiveTab('view')}
               className={`py-4 px-3 inline-flex items-center gap-2 border-b-2 text-sm font-medium ${
                 activeTab === 'view'
@@ -222,7 +210,7 @@ export default function App() {
               }`}
             >
               <Eye className="w-5 h-5" />
-              View Schedule
+              View / Convert Schedule
             </button>
             <button
               onClick={() => setActiveTab('compare')}
@@ -244,10 +232,8 @@ export default function App() {
           <NewSchedule apiEndpoint={apiEndpoint} />
         ) : activeTab === 'amend' ? (
           <AmendSchedule apiEndpoint={apiEndpoint} />
-        ) : activeTab === 'convert' ? (
-          <ConvertSchedule />
         ) : activeTab === 'view' ? (
-          <ViewSchedule />
+          <ViewSchedule apiEndpoint={apiEndpoint} />
         ) : (
           <CompareSchedules />
         )}

@@ -31,7 +31,7 @@ export interface ScheduleItem {
   adminFees: Record<string, AdminFee>;
   collectionItemCreatedDate?: string;
   succeeded: boolean | null;
-  originalItem?: string;
+  originalItem?: ScheduleItem | null;
 }
 
 export interface PaymentScheduleResponse {
