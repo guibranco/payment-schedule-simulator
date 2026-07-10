@@ -210,7 +210,7 @@ export default function App() {
               }`}
             >
               <Eye className="w-5 h-5" />
-              View Schedule
+              View / Convert Schedule
             </button>
             <button
               onClick={() => setActiveTab('compare')}
