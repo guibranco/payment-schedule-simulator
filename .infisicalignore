@@ -1,4 +1,7 @@
 249b7a468d3290daf59d942cf0259d8507f32252:.env:jwt:2
-f392b7af4e5095a74d7e7e2673741b1368589856:samples/rerates-cosmosDB-document.json:generic-api-key:9
+ab39e16c8e2c1943fc29cda0ce0d5ad59ef3600e:samples/payment-schedule-response.json:generic-api-key:3
+ab39e16c8e2c1943fc29cda0ce0d5ad59ef3600e:samples/policy-admin-cosmosDB-document.json:generic-api-key:17
+ab39e16c8e2c1943fc29cda0ce0d5ad59ef3600e:samples/rerates-cosmosDB-document.json:generic-api-key:9
 f392b7af4e5095a74d7e7e2673741b1368589856:samples/payment-schedule-response.json:generic-api-key:3
 f392b7af4e5095a74d7e7e2673741b1368589856:samples/policy-admin-cosmosDB-document.json:generic-api-key:17
+f392b7af4e5095a74d7e7e2673741b1368589856:samples/rerates-cosmosDB-document.json:generic-api-key:9
