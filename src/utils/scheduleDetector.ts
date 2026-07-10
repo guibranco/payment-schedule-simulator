@@ -196,6 +196,104 @@ export function deriveInputFromResponse(schedule: PaymentScheduleResponse): Paym
   };
 }
 
+function toPascalAdminFees(fees: Record<string, AdminFee>): Record<string, { AmountDue: number; TaxAmount: number }> {
+  const result: Record<string, { AmountDue: number; TaxAmount: number }> = {};
+  for (const [key, value] of Object.entries(fees || {})) {
+    result[key] = { AmountDue: value.amountDue, TaxAmount: value.taxAmount };
+  }
+  return result;
+}
+
+function toPascalItem(item: ScheduleItem): any {
+  return {
+    Id: item.id,
+    CollectionType: item.collectionType,
+    PeriodStartDate: item.periodStartDate,
+    PeriodEndDate: item.periodEndDate,
+    AdjustmentDate: item.adjustmentDate,
+    DueDate: item.dueDate,
+    AmountDue: item.amountDue,
+    NetAmount: item.netAmount,
+    TaxesAndLevies: item.taxesAndLevies,
+    AdminFees: toPascalAdminFees(item.adminFees),
+    OriginalItem: item.originalItem ? toPascalItem(item.originalItem) : null,
+    CollectionItemCreatedDate: item.collectionItemCreatedDate ?? null,
+    Succeeded: item.succeeded
+  };
+}
+
+function toFrequencyLabel(frequency: string): string {
+  return frequency ? frequency.charAt(0).toUpperCase() + frequency.slice(1).toLowerCase() : frequency;
+}
+
+/**
+ * Re-serializes a normalized PaymentScheduleResponse as a Policy Admin CosmosDB
+ * document. Fields that only exist on the original CosmosDB document and aren't
+ * tracked on the canonical response (PolicyNumber, RiskId, etc.) are omitted.
+ */
+export function convertResponseToPolicyAdminDocument(schedule: PaymentScheduleResponse): object {
+  return {
+    PaymentScheduleId: schedule.id,
+    Token: schedule.token,
+    Hash: schedule.hash,
+    CollectionFrequency: toFrequencyLabel(schedule.collectionFrequency),
+    CollectionDay: schedule.collectionDay,
+    InceptionDate: schedule.inceptionDate,
+    CoverStartDate: schedule.coverStartDate,
+    CoverEndDate: schedule.coverEndDate,
+    ScheduleItems: schedule.scheduleItems.map(toPascalItem),
+    // Schema versioning marker present on every real Policy Admin document (not
+    // policy-specific data), kept so this re-serialization is still detected as
+    // 'policyAdmin' rather than a plain Response if pasted back into the tool.
+    SchemaVersion: 0
+  };
+}
+
+/**
+ * Re-serializes a normalized PaymentScheduleResponse as a Rerates CosmosDB
+ * document. Fields only present on the original document (PolicyNumber, BatchId,
+ * etc.) are omitted since they aren't tracked on the canonical response.
+ */
+export function convertResponseToReratesDocument(schedule: PaymentScheduleResponse): object {
+  return {
+    PaymentScheduleId: schedule.id,
+    Token: schedule.token,
+    Hash: schedule.hash,
+    CollectionFrequency: toFrequencyLabel(schedule.collectionFrequency),
+    CollectionDay: schedule.collectionDay,
+    InceptionDate: schedule.inceptionDate,
+    CoverStartDate: schedule.coverStartDate,
+    CoverEndDate: schedule.coverEndDate,
+    Items: schedule.scheduleItems.map(toPascalItem)
+  };
+}
+
+/**
+ * Re-serializes a normalized PaymentScheduleResponse as a Payment Schedule
+ * Service Request (amendment), deriving the input parameters from the schedule.
+ */
+export function convertResponseToRequest(schedule: PaymentScheduleResponse): PaymentScheduleInput {
+  return deriveInputFromResponse(schedule);
+}
+
+/**
+ * Re-serializes a normalized PaymentScheduleResponse into any of the 4
+ * supported JSON shapes, for the "View JSON as..." format picker.
+ */
+export function convertResponseToFormat(schedule: PaymentScheduleResponse, format: ScheduleFormat): object {
+  switch (format) {
+    case 'policyAdmin':
+      return convertResponseToPolicyAdminDocument(schedule);
+    case 'rerates':
+      return convertResponseToReratesDocument(schedule);
+    case 'request':
+      return convertResponseToRequest(schedule);
+    case 'response':
+    default:
+      return schedule;
+  }
+}
+
 /**
  * Detects the format of a pasted/uploaded JSON document and normalizes it into
  * a PaymentScheduleResponse for display (when available) plus a PaymentScheduleInput

@@ -2,7 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   detectScheduleFormat,
   detectAndNormalizeSchedule,
-  deriveInputFromResponse
+  deriveInputFromResponse,
+  convertResponseToFormat,
+  convertResponseToPolicyAdminDocument,
+  convertResponseToReratesDocument,
+  convertResponseToRequest
 } from '../../src/utils/scheduleDetector';
 import { SAMPLE_SCHEDULES } from '../../src/constants/sampleSchedules';
 
@@ -135,5 +139,60 @@ describe('deriveInputFromResponse', () => {
     const { schedule } = detectAndNormalizeSchedule(sampleFor('policyAdmin'));
     const input = deriveInputFromResponse(schedule!);
     expect(input.collectionFrequency).toBe('Monthly');
+  });
+});
+
+describe('reverse converters (View JSON as...)', () => {
+  const { schedule } = detectAndNormalizeSchedule(sampleFor('response'));
+
+  it('convertResponseToPolicyAdminDocument produces PascalCase fields with ScheduleItems', () => {
+    const doc = convertResponseToPolicyAdminDocument(schedule!) as any;
+    expect(doc.PaymentScheduleId).toBe(schedule!.id);
+    expect(doc.CollectionFrequency).toBe('Annual');
+    expect(Array.isArray(doc.ScheduleItems)).toBe(true);
+    expect(doc.ScheduleItems).toHaveLength(schedule!.scheduleItems.length);
+    expect(doc.ScheduleItems[0].Id).toBe(schedule!.scheduleItems[0].id);
+    expect(doc.ScheduleItems[0].AmountDue).toBe(schedule!.scheduleItems[0].amountDue);
+    expect(doc.Items).toBeUndefined();
+  });
+
+  it('convertResponseToReratesDocument produces PascalCase fields with Items', () => {
+    const doc = convertResponseToReratesDocument(schedule!) as any;
+    expect(doc.PaymentScheduleId).toBe(schedule!.id);
+    expect(Array.isArray(doc.Items)).toBe(true);
+    expect(doc.Items).toHaveLength(schedule!.scheduleItems.length);
+    expect(doc.Items[0].Id).toBe(schedule!.scheduleItems[0].id);
+    expect(doc.ScheduleItems).toBeUndefined();
+  });
+
+  it('convertResponseToRequest derives a PaymentScheduleInput from the schedule', () => {
+    const request = convertResponseToRequest(schedule!);
+    expect(request.collectionFrequency).toBe('Annual');
+    expect(request.scheduleStartDate).toBe(schedule!.coverStartDate);
+    expect(request.currentSchedule).toBe(schedule);
+  });
+
+  it('convertResponseToFormat dispatches to the right converter for each format', () => {
+    expect(convertResponseToFormat(schedule!, 'response')).toBe(schedule);
+    expect((convertResponseToFormat(schedule!, 'policyAdmin') as any).ScheduleItems).toBeDefined();
+    expect((convertResponseToFormat(schedule!, 'rerates') as any).Items).toBeDefined();
+    expect((convertResponseToFormat(schedule!, 'request') as any).scheduleStartDate).toBeDefined();
+  });
+
+  it('round-trips a Policy Admin document through convert -> detect -> normalize', () => {
+    const doc = convertResponseToPolicyAdminDocument(schedule!);
+    const redetected = detectAndNormalizeSchedule(doc);
+    expect(redetected.format).toBe('policyAdmin');
+    expect(redetected.schedule!.id).toBe(schedule!.id);
+    expect(redetected.schedule!.scheduleItems).toHaveLength(schedule!.scheduleItems.length);
+    expect(redetected.schedule!.scheduleItems[0].amountDue).toBe(schedule!.scheduleItems[0].amountDue);
+  });
+
+  it('round-trips a Rerates document through convert -> detect -> normalize', () => {
+    const doc = convertResponseToReratesDocument(schedule!);
+    const redetected = detectAndNormalizeSchedule(doc);
+    expect(redetected.format).toBe('rerates');
+    expect(redetected.schedule!.id).toBe(schedule!.id);
+    expect(redetected.schedule!.scheduleItems).toHaveLength(schedule!.scheduleItems.length);
   });
 });

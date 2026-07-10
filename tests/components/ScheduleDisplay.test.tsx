@@ -32,6 +32,13 @@ const EXPORT_FORMAT_LABELS: Record<string, string> = {
   svg: 'SVG'
 };
 
+const VIEW_JSON_FORMAT_LABELS: Record<string, string> = {
+  policyAdmin: 'Policy Admin CosmosDB Document',
+  rerates: 'Rerates CosmosDB Document',
+  request: 'Payment Schedule Request (Amendment)',
+  response: 'Payment Schedule Response'
+};
+
 function openExportMenu() {
   fireEvent.click(screen.getByLabelText('Choose export format'));
 }
@@ -43,6 +50,19 @@ function selectFormat(format: string) {
 
 function clickExportButton() {
   fireEvent.click(screen.getByRole('button', { name: /^Export as/ }));
+}
+
+function openViewJsonMenu() {
+  fireEvent.click(screen.getByLabelText('Choose JSON view format'));
+}
+
+function selectViewJsonFormat(format: string) {
+  openViewJsonMenu();
+  fireEvent.click(screen.getByRole('menuitem', { name: VIEW_JSON_FORMAT_LABELS[format] }));
+}
+
+function clickViewJsonButton() {
+  fireEvent.click(screen.getByRole('button', { name: /^View JSON as/ }));
 }
 
 describe('ScheduleDisplay', () => {
@@ -88,13 +108,62 @@ describe('ScheduleDisplay', () => {
     expect(onStatusChange).toHaveBeenCalledWith(0);
   });
 
-  it('opens the JSON modal when "View JSON" is clicked', () => {
+  it('defaults to "View JSON as Payment Schedule Response" and opens the modal showing the canonical response', () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    fireEvent.click(screen.getByText('View JSON'));
+    expect(screen.getByRole('button', { name: 'View JSON as Payment Schedule Response' })).toBeInTheDocument();
 
-    expect(screen.getByText('Schedule JSON')).toBeInTheDocument();
-    const modal = screen.getByText('Schedule JSON').closest('div')!.parentElement!;
+    clickViewJsonButton();
+
+    const modal = screen.getByText(/Schedule JSON/).closest('div')!.parentElement!;
     expect(within(modal).getByText(new RegExp(schedule!.id))).toBeInTheDocument();
+    expect(within(modal).getByText(/"scheduleItems"/)).toBeInTheDocument();
+  });
+
+  it('opens a dropdown menu listing all 4 JSON view formats', () => {
+    render(<ScheduleDisplay schedule={schedule!} />);
+    openViewJsonMenu();
+
+    Object.values(VIEW_JSON_FORMAT_LABELS).forEach((label) => {
+      expect(screen.getByRole('menuitem', { name: label })).toBeInTheDocument();
+    });
+  });
+
+  it('changes the View JSON button label when a different format is chosen', () => {
+    render(<ScheduleDisplay schedule={schedule!} />);
+    selectViewJsonFormat('policyAdmin');
+
+    expect(screen.getByRole('button', { name: 'View JSON as Policy Admin CosmosDB Document' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+  });
+
+  it('shows the schedule re-serialized as a Policy Admin CosmosDB document (PascalCase, ScheduleItems)', () => {
+    render(<ScheduleDisplay schedule={schedule!} />);
+    selectViewJsonFormat('policyAdmin');
+    clickViewJsonButton();
+
+    const modal = screen.getByText(/Schedule JSON/).closest('div')!.parentElement!;
+    expect(within(modal).getByText(/"PaymentScheduleId"/)).toBeInTheDocument();
+    expect(within(modal).getByText(/"ScheduleItems"/)).toBeInTheDocument();
+  });
+
+  it('shows the schedule re-serialized as a Rerates CosmosDB document (PascalCase, Items)', () => {
+    render(<ScheduleDisplay schedule={schedule!} />);
+    selectViewJsonFormat('rerates');
+    clickViewJsonButton();
+
+    const modal = screen.getByText(/Schedule JSON/).closest('div')!.parentElement!;
+    expect(within(modal).getByText(/"PaymentScheduleId"/)).toBeInTheDocument();
+    expect(within(modal).getByText(/"Items"/)).toBeInTheDocument();
+  });
+
+  it('shows the schedule re-serialized as a Payment Schedule Request (amendment)', () => {
+    render(<ScheduleDisplay schedule={schedule!} />);
+    selectViewJsonFormat('request');
+    clickViewJsonButton();
+
+    const modal = screen.getByText(/Schedule JSON/).closest('div')!.parentElement!;
+    expect(within(modal).getByText(/"scheduleStartDate"/)).toBeInTheDocument();
+    expect(within(modal).getByText(/"netAmount"/)).toBeInTheDocument();
   });
 
   it('defaults to a single "Export as JSON" button when nothing is saved', () => {

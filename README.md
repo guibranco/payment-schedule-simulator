@@ -27,7 +27,7 @@ A simple and interactive UI built with **Vite + React** to simulate and manage p
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) >= 18
+- [Node.js](https://nodejs.org/) 24 (see `.nvmrc`; run `nvm use` if you use nvm)
 
 ### Installation
 
