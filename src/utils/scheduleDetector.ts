@@ -48,11 +48,13 @@ function normalizeAdminFees(fees: any): Record<string, AdminFee> {
 function normalizeTaxesAndLevies(taxes: any): Record<string, Record<string, number>> {
   const result: Record<string, Record<string, number>> = {};
   for (const [key, value] of Object.entries(taxes || {})) {
-    const dates: Record<string, number> = {};
-    for (const [date, amount] of Object.entries((value as object) || {})) {
-      dates[date] = Number(amount || 0);
+    if (value && typeof value === 'object') {
+      const dates: Record<string, number> = {};
+      for (const [date, amount] of Object.entries(value as object)) {
+        dates[date] = Number(amount || 0);
+      }
+      result[key] = dates;
     }
-    result[key] = dates;
   }
   return result;
 }
