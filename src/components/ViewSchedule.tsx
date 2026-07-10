@@ -236,7 +236,7 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h1 className="text-2xl font-bold mb-6 flex items-center gap-2 text-primary">
           <Eye className="w-6 h-6" />
-          View / Convert Schedule
+          View Schedule
         </h1>
 
         {!hasResult && (
