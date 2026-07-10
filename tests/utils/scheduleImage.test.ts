@@ -60,6 +60,17 @@ describe('exportScheduleImage', () => {
   });
 
   it('downloads an SVG that embeds the rasterized PNG data URI', async () => {
+    // Node's native Blob doesn't reliably support .text() in this test environment,
+    // so capture the raw parts passed to `new Blob(...)` instead of reading it back.
+    const capturedParts: BlobPart[][] = [];
+    class CapturingBlob extends Blob {
+      constructor(parts: BlobPart[] = [], options?: BlobPropertyBag) {
+        super(parts, options);
+        capturedParts.push(parts);
+      }
+    }
+    vi.stubGlobal('Blob', CapturingBlob);
+
     let capturedBlob: Blob | null = null;
     createObjectURL.mockImplementation((blob: Blob) => {
       capturedBlob = blob;
@@ -70,9 +81,11 @@ describe('exportScheduleImage', () => {
 
     expect(capturedBlob).not.toBeNull();
     expect(capturedBlob!.type).toBe('image/svg+xml');
-    const text = await capturedBlob!.text();
-    expect(text).toContain('<svg');
-    expect(text).toContain('data:image/png;base64,FAKE');
+    const svgText = String(capturedParts[capturedParts.length - 1][0]);
+    expect(svgText).toContain('<svg');
+    expect(svgText).toContain('data:image/png;base64,FAKE');
+
+    vi.unstubAllGlobals();
   });
 
   it('still removes the off-screen node when html2canvas rejects', async () => {
