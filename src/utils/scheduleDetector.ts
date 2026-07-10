@@ -179,19 +179,16 @@ export function deriveInputFromResponse(schedule: PaymentScheduleResponse): Paym
     dueDate: schedule.scheduleItems[0]?.dueDate || null,
     netAmount: schedule.scheduleItems.reduce((sum, item) => sum + item.netAmount, 0),
     taxesAndLevies: schedule.scheduleItems[0]?.taxesAndLevies || {},
-    adminFees: schedule.scheduleItems.reduce(
-      (fees, item) => ({
-        ...fees,
-        ...Object.entries(item.adminFees || {}).reduce(
-          (acc, [key, value]) => ({
-            ...acc,
-            [key]: { amountDue: Number(value.amountDue || 0), taxAmount: Number(value.taxAmount || 0) }
-          }),
-          {}
-        )
-      }),
-      {}
-    ),
+    adminFees: schedule.scheduleItems.reduce<Record<string, AdminFee>>((fees, item) => {
+      for (const [key, value] of Object.entries(item.adminFees || {})) {
+        const existing = fees[key] ?? { amountDue: 0, taxAmount: 0 };
+        fees[key] = {
+          amountDue: existing.amountDue + Number(value.amountDue || 0),
+          taxAmount: existing.taxAmount + Number(value.taxAmount || 0)
+        };
+      }
+      return fees;
+    }, {}),
     currentSchedule: schedule
   };
 }

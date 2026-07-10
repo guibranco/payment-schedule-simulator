@@ -20,6 +20,15 @@ const COLORS = {
   white: '#ffffff'
 };
 
+function escapeHtml(value: unknown): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function formatImageDate(dateStr: string | null | undefined): string {
   if (!dateStr || dateStr === '0001-01-01T00:00:00+00:00') return '-';
   const date = new Date(dateStr);
@@ -88,10 +97,10 @@ export function buildPrintableScheduleNode(schedule: PaymentScheduleResponse): H
     .map((item, index) => {
       const bg = rowBackgroundColor(item);
       const taxes = Object.entries(item.taxesAndLevies || {})
-        .map(([key, value]) => `${key}: €${Number(value || 0).toFixed(2)}`)
+        .map(([key, value]) => `${escapeHtml(key)}: €${Number(value || 0).toFixed(2)}`)
         .join('<br/>') || '-';
       const fees = Object.entries(item.adminFees || {})
-        .map(([key, value]) => `${key}: €${Number(value.amountDue || 0).toFixed(2)}`)
+        .map(([key, value]) => `${escapeHtml(key)}: €${Number(value.amountDue || 0).toFixed(2)}`)
         .join('<br/>') || '-';
 
       return `
@@ -114,7 +123,7 @@ export function buildPrintableScheduleNode(schedule: PaymentScheduleResponse): H
       ${summaryCard('Total Amount', `€${totalAmount.toFixed(2)}`, { accent: true })}
       ${summaryCard('Collection Day', schedule.collectionDay != null ? String(schedule.collectionDay) : '-')}
       ${summaryCard('Cover Period', `${formatImageDate(schedule.coverStartDate)} - ${formatImageDate(schedule.coverEndDate)}`)}
-      ${summaryCard('Schedule ID', schedule.id || '-')}
+      ${summaryCard('Schedule ID', escapeHtml(schedule.id || '-'))}
     </div>
     <div style="margin-bottom:24px;">
       <div style="font-size:13px; font-weight:600; color:${COLORS.gray900}; margin-bottom:8px;">Legend</div>
