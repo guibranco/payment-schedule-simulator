@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Euro, FileJson, Download, Check, X, MinusCircle } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Euro, FileJson, Download, ChevronDown, Check, X, MinusCircle } from 'lucide-react';
 import { PaymentScheduleResponse } from '../types';
 import { exportScheduleImage } from '../utils/scheduleImage';
 import { STORAGE_KEYS } from '../constants';
@@ -42,15 +42,30 @@ function isExportFormat(value: string | null): value is ExportFormat {
 export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT);
     return isExportFormat(saved) ? saved : 'json';
   });
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
-  const handleExportFormatChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const format = e.target.value as ExportFormat;
+  useEffect(() => {
+    if (!isExportMenuOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isExportMenuOpen]);
+
+  const selectExportFormat = (format: ExportFormat) => {
     setExportFormat(format);
     localStorage.setItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT, format);
+    setIsExportMenuOpen(false);
   };
 
   const scheduleItems = schedule?.scheduleItems || [];
@@ -351,26 +366,45 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
             <FileJson className="w-5 h-5" />
             View JSON
           </button>
-          <select
-            value={exportFormat}
-            onChange={handleExportFormatChange}
-            aria-label="Export format"
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 focus:border-primary focus:ring focus:ring-primary/20"
-          >
-            {EXPORT_FORMATS.map((format) => (
-              <option key={format} value={format}>
-                {EXPORT_FORMAT_LABELS[format]}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-            title={`Export schedule as ${EXPORT_FORMAT_LABELS[exportFormat]}`}
-          >
-            <Download className="w-5 h-5" />
-            Export
-          </button>
+          <div className="relative inline-flex" ref={exportMenuRef}>
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 pl-4 pr-3 py-2 bg-primary text-white rounded-l-md hover:bg-primary-dark"
+              title={`Export schedule as ${EXPORT_FORMAT_LABELS[exportFormat]}`}
+            >
+              <Download className="w-5 h-5" />
+              Export as {EXPORT_FORMAT_LABELS[exportFormat]}
+            </button>
+            <button
+              onClick={() => setIsExportMenuOpen((open) => !open)}
+              className="flex items-center px-2 py-2 bg-primary text-white rounded-r-md hover:bg-primary-dark border-l border-primary-light"
+              aria-label="Choose export format"
+              aria-haspopup="menu"
+              aria-expanded={isExportMenuOpen}
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+
+            {isExportMenuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-10 overflow-hidden"
+              >
+                {EXPORT_FORMATS.map((format) => (
+                  <button
+                    key={format}
+                    role="menuitem"
+                    onClick={() => selectExportFormat(format)}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                      format === exportFormat ? 'font-semibold text-primary' : 'text-gray-700'
+                    }`}
+                  >
+                    {EXPORT_FORMAT_LABELS[format]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {exportError && (

@@ -23,12 +23,26 @@ vi.mock('jspdf', () => ({
 const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!.json;
 const { schedule } = detectAndNormalizeSchedule(responseSample);
 
-function selectFormat(format: string) {
-  fireEvent.change(screen.getByLabelText('Export format'), { target: { value: format } });
+const EXPORT_FORMAT_LABELS: Record<string, string> = {
+  json: 'JSON',
+  csv: 'CSV',
+  pdf: 'PDF',
+  html: 'HTML',
+  png: 'PNG',
+  svg: 'SVG'
+};
+
+function openExportMenu() {
+  fireEvent.click(screen.getByLabelText('Choose export format'));
 }
 
-function clickExport() {
-  fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+function selectFormat(format: string) {
+  openExportMenu();
+  fireEvent.click(screen.getByRole('menuitem', { name: EXPORT_FORMAT_LABELS[format] }));
+}
+
+function clickExportButton() {
+  fireEvent.click(screen.getByRole('button', { name: /^Export as/ }));
 }
 
 describe('ScheduleDisplay', () => {
@@ -83,21 +97,38 @@ describe('ScheduleDisplay', () => {
     expect(within(modal).getByText(new RegExp(schedule!.id))).toBeInTheDocument();
   });
 
-  it('defaults the export format to JSON when nothing is saved', () => {
+  it('defaults to a single "Export as JSON" button when nothing is saved', () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    expect(screen.getByLabelText('Export format')).toHaveValue('json');
+    expect(screen.getByRole('button', { name: 'Export as JSON' })).toBeInTheDocument();
   });
 
-  it('restores the previously selected export format from localStorage', () => {
+  it('restores the previously selected export format from localStorage into the button label', () => {
     localStorage.setItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT, 'svg');
     render(<ScheduleDisplay schedule={schedule!} />);
-    expect(screen.getByLabelText('Export format')).toHaveValue('svg');
+    expect(screen.getByRole('button', { name: 'Export as SVG' })).toBeInTheDocument();
   });
 
   it('ignores an invalid saved export format and falls back to JSON', () => {
     localStorage.setItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT, 'not-a-format');
     render(<ScheduleDisplay schedule={schedule!} />);
-    expect(screen.getByLabelText('Export format')).toHaveValue('json');
+    expect(screen.getByRole('button', { name: 'Export as JSON' })).toBeInTheDocument();
+  });
+
+  it('opens a dropdown menu listing all 6 export formats', () => {
+    render(<ScheduleDisplay schedule={schedule!} />);
+    openExportMenu();
+
+    Object.values(EXPORT_FORMAT_LABELS).forEach((label) => {
+      expect(screen.getByRole('menuitem', { name: label })).toBeInTheDocument();
+    });
+  });
+
+  it('changes the export button\'s label and closes the menu when a format is chosen', () => {
+    render(<ScheduleDisplay schedule={schedule!} />);
+    selectFormat('csv');
+
+    expect(screen.getByRole('button', { name: 'Export as CSV' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'JSON' })).not.toBeInTheDocument();
   });
 
   it('saves the selected export format to localStorage when changed', () => {
@@ -106,10 +137,19 @@ describe('ScheduleDisplay', () => {
     expect(localStorage.getItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT)).toBe('csv');
   });
 
+  it('closes the dropdown menu when clicking outside of it', () => {
+    render(<ScheduleDisplay schedule={schedule!} />);
+    openExportMenu();
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+
+    fireEvent.mouseDown(document.body);
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
   it('exports JSON via the single Export button', () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    selectFormat('json');
-    clickExport();
+    clickExportButton();
 
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(createObjectURL).toHaveBeenCalledTimes(1);
@@ -117,51 +157,51 @@ describe('ScheduleDisplay', () => {
     expect(blobArg.type).toBe('application/json');
   });
 
-  it('exports CSV via the single Export button', () => {
+  it('exports CSV via the single Export button after choosing it from the menu', () => {
     render(<ScheduleDisplay schedule={schedule!} />);
     selectFormat('csv');
-    clickExport();
+    clickExportButton();
 
     const blobArg = createObjectURL.mock.calls[0][0] as Blob;
     expect(blobArg.type).toContain('text/csv');
   });
 
-  it('exports HTML via the single Export button', () => {
+  it('exports HTML via the single Export button after choosing it from the menu', () => {
     render(<ScheduleDisplay schedule={schedule!} />);
     selectFormat('html');
-    clickExport();
+    clickExportButton();
 
     const blobArg = createObjectURL.mock.calls[0][0] as Blob;
     expect(blobArg.type).toBe('text/html');
   });
 
-  it('exports a PNG via the scheduleImage util through the Export button', async () => {
+  it('exports a PNG via the scheduleImage util after choosing it from the menu', async () => {
     vi.mocked(exportScheduleImage).mockResolvedValueOnce(undefined);
     render(<ScheduleDisplay schedule={schedule!} />);
     selectFormat('png');
-    clickExport();
+    clickExportButton();
 
     await waitFor(() => {
       expect(exportScheduleImage).toHaveBeenCalledWith(schedule, 'png');
     });
   });
 
-  it('exports an SVG via the scheduleImage util through the Export button', async () => {
+  it('exports an SVG via the scheduleImage util after choosing it from the menu', async () => {
     vi.mocked(exportScheduleImage).mockResolvedValueOnce(undefined);
     render(<ScheduleDisplay schedule={schedule!} />);
     selectFormat('svg');
-    clickExport();
+    clickExportButton();
 
     await waitFor(() => {
       expect(exportScheduleImage).toHaveBeenCalledWith(schedule, 'svg');
     });
   });
 
-  it('exports a PDF via jsPDF through the Export button', async () => {
+  it('exports a PDF via jsPDF after choosing it from the menu', async () => {
     const jsPDFModule = await import('jspdf');
     render(<ScheduleDisplay schedule={schedule!} />);
     selectFormat('pdf');
-    clickExport();
+    clickExportButton();
 
     await waitFor(() => {
       expect(vi.mocked(jsPDFModule.default)).toHaveBeenCalled();
@@ -172,7 +212,7 @@ describe('ScheduleDisplay', () => {
     vi.mocked(exportScheduleImage).mockRejectedValueOnce(new Error('boom'));
     render(<ScheduleDisplay schedule={schedule!} />);
     selectFormat('png');
-    clickExport();
+    clickExportButton();
 
     expect(await screen.findByText('Failed to export schedule as PNG. Please try again.')).toBeInTheDocument();
   });
@@ -200,7 +240,7 @@ describe('ScheduleDisplay', () => {
 
     render(<ScheduleDisplay schedule={maliciousSchedule as any} />);
     selectFormat('html');
-    clickExport();
+    clickExportButton();
 
     expect(capturedHtml).not.toContain('<script>alert(1)</script>');
     expect(capturedHtml).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
