@@ -288,9 +288,13 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
                   <h3 className="text-sm font-medium text-gray-500">Taxes & Levies</h3>
                   <p className="mt-1 text-base text-gray-900">
                     {Object.entries(scheduleInput.taxesAndLevies).length > 0
-                      ? Object.entries(scheduleInput.taxesAndLevies).map(([key, value]) => (
-                          <span key={key} className="block">{key}: €{Number(value).toFixed(2)}</span>
-                        ))
+                      ? Object.entries(scheduleInput.taxesAndLevies).flatMap(([key, dates]) =>
+                          Object.entries(dates).map(([date, value]) => (
+                            <span key={`${key}-${date}`} className="block">
+                              {key}{date !== '0001-01-01' && ` (effective ${date})`}: €{Number(value).toFixed(2)}
+                            </span>
+                          ))
+                        )
                       : '-'}
                   </p>
                 </div>

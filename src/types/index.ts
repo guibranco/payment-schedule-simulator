@@ -13,7 +13,10 @@ export interface PaymentScheduleInput {
   effectiveDate: string;
   dueDate: string | null;
   netAmount: number;
-  taxesAndLevies: Record<string, number>;
+  // Tax label -> effective date -> amount. Unlike the flat, already-computed
+  // taxesAndLevies on a ScheduleItem, the calculate request keys each tax rate
+  // by the date it takes effect (see CalculateScheduleRequestV2 in the API's swagger).
+  taxesAndLevies: Record<string, Record<string, number>>;
   adminFees: Record<string, AdminFee>;
   currentSchedule?: PaymentScheduleResponse;
 }

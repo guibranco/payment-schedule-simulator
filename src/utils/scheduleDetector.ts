@@ -41,6 +41,22 @@ function normalizeAdminFees(fees: any): Record<string, AdminFee> {
   return result;
 }
 
+/**
+ * Normalizes a request-format taxesAndLevies map (tax label -> effective date -> amount)
+ * from raw JSON, coercing amounts to numbers.
+ */
+function normalizeTaxesAndLevies(taxes: any): Record<string, Record<string, number>> {
+  const result: Record<string, Record<string, number>> = {};
+  for (const [key, value] of Object.entries(taxes || {})) {
+    const dates: Record<string, number> = {};
+    for (const [date, amount] of Object.entries((value as object) || {})) {
+      dates[date] = Number(amount || 0);
+    }
+    result[key] = dates;
+  }
+  return result;
+}
+
 function normalizePascalItem(item: any): ScheduleItem {
   return {
     id: item.Id,
@@ -170,6 +186,15 @@ function convertRerates(json: any): PaymentScheduleResponse {
  * parameters are not available, so amounts are approximated from the items.
  */
 export function deriveInputFromResponse(schedule: PaymentScheduleResponse): PaymentScheduleInput {
+  // The API's calculate request keys each tax rate by the date it takes effect, but a
+  // computed ScheduleItem only ever carries the flat, already-resolved amount, so the
+  // real effective date isn't recoverable here — approximated with the .NET-style
+  // "unspecified date" sentinel used elsewhere in this app (e.g. default scheduleEndDate).
+  const taxesAndLevies: Record<string, Record<string, number>> = {};
+  for (const [key, amount] of Object.entries(schedule.scheduleItems[0]?.taxesAndLevies || {})) {
+    taxesAndLevies[key] = { '0001-01-01': Number(amount || 0) };
+  }
+
   return {
     collectionFrequency: normalizeFrequencyLabel(schedule.collectionFrequency),
     scheduleStartDate: schedule.coverStartDate,
@@ -178,7 +203,7 @@ export function deriveInputFromResponse(schedule: PaymentScheduleResponse): Paym
     effectiveDate: schedule.inceptionDate,
     dueDate: schedule.scheduleItems[0]?.dueDate || null,
     netAmount: schedule.scheduleItems.reduce((sum, item) => sum + item.netAmount, 0),
-    taxesAndLevies: schedule.scheduleItems[0]?.taxesAndLevies || {},
+    taxesAndLevies,
     adminFees: schedule.scheduleItems.reduce<Record<string, AdminFee>>((fees, item) => {
       for (const [key, value] of Object.entries(item.adminFees || {})) {
         const existing = fees[key] ?? { amountDue: 0, taxAmount: 0 };
@@ -328,7 +353,7 @@ export function detectAndNormalizeSchedule(json: any): DetectedSchedule {
     effectiveDate: json.effectiveDate,
     dueDate: json.dueDate || null,
     netAmount: Number(json.netAmount || 0),
-    taxesAndLevies: json.taxesAndLevies || {},
+    taxesAndLevies: normalizeTaxesAndLevies(json.taxesAndLevies),
     adminFees: normalizeAdminFees(json.adminFees),
     currentSchedule: schedule || undefined
   };

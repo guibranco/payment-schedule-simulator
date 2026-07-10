@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FileUp, Clipboard, Calendar, ArrowRight, FileJson } from 'lucide-react';
 import { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
+import { deriveInputFromResponse } from '../utils/scheduleDetector';
 import { useTokenManager } from '../hooks/useTokenManager';
 import NewSchedule from './NewSchedule';
 import ScheduleDisplay from './ScheduleDisplay';
@@ -198,27 +199,7 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
   };
 
   if (showNewSchedule && existingSchedule) {
-    const initialInput: PaymentScheduleInput = {
-      collectionFrequency: existingSchedule.collectionFrequency.charAt(0).toUpperCase() + 
-                          existingSchedule.collectionFrequency.slice(1) as 'Monthly' | 'Annual',
-      scheduleStartDate: existingSchedule.coverStartDate,
-      scheduleEndDate: existingSchedule.coverEndDate,
-      collectionDay: existingSchedule.collectionDay,
-      effectiveDate: existingSchedule.inceptionDate,
-      dueDate: existingSchedule.scheduleItems[0]?.dueDate || null,
-      netAmount: existingSchedule.scheduleItems.reduce((sum, item) => sum + item.netAmount, 0),
-      taxesAndLevies: existingSchedule.scheduleItems[0]?.taxesAndLevies || {},
-      adminFees: existingSchedule.scheduleItems.reduce((fees, item) => ({
-        ...fees,
-        ...Object.entries(item.adminFees).reduce((acc, [key, value]) => ({
-          ...acc,
-          [key]: {
-            amountDue: Number(value.amountDue || 0),
-            taxAmount: Number(value.taxAmount || 0)
-          }
-        }), {})
-      }), {})
-    };
+    const initialInput: PaymentScheduleInput = deriveInputFromResponse(existingSchedule);
 
     return <NewSchedule initialSchedule={initialInput} apiEndpoint={apiEndpoint} existingSchedule={existingSchedule} />;
   }

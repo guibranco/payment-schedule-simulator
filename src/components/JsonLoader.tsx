@@ -72,11 +72,17 @@ export default function JsonLoader({ onLoad, onClose }: Props) {
       }
     }
 
-    // Parse and validate taxes and levies
-    const taxesAndLevies: Record<string, number> = {};
+    // Parse and validate taxes and levies (tax label -> effective date -> amount)
+    const taxesAndLevies: Record<string, Record<string, number>> = {};
     if (json.taxesAndLevies && typeof json.taxesAndLevies === 'object') {
       for (const [key, value] of Object.entries(json.taxesAndLevies)) {
-        taxesAndLevies[key] = Number(value || 0);
+        if (value && typeof value === 'object') {
+          const dates: Record<string, number> = {};
+          for (const [date, amount] of Object.entries(value as object)) {
+            dates[date] = Number(amount || 0);
+          }
+          taxesAndLevies[key] = dates;
+        }
       }
     }
 
@@ -211,7 +217,9 @@ export default function JsonLoader({ onLoad, onClose }: Props) {
   "dueDate": "YYYY-MM-DD" | null,
   "netAmount": number,
   "taxesAndLevies": {
-    "TaxLabel": number
+    "TaxLabel": {
+      "YYYY-MM-DD": number
+    }
   },
   "adminFees": {
     "FeeLabel": {
