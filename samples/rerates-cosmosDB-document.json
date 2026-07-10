@@ -1,0 +1,68 @@
+{
+    "PolicyNumber": "OUT00123456",
+    "RiskId": 1,
+    "RiskCode": "VEH",
+    "RiskMajorVersion": 6,
+    "BatchId": "2026-7-OU-1",
+    "BatchItemId": "2026-7-OU-1-OUT00123456-1",
+    "PaymentScheduleId": "fd394238-476c-469b-b368-8bab0fcf6599",
+    "Token": "NOMhcdMp/N2Np0e67rT/Be+G5DNRGjZreqoHHe8/QyQ=",
+    "Hash": "brqukgokr8hpPGwHtIToE9scte8Ym2Kw5gUX44zX/0w=",
+    "CollectionFrequency": "Annual",
+    "CollectionDay": null,
+    "InceptionDate": "2026-07-13",
+    "CoverStartDate": "2026-07-13",
+    "CoverEndDate": "2027-07-12",
+    "ScheduledCollectionAttempts": 0,
+    "AllowScheduledCollection": false,
+    "Items": [
+        {
+            "Id": "dc695994-d2c0-4ba8-abd3-55deac289989",
+            "CollectionType": "Full",
+            "PeriodStartDate": "2026-07-13",
+            "PeriodEndDate": "2027-07-12",
+            "AdjustmentDate": "0001-01-01T00:00:00+00:00",
+            "DueDate": "2026-07-09",
+            "AmountDue": 485.6,
+            "NetAmount": 466.92,
+            "TaxesAndLevies": {
+                "LVY": 14.01,
+                "ICF": 4.67
+            },
+            "AdminFees": {},
+            "CollectionItemCreatedDate": null,
+            "Succeeded": null
+        },
+        {
+            "Id": "76366e71-4e2d-9999-988b-a7e8e38a8d8f",
+            "CollectionType": "Full",
+            "PeriodStartDate": "2026-07-09",
+            "PeriodEndDate": "2027-07-12",
+            "AdjustmentDate": "2026-07-09T12:43:36.157396+00:00",
+            "DueDate": "2026-07-09",
+            "AmountDue": 1,
+            "NetAmount": 1,
+            "TaxesAndLevies": {
+                "SMD": 0
+            },
+            "AdminFees": {
+                "SMD": {
+                    "AmountDue": 1,
+                    "TaxAmount": 0
+                }
+            },
+            "CollectionItemCreatedDate": null,
+            "Succeeded": null
+        }
+    ],
+    "id": "PaymentSchedule",
+    "_etag": "\"3b000c38-0000-0c00-0000-6a4f97780000\"",
+    "CreatedBy": "someone@domain.ie",
+    "CreatedDate": "2026-07-09T12:40:57.2810369+00:00",
+    "ModifiedBy": "someone@domain.ie",
+    "ModifiedDate": "2026-07-09T12:43:36.158709+00:00",
+    "_rid": "OLMDAPOgk8ExMRsAAAAAAA==",
+    "_self": "dbs/OLMDAA==/colls/OLMDAPOgk8E=/docs/OLMDAPOgk8ExMRsAAAAAAA==/",
+    "_attachments": "attachments/",
+    "_ts": 1783601016
+}
