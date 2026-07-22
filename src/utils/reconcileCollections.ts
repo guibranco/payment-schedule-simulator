@@ -21,6 +21,15 @@ function normalizeStatus(status: string): ReconciledStatus {
 }
 
 /**
+ * A refund is a successfully completed collection event in its own right (the money
+ * moved, then was successfully returned) — not a failure — so it counts as successful
+ * alongside 'collected'. Only 'rejected' (and 'pending', i.e. no attempt yet) are not.
+ */
+export function isSuccessfulReconciledStatus(status: ReconciledStatus): boolean {
+  return status === 'collected' || status === 'refunded';
+}
+
+/**
  * Parses and lightly validates raw JSON as a Collections Service transaction array.
  */
 export function parseCollectionsJson(raw: string): CollectionTransaction[] {
@@ -39,6 +48,9 @@ export function parseCollectionsJson(raw: string): CollectionTransaction[] {
     }
     if (!entry.collectionStatus) {
       throw new Error(`Entry at index ${index} is missing collectionStatus.`);
+    }
+    if (entry.amountDue === null || entry.amountDue === undefined || isNaN(Number(entry.amountDue))) {
+      throw new Error(`Entry at index ${index} is missing or has an invalid amountDue.`);
     }
     return entry as CollectionTransaction;
   });
@@ -71,9 +83,7 @@ export function reconcileScheduleItems(
       latestTransaction.paymentScheduleItemIds.length === 1 &&
       Math.abs(Number(latestTransaction.amountDue) - Number(item.amountDue)) > AMOUNT_TOLERANCE;
 
-    const statusMismatch =
-      item.succeeded !== null &&
-      ((item.succeeded === true && status !== 'collected') || (item.succeeded === false && status === 'collected'));
+    const statusMismatch = item.succeeded !== null && item.succeeded !== isSuccessfulReconciledStatus(status);
 
     result.set(item.id, { status, transactions, latestTransaction, amountMismatch, statusMismatch });
   }

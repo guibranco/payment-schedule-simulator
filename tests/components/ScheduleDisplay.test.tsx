@@ -397,6 +397,57 @@ describe('ScheduleDisplay', () => {
       ).toHaveTextContent('01/03/2026');
     });
 
+    it('falls back through modifiedDate/createdDate/valueDate before dueDate when deriving the created date', () => {
+      const scheduleWithMissingDate = {
+        ...schedule!,
+        scheduleItems: [
+          { ...schedule!.scheduleItems[0], id: 'derive-item-2', succeeded: true, collectionItemCreatedDate: undefined }
+        ]
+      };
+      const collectionsWithoutProcessingDate: CollectionTransaction[] = [
+        {
+          paymentScheduleItemIds: ['derive-item-2'],
+          amountDue: schedule!.scheduleItems[0].amountDue,
+          collectionStatus: 'collected',
+          modifiedDate: '2026-04-05T00:00:00+00:00',
+          dueDate: '2026-01-01'
+        }
+      ];
+
+      render(<ScheduleDisplay schedule={scheduleWithMissingDate} collections={collectionsWithoutProcessingDate} />);
+
+      expect(
+        screen.getByTitle('Derived from Collections reconciliation — not recorded on the schedule item')
+      ).toHaveTextContent('05/04/2026');
+    });
+
+    it('backfills the Status column as successful when the latest reconciled outcome is a refund', () => {
+      const scheduleWithMissingStatus = {
+        ...schedule!,
+        scheduleItems: [
+          { ...schedule!.scheduleItems[0], id: 'refund-item', succeeded: null }
+        ]
+      };
+      const refundCollections: CollectionTransaction[] = [
+        {
+          paymentScheduleItemIds: ['refund-item'],
+          amountDue: schedule!.scheduleItems[0].amountDue,
+          collectionStatus: 'refunded',
+          providerDetails: { processingDate: '2026-03-01T10:00:00+00:00' }
+        }
+      ];
+
+      render(<ScheduleDisplay schedule={scheduleWithMissingStatus} collections={refundCollections} />);
+
+      // A refund is a successfully completed collection event, so it renders the "succeeded" (green Check) icon.
+      const statusCell = screen.getByTitle(
+        'Derived from Collections reconciliation — this schedule item has no recorded status'
+      );
+      expect(within(statusCell).getByText('auto')).toBeInTheDocument();
+      expect(statusCell.querySelector('.text-green-500')).toBeInTheDocument();
+      expect(statusCell.querySelector('.text-red-500')).not.toBeInTheDocument();
+    });
+
     it('does not override a schedule item that already has a recorded status', () => {
       render(<ScheduleDisplay schedule={schedule!} collections={collections} />);
       expect(screen.queryByText('auto')).not.toBeInTheDocument();

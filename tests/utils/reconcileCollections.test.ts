@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   parseCollectionsJson,
   reconcileScheduleItems,
-  summarizeReconciliation
+  summarizeReconciliation,
+  isSuccessfulReconciledStatus
 } from '../../src/utils/reconcileCollections';
-import { CollectionTransaction, ScheduleItem } from '../../src/types';
+import { CollectionTransaction, ReconciledStatus, ScheduleItem } from '../../src/types';
 
 function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
   return {
@@ -33,6 +34,17 @@ function makeTxn(overrides: Partial<CollectionTransaction> = {}): CollectionTran
   };
 }
 
+describe('isSuccessfulReconciledStatus', () => {
+  it.each<[ReconciledStatus, boolean]>([
+    ['collected', true],
+    ['refunded', true],
+    ['rejected', false],
+    ['pending', false]
+  ])('treats %s as successful: %s', (status, expected) => {
+    expect(isSuccessfulReconciledStatus(status)).toBe(expected);
+  });
+});
+
 describe('parseCollectionsJson', () => {
   it('parses a valid JSON array of transactions', () => {
     const raw = JSON.stringify([makeTxn()]);
@@ -55,6 +67,25 @@ describe('parseCollectionsJson', () => {
   it('throws when an entry is missing collectionStatus', () => {
     const raw = JSON.stringify([{ paymentScheduleItemIds: ['item-1'] }]);
     expect(() => parseCollectionsJson(raw)).toThrow('missing collectionStatus');
+  });
+
+  it('throws when an entry is missing amountDue', () => {
+    const raw = JSON.stringify([{ paymentScheduleItemIds: ['item-1'], collectionStatus: 'collected' }]);
+    expect(() => parseCollectionsJson(raw)).toThrow('missing or has an invalid amountDue');
+  });
+
+  it('throws when an entry has a non-numeric amountDue', () => {
+    const raw = JSON.stringify([
+      { paymentScheduleItemIds: ['item-1'], collectionStatus: 'collected', amountDue: 'not-a-number' }
+    ]);
+    expect(() => parseCollectionsJson(raw)).toThrow('missing or has an invalid amountDue');
+  });
+
+  it('accepts a numeric string amountDue (as the Collections API may serialize it)', () => {
+    const raw = JSON.stringify([
+      { paymentScheduleItemIds: ['item-1'], collectionStatus: 'collected', amountDue: '34.09' }
+    ]);
+    expect(parseCollectionsJson(raw)[0].amountDue).toBe('34.09');
   });
 });
 
@@ -141,6 +172,25 @@ describe('reconcileScheduleItems', () => {
     const result = reconcileScheduleItems(items, collections);
 
     expect(result.get('item-1')?.statusMismatch).toBe(false);
+  });
+
+  it('treats a refund as a successful outcome, not a status mismatch, when the item claims succeeded', () => {
+    const items = [makeItem({ succeeded: true })];
+    const collections = [makeTxn({ collectionStatus: 'refunded' })];
+
+    const result = reconcileScheduleItems(items, collections);
+
+    expect(result.get('item-1')?.status).toBe('refunded');
+    expect(result.get('item-1')?.statusMismatch).toBe(false);
+  });
+
+  it('flags a status mismatch when the schedule item claims failure but Collections shows a refund', () => {
+    const items = [makeItem({ succeeded: false })];
+    const collections = [makeTxn({ collectionStatus: 'refunded' })];
+
+    const result = reconcileScheduleItems(items, collections);
+
+    expect(result.get('item-1')?.statusMismatch).toBe(true);
   });
 
   it('normalizes an unrecognized collection status to pending', () => {
