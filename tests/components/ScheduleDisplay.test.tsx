@@ -370,6 +370,25 @@ describe('ScheduleDisplay', () => {
       expect(screen.getByText('Not sufficient funds')).toBeInTheDocument();
     });
 
+    it('shows a Processed date in the detail modal derived from modifiedDate when processingDate/valueDate are absent', () => {
+      const modifiedDateOnlyCollections: CollectionTransaction[] = [
+        {
+          paymentScheduleItemIds: [firstItemId],
+          amountDue: schedule!.scheduleItems[0].amountDue,
+          collectionStatus: 'collected',
+          transactionReference: 'REF-MODIFIED-ONLY',
+          modifiedDate: '2026-04-05T00:00:00+00:00',
+          dueDate: '2026-01-01'
+        }
+      ];
+
+      render(<ScheduleDisplay schedule={schedule!} collections={modifiedDateOnlyCollections} />);
+      fireEvent.click(screen.getByRole('button', { name: /Collected/ }));
+
+      const row = screen.getByText('REF-MODIFIED-ONLY').closest('tr')!;
+      expect(within(row).getByText('05/04/2026')).toBeInTheDocument();
+    });
+
     it('backfills the Status and Collection Item Created Date columns when the schedule item has no recorded values', () => {
       const scheduleWithMissingInfo = {
         ...schedule!,

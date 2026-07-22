@@ -9,8 +9,17 @@ import {
 const AMOUNT_TOLERANCE = 0.01;
 const KNOWN_STATUSES: ReconciledStatus[] = ['collected', 'rejected', 'refunded'];
 
+/**
+ * The best available timestamp for a transaction, in order of how authoritative it is
+ * about when the collection actually happened: provider processing date first, then the
+ * record's own modified/created dates, then the scheduled value/due dates as a last resort.
+ */
+export function getTransactionDate(txn: CollectionTransaction): string | undefined {
+  return txn.providerDetails?.processingDate || txn.modifiedDate || txn.createdDate || txn.valueDate || txn.dueDate;
+}
+
 function getProcessingTime(txn: CollectionTransaction): number {
-  const raw = txn.providerDetails?.processingDate || txn.modifiedDate || txn.createdDate || txn.valueDate || txn.dueDate;
+  const raw = getTransactionDate(txn);
   const time = raw ? new Date(raw).getTime() : NaN;
   return isNaN(time) ? 0 : time;
 }

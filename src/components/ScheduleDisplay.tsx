@@ -22,7 +22,12 @@ import { PaymentScheduleResponse, ScheduleItem, CollectionTransaction, Reconcile
 import { exportScheduleImage } from '../utils/scheduleImage';
 import { convertResponseToFormat, ScheduleFormat } from '../utils/scheduleDetector';
 import { STORAGE_KEYS } from '../constants';
-import { reconcileScheduleItems, summarizeReconciliation, isSuccessfulReconciledStatus } from '../utils/reconcileCollections';
+import {
+  reconcileScheduleItems,
+  summarizeReconciliation,
+  isSuccessfulReconciledStatus,
+  getTransactionDate
+} from '../utils/reconcileCollections';
 import Modal from './Modal';
 
 interface Props {
@@ -184,8 +189,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
     if (item.collectionItemCreatedDate) return { value: item.collectionItemCreatedDate, derived: false };
 
     const txn = reconciliation?.get(item.id)?.latestTransaction;
-    const derivedDate =
-      txn?.providerDetails?.processingDate || txn?.modifiedDate || txn?.createdDate || txn?.valueDate || txn?.dueDate;
+    const derivedDate = txn ? getTransactionDate(txn) : undefined;
     return { value: derivedDate, derived: !!derivedDate };
   };
 
@@ -811,7 +815,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                   {reconciliationDetail.transactions.map((txn, i) => (
                     <tr key={txn.transactionReference || i}>
                       <td className="px-3 py-2 whitespace-nowrap">
-                        {formatDate(txn.providerDetails?.processingDate || txn.valueDate || txn.dueDate || '')}
+                        {formatDate(getTransactionDate(txn) || '')}
                       </td>
                       <td className="px-3 py-2 capitalize">{txn.collectionStatus}</td>
                       <td className="px-3 py-2 whitespace-nowrap">€{Number(txn.amountDue ?? 0).toFixed(2)}</td>
