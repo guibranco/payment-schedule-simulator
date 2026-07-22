@@ -1,9 +1,6 @@
 name: Build and Test on Pull Request
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
   workflow_dispatch:
 
