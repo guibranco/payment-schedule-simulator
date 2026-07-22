@@ -9,6 +9,14 @@ import TokenStatus from './components/TokenStatus';
 import { STORAGE_KEYS } from './constants';
 import { getRedirectUri } from './utils/url';
 
+type Tab = 'new' | 'amend' | 'view' | 'compare';
+
+const VALID_TABS: Tab[] = ['new', 'amend', 'view', 'compare'];
+
+function isValidTab(value: string | null): value is Tab {
+  return !!value && (VALID_TABS as string[]).includes(value);
+}
+
 /**
  * Main application component for Payment Schedule Simulator.
  *
@@ -22,9 +30,16 @@ import { getRedirectUri } from './utils/url';
  * @returns The main application component.
  */
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'new' | 'amend' | 'view' | 'compare'>('new');
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
+    return isValidTab(saved) ? saved : 'new';
+  });
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [apiEndpoint, setApiEndpoint] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     const savedEndpoint = localStorage.getItem(STORAGE_KEYS.API_ENDPOINT);
