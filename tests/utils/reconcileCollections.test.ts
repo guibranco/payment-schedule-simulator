@@ -87,6 +87,20 @@ describe('parseCollectionsJson', () => {
     ]);
     expect(parseCollectionsJson(raw)[0].amountDue).toBe(34.09);
   });
+
+  it('throws on an empty or whitespace-only string amountDue instead of silently coercing to 0', () => {
+    const blank = JSON.stringify([{ paymentScheduleItemIds: ['item-1'], collectionStatus: 'collected', amountDue: '' }]);
+    const whitespace = JSON.stringify([
+      { paymentScheduleItemIds: ['item-1'], collectionStatus: 'collected', amountDue: '   ' }
+    ]);
+    expect(() => parseCollectionsJson(blank)).toThrow('missing or has an invalid amountDue');
+    expect(() => parseCollectionsJson(whitespace)).toThrow('missing or has an invalid amountDue');
+  });
+
+  it('accepts a genuine zero amountDue', () => {
+    const raw = JSON.stringify([{ paymentScheduleItemIds: ['item-1'], collectionStatus: 'collected', amountDue: 0 }]);
+    expect(parseCollectionsJson(raw)[0].amountDue).toBe(0);
+  });
 });
 
 describe('reconcileScheduleItems', () => {
