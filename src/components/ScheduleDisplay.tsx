@@ -16,7 +16,10 @@ import {
   XCircle,
   Undo2,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw,
+  History,
+  Info
 } from 'lucide-react';
 import { PaymentScheduleResponse, ScheduleItem, CollectionTransaction, ReconciledStatus } from '../types';
 import { exportScheduleImage } from '../utils/scheduleImage';
@@ -113,6 +116,7 @@ function useCloseOnOutsideClick(ref: React.RefObject<HTMLElement | null>, isOpen
 export default function ScheduleDisplay({ schedule, onStatusChange, collections, onClearCollections }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   const [reconciliationDetailItemId, setReconciliationDetailItemId] = useState<string | null>(null);
+  const [originalItemDetail, setOriginalItemDetail] = useState<ScheduleItem | null>(null);
   const [isViewJsonMenuOpen, setIsViewJsonMenuOpen] = useState(false);
   const [viewJsonFormat, setViewJsonFormat] = useState<ScheduleFormat>('response');
   const viewJsonMenuRef = useRef<HTMLDivElement>(null);
@@ -193,6 +197,15 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
     return { value: derivedDate, derived: !!derivedDate };
   };
 
+  /**
+   * The channel a transaction was submitted through — used to explain, in the detail
+   * modal, which attempts were retries (resubmission or real-time) versus the original.
+   */
+  const getChannelLabel = (txn: CollectionTransaction): string => {
+    if (txn.isResubmission) return 'Resubmission';
+    if (txn.isRealtime) return 'Real-time';
+    return 'Standard';
+  };
 
   /**
    * Generates and downloads a CSV file containing schedule item data.
@@ -582,7 +595,9 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
               <h3 className="text-sm font-medium text-gray-900">Collection Day</h3>
-              <p className="mt-2 text-2xl font-semibold text-gray-900">{schedule.collectionDay}</p>
+              <p className="mt-2 text-2xl font-semibold text-gray-900">
+                {schedule.collectionFrequency === 'annual' ? '-' : schedule.collectionDay}
+              </p>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
               <h3 className="text-sm font-medium text-gray-900">Cover Period</h3>
@@ -732,7 +747,19 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                     {formatDate(item.adjustmentDate)}
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                    {item.originalItem ? 'Yes' : 'No'}
+                    {item.originalItem ? (
+                      <button
+                        type="button"
+                        onClick={() => setOriginalItemDetail(item.originalItem!)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:opacity-80 transition-opacity"
+                        title="View original item details"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                        Yes
+                      </button>
+                    ) : (
+                      'No'
+                    )}
                   </td>
                   {reconciliation && (
                     <td className="px-3 py-3 whitespace-nowrap text-sm">
@@ -741,19 +768,24 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                         if (!entry) return '-';
                         const { label, className, Icon } = RECONCILIATION_BADGES[entry.status];
                         const hasIssue = entry.amountMismatch || entry.statusMismatch;
+                        const titleParts = [
+                          entry.transactions.length > 0
+                            ? `${entry.transactions.length} matching transaction(s) — click for details`
+                            : 'No matching Collections transaction found — click for details'
+                        ];
+                        if (entry.wasRetried) {
+                          titleParts.push('Retried via resubmission/real-time after an earlier rejection or refund');
+                        }
                         return (
                           <button
                             type="button"
                             onClick={() => setReconciliationDetailItemId(item.id)}
                             className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-opacity hover:opacity-80 ${className}`}
-                            title={
-                              entry.transactions.length > 0
-                                ? `${entry.transactions.length} matching transaction(s) — click for details`
-                                : 'No matching Collections transaction found — click for details'
-                            }
+                            title={titleParts.join(' · ')}
                           >
                             <Icon className="w-3.5 h-3.5" />
                             {label}
+                            {entry.wasRetried && <RefreshCw className="w-3.5 h-3.5" aria-label="Retried" />}
                             {hasIssue && <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />}
                           </button>
                         );
@@ -806,6 +838,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                   <tr>
                     <th className="px-3 py-2 text-left font-medium text-gray-500">Processed</th>
                     <th className="px-3 py-2 text-left font-medium text-gray-500">Status</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">Channel</th>
                     <th className="px-3 py-2 text-left font-medium text-gray-500">Amount</th>
                     <th className="px-3 py-2 text-left font-medium text-gray-500">Reference</th>
                     <th className="px-3 py-2 text-left font-medium text-gray-500">Error</th>
@@ -818,6 +851,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                         {formatDate(getTransactionDate(txn) || '')}
                       </td>
                       <td className="px-3 py-2 capitalize">{txn.collectionStatus}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{getChannelLabel(txn)}</td>
                       <td className="px-3 py-2 whitespace-nowrap">€{Number(txn.amountDue ?? 0).toFixed(2)}</td>
                       <td className="px-3 py-2 break-all">{txn.transactionReference || '-'}</td>
                       <td className="px-3 py-2">{txn.providerDetails?.errorMessage || '-'}</td>
@@ -828,6 +862,89 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={originalItemDetail !== null}
+        onClose={() => setOriginalItemDetail(null)}
+        title="Original Item"
+      >
+        {originalItemDetail && (() => {
+          const matchIndex = scheduleItems.findIndex((si) => si.id === originalItemDetail.id);
+          return (
+            <div className="space-y-4">
+              {matchIndex >= 0 ? (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 text-sm flex items-start gap-2">
+                  <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <p>This matches schedule item <strong>#{matchIndex}</strong> in the table above.</p>
+                </div>
+              ) : (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <p>
+                    This item isn't part of the current schedule's items — it was likely generated on the fly by
+                    the Payment Schedule service to compute this adjustment, rather than being a persisted schedule
+                    item.
+                  </p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <h3 className="font-medium text-gray-500">Id</h3>
+                  <p className="break-all">{originalItemDetail.id}</p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-500">Collection Type</h3>
+                  <p>{originalItemDetail.collectionType}</p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-500">Period</h3>
+                  <p>{formatDate(originalItemDetail.periodStartDate)} - {formatDate(originalItemDetail.periodEndDate)}</p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-500">Due Date</h3>
+                  <p>{formatDate(originalItemDetail.dueDate)}</p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-500">Net Amount</h3>
+                  <p>€{Number(originalItemDetail.netAmount ?? 0).toFixed(2)}</p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-500">Amount Due</h3>
+                  <p>€{Number(originalItemDetail.amountDue ?? 0).toFixed(2)}</p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-500">Taxes & Levies</h3>
+                  <p>
+                    {Object.entries(originalItemDetail.taxesAndLevies || {}).length > 0
+                      ? Object.entries(originalItemDetail.taxesAndLevies).map(([key, value]) => (
+                          <span key={key} className="block">{key}: €{Number(value || 0).toFixed(2)}</span>
+                        ))
+                      : '-'}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-500">Admin Fees</h3>
+                  <p>
+                    {Object.entries(originalItemDetail.adminFees || {}).length > 0
+                      ? Object.entries(originalItemDetail.adminFees).map(([key, value]) => (
+                          <span key={key} className="block">{key}: €{Number(value.amountDue || 0).toFixed(2)}</span>
+                        ))
+                      : '-'}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-500">Collection Item Created Date</h3>
+                  <p>{originalItemDetail.collectionItemCreatedDate ? formatDate(originalItemDetail.collectionItemCreatedDate) : '-'}</p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-500">Has Its Own Original Item</h3>
+                  <p>{originalItemDetail.originalItem ? 'Yes' : 'No'}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
     </>
   );

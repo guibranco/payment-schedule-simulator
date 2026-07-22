@@ -93,6 +93,18 @@ describe('ScheduleDisplay', () => {
     expect(idEl).toHaveTextContent(schedule!.id);
   });
 
+  it('shows "-" for Collection Day on an annual schedule instead of the raw sentinel 0/null', () => {
+    render(<ScheduleDisplay schedule={{ ...schedule!, collectionFrequency: 'annual', collectionDay: 0 }} />);
+    const heading = screen.getByText('Collection Day');
+    expect(heading.parentElement).toHaveTextContent('-');
+  });
+
+  it('shows the actual Collection Day for a monthly schedule', () => {
+    render(<ScheduleDisplay schedule={{ ...schedule!, collectionFrequency: 'monthly', collectionDay: 15 }} />);
+    const heading = screen.getByText('Collection Day');
+    expect(heading.parentElement).toHaveTextContent('15');
+  });
+
   it('renders the total amount and one row per schedule item', () => {
     render(<ScheduleDisplay schedule={schedule!} />);
     const totalAmount = schedule!.scheduleItems.reduce((sum, item) => sum + item.amountDue, 0);
@@ -489,6 +501,94 @@ describe('ScheduleDisplay', () => {
       fireEvent.click(screen.getByTitle('Clear loaded collections'));
 
       expect(onClearCollections).toHaveBeenCalledTimes(1);
+    });
+
+    it('highlights a status badge as retried when a rejection was followed by a resubmission/real-time attempt', () => {
+      const retriedCollections: CollectionTransaction[] = [
+        {
+          paymentScheduleItemIds: [firstItemId],
+          amountDue: schedule!.scheduleItems[0].amountDue,
+          collectionStatus: 'rejected',
+          providerDetails: { processingDate: '2026-01-25T22:04:10+00:00', errorMessage: 'Not sufficient funds' }
+        },
+        {
+          paymentScheduleItemIds: [firstItemId],
+          amountDue: schedule!.scheduleItems[0].amountDue,
+          collectionStatus: 'collected',
+          isResubmission: true,
+          transactionReference: 'REF-RETRY',
+          providerDetails: { processingDate: '2026-02-01T22:04:47+00:00' }
+        }
+      ];
+
+      render(<ScheduleDisplay schedule={schedule!} collections={retriedCollections} />);
+
+      const badge = screen.getByRole('button', { name: /Collected/ });
+      expect(badge).toHaveAttribute('title', expect.stringContaining('Retried via resubmission/real-time'));
+
+      fireEvent.click(badge);
+      const channelHeader = screen.getByText('Channel');
+      const row = screen.getByText('REF-RETRY').closest('tr')!;
+      expect(within(row).getByText('Resubmission')).toBeInTheDocument();
+      expect(channelHeader).toBeInTheDocument();
+    });
+
+    it('does not mark a badge as retried when a rejection has no follow-up attempt yet', () => {
+      const notYetRetried: CollectionTransaction[] = [
+        {
+          paymentScheduleItemIds: [firstItemId],
+          amountDue: schedule!.scheduleItems[0].amountDue,
+          collectionStatus: 'rejected',
+          providerDetails: { processingDate: '2026-01-25T22:04:10+00:00' }
+        }
+      ];
+
+      render(<ScheduleDisplay schedule={schedule!} collections={notYetRetried} />);
+
+      const badge = screen.getByRole('button', { name: /Rejected/ });
+      expect(badge).not.toHaveAttribute('title', expect.stringContaining('Retried'));
+    });
+  });
+
+  describe('Original Item breakdown', () => {
+    it('does not show an original-item button when the item has none', () => {
+      render(<ScheduleDisplay schedule={schedule!} />);
+      expect(screen.queryByTitle('View original item details')).not.toBeInTheDocument();
+    });
+
+    it('shows a breakdown referencing the matching row when the original item exists in the current schedule', () => {
+      const scheduleWithMatch = {
+        ...schedule!,
+        scheduleItems: [
+          { ...schedule!.scheduleItems[1], originalItem: { ...schedule!.scheduleItems[0] } },
+          schedule!.scheduleItems[0]
+        ]
+      };
+
+      render(<ScheduleDisplay schedule={scheduleWithMatch} />);
+      fireEvent.click(screen.getByTitle('View original item details'));
+
+      expect(screen.getByText('Original Item')).toBeInTheDocument();
+      expect(screen.getByText('#1')).toBeInTheDocument();
+      expect(screen.getByText(schedule!.scheduleItems[0].id)).toBeInTheDocument();
+    });
+
+    it('flags the original item as synthetic when it is not found among the current schedule items', () => {
+      const syntheticOriginal = {
+        ...schedule!.scheduleItems[0],
+        id: 'not-in-the-schedule',
+        collectionItemCreatedDate: undefined
+      };
+      const scheduleWithSynthetic = {
+        ...schedule!,
+        scheduleItems: [{ ...schedule!.scheduleItems[1], originalItem: syntheticOriginal }]
+      };
+
+      render(<ScheduleDisplay schedule={scheduleWithSynthetic} />);
+      fireEvent.click(screen.getByTitle('View original item details'));
+
+      expect(screen.getByText(/generated on the fly by the Payment Schedule service/)).toBeInTheDocument();
+      expect(screen.getByText('not-in-the-schedule')).toBeInTheDocument();
     });
   });
 });
