@@ -397,6 +397,30 @@ describe('ScheduleDisplay', () => {
       ).toHaveTextContent('01/03/2026');
     });
 
+    it('falls back through modifiedDate/createdDate/valueDate before dueDate when deriving the created date', () => {
+      const scheduleWithMissingDate = {
+        ...schedule!,
+        scheduleItems: [
+          { ...schedule!.scheduleItems[0], id: 'derive-item-2', succeeded: true, collectionItemCreatedDate: undefined }
+        ]
+      };
+      const collectionsWithoutProcessingDate: CollectionTransaction[] = [
+        {
+          paymentScheduleItemIds: ['derive-item-2'],
+          amountDue: schedule!.scheduleItems[0].amountDue,
+          collectionStatus: 'collected',
+          modifiedDate: '2026-04-05T00:00:00+00:00',
+          dueDate: '2026-01-01'
+        }
+      ];
+
+      render(<ScheduleDisplay schedule={scheduleWithMissingDate} collections={collectionsWithoutProcessingDate} />);
+
+      expect(
+        screen.getByTitle('Derived from Collections reconciliation — not recorded on the schedule item')
+      ).toHaveTextContent('05/04/2026');
+    });
+
     it('backfills the Status column as successful when the latest reconciled outcome is a refund', () => {
       const scheduleWithMissingStatus = {
         ...schedule!,

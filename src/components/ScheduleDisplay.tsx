@@ -184,7 +184,8 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
     if (item.collectionItemCreatedDate) return { value: item.collectionItemCreatedDate, derived: false };
 
     const txn = reconciliation?.get(item.id)?.latestTransaction;
-    const derivedDate = txn?.providerDetails?.processingDate || txn?.valueDate || txn?.dueDate;
+    const derivedDate =
+      txn?.providerDetails?.processingDate || txn?.modifiedDate || txn?.createdDate || txn?.valueDate || txn?.dueDate;
     return { value: derivedDate, derived: !!derivedDate };
   };
 
