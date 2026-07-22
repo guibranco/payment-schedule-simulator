@@ -3,7 +3,8 @@ import {
   parseCollectionsJson,
   reconcileScheduleItems,
   summarizeReconciliation,
-  isSuccessfulReconciledStatus
+  isSuccessfulReconciledStatus,
+  getTransactionDate
 } from '../../src/utils/reconcileCollections';
 import { CollectionTransaction, ReconciledStatus, ScheduleItem } from '../../src/types';
 
@@ -45,6 +46,44 @@ describe('isSuccessfulReconciledStatus', () => {
   });
 });
 
+describe('getTransactionDate', () => {
+  it('prefers providerDetails.processingDate over every other date field', () => {
+    const txn = makeTxn({
+      providerDetails: { processingDate: 'P' },
+      modifiedDate: 'M',
+      createdDate: 'C',
+      valueDate: 'V',
+      dueDate: 'D'
+    });
+    expect(getTransactionDate(txn)).toBe('P');
+  });
+
+  it('falls back to modifiedDate when processingDate is absent', () => {
+    const txn = makeTxn({ providerDetails: undefined, modifiedDate: 'M', createdDate: 'C', valueDate: 'V', dueDate: 'D' });
+    expect(getTransactionDate(txn)).toBe('M');
+  });
+
+  it('falls back to createdDate when processingDate/modifiedDate are absent', () => {
+    const txn = makeTxn({ providerDetails: undefined, createdDate: 'C', valueDate: 'V', dueDate: 'D' });
+    expect(getTransactionDate(txn)).toBe('C');
+  });
+
+  it('falls back to valueDate when processingDate/modifiedDate/createdDate are absent', () => {
+    const txn = makeTxn({ providerDetails: undefined, valueDate: 'V', dueDate: 'D' });
+    expect(getTransactionDate(txn)).toBe('V');
+  });
+
+  it('falls back to dueDate as a last resort', () => {
+    const txn = makeTxn({ providerDetails: undefined, dueDate: 'D' });
+    expect(getTransactionDate(txn)).toBe('D');
+  });
+
+  it('returns undefined when no date field is present at all', () => {
+    const txn = makeTxn({ providerDetails: undefined, dueDate: undefined });
+    expect(getTransactionDate(txn)).toBeUndefined();
+  });
+});
+
 describe('parseCollectionsJson', () => {
   it('parses a valid JSON array of transactions', () => {
     const raw = JSON.stringify([makeTxn()]);
@@ -57,6 +96,11 @@ describe('parseCollectionsJson', () => {
 
   it('throws when the payload is not an array', () => {
     expect(() => parseCollectionsJson('{}')).toThrow('Expected a JSON array of collection transactions.');
+  });
+
+  it('throws when an array entry is not an object', () => {
+    expect(() => parseCollectionsJson(JSON.stringify([null]))).toThrow('is not an object');
+    expect(() => parseCollectionsJson(JSON.stringify(['a string']))).toThrow('is not an object');
   });
 
   it('throws when an entry is missing paymentScheduleItemIds', () => {
@@ -113,6 +157,18 @@ describe('reconcileScheduleItems', () => {
     expect(result.get('item-1')?.status).toBe('collected');
     expect(result.get('item-1')?.amountMismatch).toBe(false);
     expect(result.get('item-1')?.statusMismatch).toBe(false);
+  });
+
+  it('treats a transaction with no date fields at all as the earliest attempt when sorting', () => {
+    const items = [makeItem()];
+    const collections = [
+      { paymentScheduleItemIds: ['item-1'], amountDue: 1, collectionStatus: 'rejected' },
+      makeTxn({ collectionStatus: 'collected', providerDetails: { processingDate: '2026-01-01T00:00:00Z' } })
+    ];
+
+    const result = reconcileScheduleItems(items, collections);
+
+    expect(result.get('item-1')?.status).toBe('collected');
   });
 
   it('uses the chronologically latest transaction when a rejection is later resubmitted', () => {

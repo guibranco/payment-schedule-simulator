@@ -370,6 +370,16 @@ describe('ScheduleDisplay', () => {
       expect(screen.getByText('Not sufficient funds')).toBeInTheDocument();
     });
 
+    it('closes the transaction detail modal via its close button', () => {
+      render(<ScheduleDisplay schedule={schedule!} collections={collections} />);
+      fireEvent.click(screen.getByRole('button', { name: /Rejected/ }));
+
+      const modal = screen.getByText(/Collections history/).closest('div')!.parentElement!;
+      fireEvent.click(within(modal).getByRole('button', { name: '' }));
+
+      expect(screen.queryByText(/Collections history/)).not.toBeInTheDocument();
+    });
+
     it('shows a Processed date in the detail modal derived from modifiedDate when processingDate/valueDate are absent', () => {
       const modifiedDateOnlyCollections: CollectionTransaction[] = [
         {
