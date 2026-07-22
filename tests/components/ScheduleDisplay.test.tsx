@@ -370,6 +370,38 @@ describe('ScheduleDisplay', () => {
       expect(screen.getByText('Not sufficient funds')).toBeInTheDocument();
     });
 
+    it('backfills the Status and Collection Item Created Date columns when the schedule item has no recorded values', () => {
+      const scheduleWithMissingInfo = {
+        ...schedule!,
+        scheduleItems: [
+          { ...schedule!.scheduleItems[0], id: 'derive-item', succeeded: null, collectionItemCreatedDate: undefined }
+        ]
+      };
+      const derivedCollections: CollectionTransaction[] = [
+        {
+          paymentScheduleItemIds: ['derive-item'],
+          amountDue: schedule!.scheduleItems[0].amountDue,
+          collectionStatus: 'collected',
+          providerDetails: { processingDate: '2026-03-01T10:00:00+00:00' }
+        }
+      ];
+
+      render(<ScheduleDisplay schedule={scheduleWithMissingInfo} collections={derivedCollections} />);
+
+      expect(screen.getByText('auto')).toBeInTheDocument();
+      expect(
+        screen.getByTitle('Derived from Collections reconciliation — this schedule item has no recorded status')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTitle('Derived from Collections reconciliation — not recorded on the schedule item')
+      ).toHaveTextContent('01/03/2026');
+    });
+
+    it('does not override a schedule item that already has a recorded status', () => {
+      render(<ScheduleDisplay schedule={schedule!} collections={collections} />);
+      expect(screen.queryByText('auto')).not.toBeInTheDocument();
+    });
+
     it('calls onClearCollections when the Clear button is clicked', () => {
       const onClearCollections = vi.fn();
       render(<ScheduleDisplay schedule={schedule!} collections={collections} onClearCollections={onClearCollections} />);

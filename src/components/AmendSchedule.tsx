@@ -205,7 +205,7 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
   }
 
   return (
-    <div className="max-w-screen-2xl mx-auto p-6">
+    <div className="p-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold flex items-center gap-2 text-primary">
