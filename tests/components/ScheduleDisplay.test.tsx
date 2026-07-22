@@ -293,6 +293,23 @@ describe('ScheduleDisplay', () => {
     });
   });
 
+  it('adds a new PDF page once enough items overflow the current one', async () => {
+    const jsPDFModule = await import('jspdf');
+    const manyItemsSchedule = {
+      ...schedule!,
+      scheduleItems: Array.from({ length: 50 }, (_, i) => ({ ...schedule!.scheduleItems[0], id: `item-${i}` }))
+    };
+
+    render(<ScheduleDisplay schedule={manyItemsSchedule} />);
+    selectFormat('pdf');
+    clickExportButton();
+
+    await waitFor(() => {
+      const instance = vi.mocked(jsPDFModule.default).mock.results.at(-1)!.value;
+      expect(instance.addPage).toHaveBeenCalled();
+    });
+  });
+
   it('shows a format-specific error message when an export fails', async () => {
     vi.mocked(exportScheduleImage).mockRejectedValueOnce(new Error('boom'));
     render(<ScheduleDisplay schedule={schedule!} />);
@@ -392,6 +409,22 @@ describe('ScheduleDisplay', () => {
       fireEvent.click(within(modal).getByRole('button', { name: '' }));
 
       expect(screen.queryByText(/Collections history/)).not.toBeInTheDocument();
+    });
+
+    it('shows the amount-mismatch warning in the detail modal for a single-item transaction with a different amount', () => {
+      const mismatchedAmountCollections: CollectionTransaction[] = [
+        {
+          paymentScheduleItemIds: [firstItemId],
+          amountDue: schedule!.scheduleItems[0].amountDue + 100,
+          collectionStatus: 'collected',
+          providerDetails: { processingDate: '2026-01-01T00:00:00Z' }
+        }
+      ];
+
+      render(<ScheduleDisplay schedule={schedule!} collections={mismatchedAmountCollections} />);
+      fireEvent.click(screen.getByRole('button', { name: /Collected/ }));
+
+      expect(screen.getByText("The collected amount differs from this item's amount due.")).toBeInTheDocument();
     });
 
     it('shows a Processed date in the detail modal derived from modifiedDate when processingDate/valueDate are absent', () => {
@@ -591,6 +624,44 @@ describe('ScheduleDisplay', () => {
 
       expect(screen.getByText(/generated on the fly by the Payment Schedule service/)).toBeInTheDocument();
       expect(screen.getByText('not-in-the-schedule')).toBeInTheDocument();
+    });
+
+    it('closes the original item modal via its close button', () => {
+      const scheduleWithMatch = {
+        ...schedule!,
+        scheduleItems: [
+          { ...schedule!.scheduleItems[1], originalItem: { ...schedule!.scheduleItems[0] } },
+          schedule!.scheduleItems[0]
+        ]
+      };
+
+      render(<ScheduleDisplay schedule={scheduleWithMatch} />);
+      fireEvent.click(screen.getByTitle('View original item details'));
+
+      const modal = screen.getByText('Original Item').closest('div')!.parentElement!;
+      fireEvent.click(within(modal).getByRole('button', { name: '' }));
+
+      expect(screen.queryByText('Original Item')).not.toBeInTheDocument();
+    });
+
+    it('shows non-empty admin fees and flags a nested original item on its own original item', () => {
+      const nestedOriginal = {
+        ...schedule!.scheduleItems[1], // has non-empty adminFees (SMD) in the sample fixture
+        originalItem: { ...schedule!.scheduleItems[0] }
+      };
+      const scheduleWithNestedOriginal = {
+        ...schedule!,
+        scheduleItems: [{ ...schedule!.scheduleItems[0], id: 'holder-item', originalItem: nestedOriginal }]
+      };
+
+      render(<ScheduleDisplay schedule={scheduleWithNestedOriginal} />);
+      fireEvent.click(screen.getByTitle('View original item details'));
+
+      const [feeKey, feeValue] = Object.entries(schedule!.scheduleItems[1].adminFees)[0];
+      expect(screen.getByText(`${feeKey}: €${Number(feeValue.amountDue).toFixed(2)}`)).toBeInTheDocument();
+      expect(screen.getByText('Has Its Own Original Item')).toBeInTheDocument();
+      const header = screen.getByText('Has Its Own Original Item');
+      expect(header.nextElementSibling?.textContent).toBe('Yes');
     });
   });
 

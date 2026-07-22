@@ -93,6 +93,28 @@ describe('buildPrintableScheduleNode', () => {
     const firstRow = node.querySelector('tbody tr')!;
     expect(firstRow.textContent).toContain('Collected (retried)');
   });
+
+  it('shows a "✕" status label for an item with succeeded: false', () => {
+    const node = buildPrintableScheduleNode({
+      ...schedule!,
+      scheduleItems: [{ ...schedule!.scheduleItems[0], succeeded: false }]
+    });
+    const row = node.querySelector('tbody tr')!;
+    const cells = row.querySelectorAll('td');
+    expect(cells[cells.length - 1].textContent).toBe('✕');
+  });
+
+  it('shows "-" for taxes and admin fees when an item has none', () => {
+    const node = buildPrintableScheduleNode({
+      ...schedule!,
+      scheduleItems: [{ ...schedule!.scheduleItems[0], taxesAndLevies: {}, adminFees: {} }]
+    });
+    const row = node.querySelector('tbody tr')!;
+    const cells = row.querySelectorAll('td');
+    // Index, Period, Due Date, Net Amount, Taxes & Levies, Admin Fees, Total, Created, Status
+    expect(cells[4].textContent).toBe('-');
+    expect(cells[5].textContent).toBe('-');
+  });
 });
 
 describe('exportScheduleImage', () => {

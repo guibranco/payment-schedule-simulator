@@ -125,6 +125,18 @@ describe('detectFrequencyChange', () => {
     expect(result.detected).toBe(false);
   });
 
+  it('does not detect a switch when a ProRata item with no Full originalItem appears after enough monthly observations', () => {
+    const items: ScheduleItem[] = [
+      makeItem({ id: 'monthly-1', collectionType: 'Full', periodStartDate: '2025-10-10', periodEndDate: '2025-11-09' }),
+      makeItem({ id: 'monthly-2', collectionType: 'Full', periodStartDate: '2025-11-10', periodEndDate: '2025-12-09' }),
+      makeItem({ id: 'pro-rata-no-original', collectionType: 'ProRata', periodStartDate: '2025-12-10', periodEndDate: '2025-12-20' })
+    ];
+
+    const result = detectFrequencyChange(makeSchedule(items));
+
+    expect(result.detected).toBe(false);
+  });
+
   it('returns false for a zero-length or invalid cover period instead of throwing', () => {
     const schedule = makeSchedule([], { coverStartDate: '2026-01-01', coverEndDate: '2026-01-01' });
     expect(detectFrequencyChange(schedule).detected).toBe(false);

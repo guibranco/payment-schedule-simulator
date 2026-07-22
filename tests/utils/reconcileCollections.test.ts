@@ -98,6 +98,14 @@ describe('wasRetriedAfterFailure', () => {
   it('is false for an empty transaction list', () => {
     expect(wasRetriedAfterFailure([])).toBe(false);
   });
+
+  it('treats an empty-string collectionStatus as neither a failure nor a retry trigger', () => {
+    const transactions = [
+      makeTxn({ collectionStatus: '' }),
+      makeTxn({ collectionStatus: '', isResubmission: true })
+    ];
+    expect(wasRetriedAfterFailure(transactions)).toBe(false);
+  });
 });
 
 describe('getTransactionDate', () => {
@@ -345,6 +353,15 @@ describe('reconcileScheduleItems', () => {
   it('normalizes an unrecognized collection status to pending', () => {
     const items = [makeItem()];
     const collections = [makeTxn({ collectionStatus: 'processing' })];
+
+    const result = reconcileScheduleItems(items, collections);
+
+    expect(result.get('item-1')?.status).toBe('pending');
+  });
+
+  it('normalizes an empty-string collection status to pending rather than throwing', () => {
+    const items = [makeItem()];
+    const collections = [makeTxn({ collectionStatus: '' })];
 
     const result = reconcileScheduleItems(items, collections);
 
