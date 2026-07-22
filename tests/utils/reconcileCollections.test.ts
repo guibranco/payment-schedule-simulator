@@ -81,11 +81,11 @@ describe('parseCollectionsJson', () => {
     expect(() => parseCollectionsJson(raw)).toThrow('missing or has an invalid amountDue');
   });
 
-  it('accepts a numeric string amountDue (as the Collections API may serialize it)', () => {
+  it('coerces a numeric string amountDue to a number (as the Collections API may serialize it)', () => {
     const raw = JSON.stringify([
       { paymentScheduleItemIds: ['item-1'], collectionStatus: 'collected', amountDue: '34.09' }
     ]);
-    expect(parseCollectionsJson(raw)[0].amountDue).toBe('34.09');
+    expect(parseCollectionsJson(raw)[0].amountDue).toBe(34.09);
   });
 });
 

@@ -52,6 +52,8 @@ export function parseCollectionsJson(raw: string): CollectionTransaction[] {
     if (entry.amountDue === null || entry.amountDue === undefined || isNaN(Number(entry.amountDue))) {
       throw new Error(`Entry at index ${index} is missing or has an invalid amountDue.`);
     }
+    // Coerce here (e.g. a numeric string) so CollectionTransaction.amountDue is genuinely a number downstream.
+    entry.amountDue = Number(entry.amountDue);
     return entry as CollectionTransaction;
   });
 }
