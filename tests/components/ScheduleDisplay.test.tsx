@@ -397,6 +397,33 @@ describe('ScheduleDisplay', () => {
       ).toHaveTextContent('01/03/2026');
     });
 
+    it('backfills the Status column as successful when the latest reconciled outcome is a refund', () => {
+      const scheduleWithMissingStatus = {
+        ...schedule!,
+        scheduleItems: [
+          { ...schedule!.scheduleItems[0], id: 'refund-item', succeeded: null }
+        ]
+      };
+      const refundCollections: CollectionTransaction[] = [
+        {
+          paymentScheduleItemIds: ['refund-item'],
+          amountDue: schedule!.scheduleItems[0].amountDue,
+          collectionStatus: 'refunded',
+          providerDetails: { processingDate: '2026-03-01T10:00:00+00:00' }
+        }
+      ];
+
+      render(<ScheduleDisplay schedule={scheduleWithMissingStatus} collections={refundCollections} />);
+
+      // A refund is a successfully completed collection event, so it renders the "succeeded" (green Check) icon.
+      const statusCell = screen.getByTitle(
+        'Derived from Collections reconciliation — this schedule item has no recorded status'
+      );
+      expect(within(statusCell).getByText('auto')).toBeInTheDocument();
+      expect(statusCell.querySelector('.text-green-500')).toBeInTheDocument();
+      expect(statusCell.querySelector('.text-red-500')).not.toBeInTheDocument();
+    });
+
     it('does not override a schedule item that already has a recorded status', () => {
       render(<ScheduleDisplay schedule={schedule!} collections={collections} />);
       expect(screen.queryByText('auto')).not.toBeInTheDocument();

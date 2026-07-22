@@ -22,7 +22,7 @@ import { PaymentScheduleResponse, ScheduleItem, CollectionTransaction, Reconcile
 import { exportScheduleImage } from '../utils/scheduleImage';
 import { convertResponseToFormat, ScheduleFormat } from '../utils/scheduleDetector';
 import { STORAGE_KEYS } from '../constants';
-import { reconcileScheduleItems, summarizeReconciliation } from '../utils/reconcileCollections';
+import { reconcileScheduleItems, summarizeReconciliation, isSuccessfulReconciledStatus } from '../utils/reconcileCollections';
 import Modal from './Modal';
 
 interface Props {
@@ -165,8 +165,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
 
   /**
    * Falls back to the Collections-reconciled outcome for the Status column when the
-   * schedule item itself has no recorded succeeded value (null) — a refund is treated
-   * as an unsuccessful collection since it reverses a prior payment.
+   * schedule item itself has no recorded succeeded value (null).
    */
   const getEffectiveSucceeded = (item: ScheduleItem): { value: boolean | null; derived: boolean } => {
     if (item.succeeded !== null) return { value: item.succeeded, derived: false };
@@ -174,7 +173,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
     const entry = reconciliation?.get(item.id);
     if (!entry || entry.status === 'pending') return { value: null, derived: false };
 
-    return { value: entry.status === 'collected', derived: true };
+    return { value: isSuccessfulReconciledStatus(entry.status), derived: true };
   };
 
   /**
