@@ -133,4 +133,98 @@ describe('ViewSchedule', () => {
     );
     expect(Number(netAmountInput.value)).toBeCloseTo(expectedNet, 5);
   });
+
+  it('returns from the Amend Schedule form to the displayed schedule when Back is clicked', () => {
+    render(<ViewSchedule apiEndpoint="test-endpoint" />);
+    const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!;
+    submitJson(JSON.stringify(responseSample.json));
+
+    fireEvent.click(screen.getByRole('button', { name: /Amend Schedule/ }));
+    expect(screen.getByRole('heading', { name: 'Amend Payment Schedule' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Back/ }));
+
+    expect(screen.getByRole('heading', { name: 'View Schedule' })).toBeInTheDocument();
+    expect(screen.getByText(`Detected format: ${responseSample.label}`)).toBeInTheDocument();
+  });
+
+  it('toggles between Paste JSON and Upload File input modes', () => {
+    render(<ViewSchedule apiEndpoint="" />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Upload File/ }));
+    expect(screen.getByText('Upload a payment schedule JSON file')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/{/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Paste JSON/ }));
+    expect(screen.getByPlaceholderText(/{/)).toBeInTheDocument();
+    expect(screen.queryByText('Upload a payment schedule JSON file')).not.toBeInTheDocument();
+  });
+
+  it('parses a schedule uploaded as a file', async () => {
+    render(<ViewSchedule apiEndpoint="" />);
+    fireEvent.click(screen.getByRole('button', { name: /Upload File/ }));
+
+    const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!;
+    const file = new File([JSON.stringify(responseSample.json)], 'schedule.json', { type: 'application/json' });
+    const input = screen.getByLabelText(/Upload a payment schedule JSON file/);
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByText(`Detected format: ${responseSample.label}`)).toBeInTheDocument();
+  });
+
+  it('cycles a schedule item status through true -> false -> null -> true when its icon is clicked', () => {
+    render(<ViewSchedule apiEndpoint="" />);
+    const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!;
+    submitJson(JSON.stringify(responseSample.json));
+
+    // The sample's first item starts with succeeded: true.
+    const getFirstToggle = () => screen.getAllByTitle('Click to change status')[0];
+    expect(getFirstToggle().querySelector('.text-green-500')).toBeInTheDocument();
+
+    fireEvent.click(getFirstToggle());
+    expect(getFirstToggle().querySelector('.text-red-500')).toBeInTheDocument();
+
+    fireEvent.click(getFirstToggle());
+    expect(getFirstToggle().querySelector('.text-gray-400')).toBeInTheDocument();
+
+    fireEvent.click(getFirstToggle());
+    expect(getFirstToggle().querySelector('.text-green-500')).toBeInTheDocument();
+  });
+
+  it('reverts to "Load Collections" after clearing loaded collections', () => {
+    render(<ViewSchedule apiEndpoint="" />);
+    const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!.json as any;
+    submitJson(JSON.stringify(responseSample));
+
+    fireEvent.click(screen.getByRole('button', { name: /Load Collections/ }));
+    const collections = [
+      {
+        paymentScheduleItemIds: [responseSample.scheduleItems[0].id],
+        amountDue: responseSample.scheduleItems[0].amountDue,
+        collectionStatus: 'collected',
+        providerDetails: { processingDate: '2026-06-30T11:00:41+00:00' }
+      }
+    ];
+    fireEvent.change(screen.getByPlaceholderText(/Paste the Collections Service/), {
+      target: { value: JSON.stringify(collections) }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reconcile' }));
+    expect(screen.getByRole('button', { name: 'Reload Collections' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle('Clear loaded collections'));
+
+    expect(screen.queryByText(/Collections reconciliation:/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Load Collections' })).toBeInTheDocument();
+  });
+
+  it('shows non-empty admin fees for a request with no embedded currentSchedule', () => {
+    render(<ViewSchedule apiEndpoint="" />);
+    const requestSample = SAMPLE_SCHEDULES.find((s) => s.format === 'request')!.json as any;
+    const { currentSchedule, ...withoutCurrentSchedule } = requestSample;
+    const withFees = { ...withoutCurrentSchedule, adminFees: { SMD: { amountDue: 1, taxAmount: 0 } } };
+
+    submitJson(JSON.stringify(withFees));
+
+    expect(screen.getByText('SMD: €1.00')).toBeInTheDocument();
+  });
 });
