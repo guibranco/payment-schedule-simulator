@@ -44,6 +44,9 @@ export default function CollectionsLoader({ onLoad, onClose }: Props) {
       setJsonInput(content);
       setError(null);
     };
+    reader.onerror = () => {
+      setError('Failed to read the file. Please try again or paste the JSON directly.');
+    };
     reader.readAsText(file);
   };
 

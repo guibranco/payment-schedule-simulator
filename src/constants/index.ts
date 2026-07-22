@@ -1,4 +1,5 @@
 export const STORAGE_KEYS = {
+  ACTIVE_TAB: 'activeTab',
   API_ENDPOINT: 'apiEndpoint',
   ACCESS_TOKEN: 'accessToken',
   TOKEN_EXPIRES_AT: 'tokenExpiresAt',
