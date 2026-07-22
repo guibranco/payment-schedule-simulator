@@ -18,7 +18,7 @@ import {
   Clock,
   AlertTriangle
 } from 'lucide-react';
-import { PaymentScheduleResponse, CollectionTransaction, ReconciledStatus } from '../types';
+import { PaymentScheduleResponse, ScheduleItem, CollectionTransaction, ReconciledStatus } from '../types';
 import { exportScheduleImage } from '../utils/scheduleImage';
 import { convertResponseToFormat, ScheduleFormat } from '../utils/scheduleDetector';
 import { STORAGE_KEYS } from '../constants';
@@ -162,7 +162,34 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
     if (item.collectionType === 'proRata') return 'bg-yellow-100';
     return 'bg-green-100';
   };
-  
+
+  /**
+   * Falls back to the Collections-reconciled outcome for the Status column when the
+   * schedule item itself has no recorded succeeded value (null) — a refund is treated
+   * as an unsuccessful collection since it reverses a prior payment.
+   */
+  const getEffectiveSucceeded = (item: ScheduleItem): { value: boolean | null; derived: boolean } => {
+    if (item.succeeded !== null) return { value: item.succeeded, derived: false };
+
+    const entry = reconciliation?.get(item.id);
+    if (!entry || entry.status === 'pending') return { value: null, derived: false };
+
+    return { value: entry.status === 'collected', derived: true };
+  };
+
+  /**
+   * Falls back to the latest matching Collections transaction's date when the schedule
+   * item itself has no collectionItemCreatedDate recorded.
+   */
+  const getEffectiveCreatedDate = (item: ScheduleItem): { value: string | undefined; derived: boolean } => {
+    if (item.collectionItemCreatedDate) return { value: item.collectionItemCreatedDate, derived: false };
+
+    const txn = reconciliation?.get(item.id)?.latestTransaction;
+    const derivedDate = txn?.providerDetails?.processingDate || txn?.valueDate || txn?.dueDate;
+    return { value: derivedDate, derived: !!derivedDate };
+  };
+
+
   /**
    * Generates and downloads a CSV file containing schedule item data.
    *
@@ -407,22 +434,35 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
     }
   };
 
-  const getStatusIcon = (succeeded: boolean | null, index: number) => {
-    const icon = succeeded === null ? 
+  const getStatusIcon = (succeeded: boolean | null, index: number, derived: boolean = false) => {
+    const icon = succeeded === null ?
       <MinusCircle className="w-5 h-5 text-gray-400" /> :
-      succeeded ? 
-        <Check className="w-5 h-5 text-green-500" /> : 
+      succeeded ?
+        <Check className="w-5 h-5 text-green-500" /> :
         <X className="w-5 h-5 text-red-500" />;
+
+    const content = derived ? (
+      <span className="inline-flex items-center gap-1">
+        {icon}
+        <span className="text-[10px] font-medium text-indigo-600 uppercase">auto</span>
+      </span>
+    ) : icon;
+
+    const title = derived
+      ? 'Derived from Collections reconciliation — this schedule item has no recorded status'
+      : 'Click to change status';
 
     return onStatusChange ? (
       <button
         onClick={() => onStatusChange(index)}
         className="hover:bg-gray-100 p-1 rounded-full transition-colors"
-        title="Click to change status"
+        title={title}
       >
-        {icon}
+        {content}
       </button>
-    ) : icon;
+    ) : (
+      <span title={derived ? title : undefined}>{content}</span>
+    );
   };
 
   if (!schedule) {
@@ -607,38 +647,38 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Index</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taxes & Levies</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin Fees</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collection Item Created Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adjustment Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Has Original Item</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Index</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Amount</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taxes & Levies</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin Fees</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collection Item Created Date</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adjustment Date</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Has Original Item</th>
                 {reconciliation && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collections</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collections</th>
                 )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {scheduleItems.map((item, index) => (
                 <tr key={item.id} className="hover:bg-gray-50">
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${getIndexBackgroundColor(item)}`}>
+                  <td className={`px-3 py-3 whitespace-nowrap text-sm text-gray-900 ${getIndexBackgroundColor(item)}`}>
                     {index}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
                     {formatDate(item.periodStartDate)} - {formatDate(item.periodEndDate)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
                     {formatDate(item.dueDate)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
                     €{Number(item?.netAmount ?? 0).toFixed(2)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
                     {item.taxesAndLevies && Object.entries(item.taxesAndLevies).length > 0 ? (
                       Object.entries(item.taxesAndLevies).map(([key, value]) => (
                         <div key={key}>
@@ -649,7 +689,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                       '-'
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
                     {item.adminFees && Object.entries(item.adminFees).length > 0 ? (
                       Object.entries(item.adminFees).map(([key, value]) => (
                         <div key={key}>
@@ -661,23 +701,37 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                       '-'
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
                     €{Number(item?.amountDue ?? 0).toFixed(2)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.collectionItemCreatedDate ? formatDate(item.collectionItemCreatedDate) : '-'}
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                    {(() => {
+                      const { value, derived } = getEffectiveCreatedDate(item);
+                      if (!value) return '-';
+                      return (
+                        <span
+                          className={derived ? 'italic text-gray-500' : undefined}
+                          title={derived ? 'Derived from Collections reconciliation — not recorded on the schedule item' : undefined}
+                        >
+                          {formatDate(value)}
+                        </span>
+                      );
+                    })()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {getStatusIcon(item.succeeded, index)}
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                    {(() => {
+                      const { value, derived } = getEffectiveSucceeded(item);
+                      return getStatusIcon(value, index, derived);
+                    })()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
                     {formatDate(item.adjustmentDate)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
                     {item.originalItem ? 'Yes' : 'No'}
                   </td>
                   {reconciliation && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-3 py-3 whitespace-nowrap text-sm">
                       {(() => {
                         const entry = reconciliation.get(item.id);
                         if (!entry) return '-';
