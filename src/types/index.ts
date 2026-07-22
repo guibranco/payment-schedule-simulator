@@ -69,6 +69,7 @@ export interface CollectionTransaction {
   paymentScheduleItemIds: string[];
   documentId?: string;
   isResubmission?: boolean;
+  isRealtime?: boolean;
   resubmissionId?: string | null;
   amountDue: number;
   dueDate?: string;
@@ -89,6 +90,8 @@ export interface ItemReconciliation {
   latestTransaction: CollectionTransaction | null;
   amountMismatch: boolean;
   statusMismatch: boolean;
+  /** A rejection or refund in this item's history was followed by a resubmission or real-time retry attempt. */
+  wasRetried: boolean;
 }
 
 export interface ReconciliationSummary {

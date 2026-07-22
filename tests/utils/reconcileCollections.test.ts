@@ -4,7 +4,8 @@ import {
   reconcileScheduleItems,
   summarizeReconciliation,
   isSuccessfulReconciledStatus,
-  getTransactionDate
+  getTransactionDate,
+  wasRetriedAfterFailure
 } from '../../src/utils/reconcileCollections';
 import { CollectionTransaction, ReconciledStatus, ScheduleItem } from '../../src/types';
 
@@ -43,6 +44,59 @@ describe('isSuccessfulReconciledStatus', () => {
     ['pending', false]
   ])('treats %s as successful: %s', (status, expected) => {
     expect(isSuccessfulReconciledStatus(status)).toBe(expected);
+  });
+});
+
+describe('wasRetriedAfterFailure', () => {
+  it('is true when a rejection is followed by a resubmission attempt', () => {
+    const transactions = [
+      makeTxn({ collectionStatus: 'rejected', isResubmission: false }),
+      makeTxn({ collectionStatus: 'collected', isResubmission: true })
+    ];
+    expect(wasRetriedAfterFailure(transactions)).toBe(true);
+  });
+
+  it('is true when a rejection is followed by a real-time retry attempt', () => {
+    const transactions = [
+      makeTxn({ collectionStatus: 'rejected' }),
+      makeTxn({ collectionStatus: 'rejected', isResubmission: true }),
+      makeTxn({ collectionStatus: 'collected', isRealtime: true })
+    ];
+    expect(wasRetriedAfterFailure(transactions)).toBe(true);
+  });
+
+  it('is false for a single rejection with no retry attempt yet', () => {
+    const transactions = [makeTxn({ collectionStatus: 'rejected' })];
+    expect(wasRetriedAfterFailure(transactions)).toBe(false);
+  });
+
+  it('is false for a standalone refund with no follow-up retry', () => {
+    const transactions = [makeTxn({ collectionStatus: 'refunded' })];
+    expect(wasRetriedAfterFailure(transactions)).toBe(false);
+  });
+
+  it('is false for a plain realtime collection with no prior failure', () => {
+    const transactions = [makeTxn({ collectionStatus: 'collected', isRealtime: true })];
+    expect(wasRetriedAfterFailure(transactions)).toBe(false);
+  });
+
+  it('is false when a real-time collection is refunded afterward, since the retry attempt did not follow a failure', () => {
+    const transactions = [
+      makeTxn({
+        collectionStatus: 'collected',
+        isRealtime: true,
+        providerDetails: { processingDate: '2026-01-01T00:00:00Z' }
+      }),
+      makeTxn({
+        collectionStatus: 'refunded',
+        providerDetails: { processingDate: '2026-02-01T00:00:00Z' }
+      })
+    ];
+    expect(wasRetriedAfterFailure(transactions)).toBe(false);
+  });
+
+  it('is false for an empty transaction list', () => {
+    expect(wasRetriedAfterFailure([])).toBe(false);
   });
 });
 
@@ -157,6 +211,31 @@ describe('reconcileScheduleItems', () => {
     expect(result.get('item-1')?.status).toBe('collected');
     expect(result.get('item-1')?.amountMismatch).toBe(false);
     expect(result.get('item-1')?.statusMismatch).toBe(false);
+  });
+
+  it('sets wasRetried when a rejection is followed by a resubmission for that item', () => {
+    const items = [makeItem()];
+    const collections = [
+      makeTxn({ collectionStatus: 'rejected', providerDetails: { processingDate: '2026-01-25T00:00:00Z' } }),
+      makeTxn({
+        collectionStatus: 'collected',
+        isResubmission: true,
+        providerDetails: { processingDate: '2026-02-01T00:00:00Z' }
+      })
+    ];
+
+    const result = reconcileScheduleItems(items, collections);
+
+    expect(result.get('item-1')?.wasRetried).toBe(true);
+  });
+
+  it('leaves wasRetried false for an item with only a single, not-yet-retried rejection', () => {
+    const items = [makeItem()];
+    const collections = [makeTxn({ collectionStatus: 'rejected' })];
+
+    const result = reconcileScheduleItems(items, collections);
+
+    expect(result.get('item-1')?.wasRetried).toBe(false);
   });
 
   it('treats a transaction with no date fields at all as the earliest attempt when sorting', () => {

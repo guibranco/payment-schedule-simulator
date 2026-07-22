@@ -39,6 +39,27 @@ export function isSuccessfulReconciledStatus(status: ReconciledStatus): boolean 
 }
 
 /**
+ * True when a rejected or refunded attempt in this item's history was followed up
+ * through a resubmission or real-time retry channel — surfaced so a failed/refunded
+ * item that's already been retried can be told apart from one still awaiting a retry.
+ */
+export function wasRetriedAfterFailure(transactions: CollectionTransaction[]): boolean {
+  const sorted = [...transactions].sort((a, b) => getProcessingTime(a) - getProcessingTime(b));
+
+  let hadFailureOrRefund = false;
+  for (const txn of sorted) {
+    const status = (txn.collectionStatus || '').toLowerCase();
+    if (status === 'rejected' || status === 'refunded') {
+      hadFailureOrRefund = true;
+    } else if (hadFailureOrRefund && (txn.isResubmission || txn.isRealtime)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Parses and lightly validates raw JSON as a Collections Service transaction array.
  */
 export function parseCollectionsJson(raw: string): CollectionTransaction[] {
@@ -100,8 +121,9 @@ export function reconcileScheduleItems(
       Math.abs(Number(latestTransaction.amountDue) - Number(item.amountDue)) > AMOUNT_TOLERANCE;
 
     const statusMismatch = item.succeeded !== null && item.succeeded !== isSuccessfulReconciledStatus(status);
+    const wasRetried = wasRetriedAfterFailure(transactions);
 
-    result.set(item.id, { status, transactions, latestTransaction, amountMismatch, statusMismatch });
+    result.set(item.id, { status, transactions, latestTransaction, amountMismatch, statusMismatch, wasRetried });
   }
 
   return result;
