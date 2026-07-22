@@ -92,4 +92,25 @@ describe('CollectionsLoader', () => {
 
     expect(getTextarea().value).toBe('');
   });
+
+  it('shows an error when the FileReader fails to read the file', async () => {
+    render(<CollectionsLoader onLoad={vi.fn()} onClose={vi.fn()} />);
+
+    const input = screen.getByLabelText(/Upload JSON File/) as HTMLInputElement;
+    const file = new File(['content'], 'collections.json', { type: 'application/json' });
+
+    vi.spyOn(FileReader.prototype, 'readAsText').mockImplementationOnce(function (this: FileReader) {
+      setTimeout(() => this.onerror?.(new ProgressEvent('error') as unknown as ProgressEvent<FileReader>));
+    });
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Failed to read the file. Please try again or paste the JSON directly.')
+      ).toBeInTheDocument()
+    );
+
+    vi.restoreAllMocks();
+  });
 });
