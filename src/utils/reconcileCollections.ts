@@ -9,8 +9,17 @@ import {
 const AMOUNT_TOLERANCE = 0.01;
 const KNOWN_STATUSES: ReconciledStatus[] = ['collected', 'rejected', 'refunded'];
 
+/**
+ * The best available timestamp for a transaction, in order of how authoritative it is
+ * about when the collection actually happened: provider processing date first, then the
+ * record's own modified/created dates, then the scheduled value/due dates as a last resort.
+ */
+export function getTransactionDate(txn: CollectionTransaction): string | undefined {
+  return txn.providerDetails?.processingDate || txn.modifiedDate || txn.createdDate || txn.valueDate || txn.dueDate;
+}
+
 function getProcessingTime(txn: CollectionTransaction): number {
-  const raw = txn.providerDetails?.processingDate || txn.modifiedDate || txn.createdDate || txn.valueDate || txn.dueDate;
+  const raw = getTransactionDate(txn);
   const time = raw ? new Date(raw).getTime() : NaN;
   return isNaN(time) ? 0 : time;
 }
@@ -49,9 +58,16 @@ export function parseCollectionsJson(raw: string): CollectionTransaction[] {
     if (!entry.collectionStatus) {
       throw new Error(`Entry at index ${index} is missing collectionStatus.`);
     }
-    if (entry.amountDue === null || entry.amountDue === undefined || isNaN(Number(entry.amountDue))) {
+    if (
+      entry.amountDue === null ||
+      entry.amountDue === undefined ||
+      (typeof entry.amountDue === 'string' && entry.amountDue.trim() === '') ||
+      isNaN(Number(entry.amountDue))
+    ) {
       throw new Error(`Entry at index ${index} is missing or has an invalid amountDue.`);
     }
+    // Coerce here (e.g. a numeric string) so CollectionTransaction.amountDue is genuinely a number downstream.
+    entry.amountDue = Number(entry.amountDue);
     return entry as CollectionTransaction;
   });
 }
