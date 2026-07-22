@@ -49,7 +49,7 @@ export function parseCollectionsJson(raw: string): CollectionTransaction[] {
     if (!entry.collectionStatus) {
       throw new Error(`Entry at index ${index} is missing collectionStatus.`);
     }
-    if (typeof entry.amountDue !== 'number' || isNaN(entry.amountDue)) {
+    if (entry.amountDue === null || entry.amountDue === undefined || isNaN(Number(entry.amountDue))) {
       throw new Error(`Entry at index ${index} is missing or has an invalid amountDue.`);
     }
     return entry as CollectionTransaction;

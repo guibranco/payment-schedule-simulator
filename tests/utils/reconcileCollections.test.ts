@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   parseCollectionsJson,
   reconcileScheduleItems,
-  summarizeReconciliation
+  summarizeReconciliation,
+  isSuccessfulReconciledStatus
 } from '../../src/utils/reconcileCollections';
-import { CollectionTransaction, ScheduleItem } from '../../src/types';
+import { CollectionTransaction, ReconciledStatus, ScheduleItem } from '../../src/types';
 
 function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
   return {
@@ -32,6 +33,17 @@ function makeTxn(overrides: Partial<CollectionTransaction> = {}): CollectionTran
     ...overrides
   };
 }
+
+describe('isSuccessfulReconciledStatus', () => {
+  it.each<[ReconciledStatus, boolean]>([
+    ['collected', true],
+    ['refunded', true],
+    ['rejected', false],
+    ['pending', false]
+  ])('treats %s as successful: %s', (status, expected) => {
+    expect(isSuccessfulReconciledStatus(status)).toBe(expected);
+  });
+});
 
 describe('parseCollectionsJson', () => {
   it('parses a valid JSON array of transactions', () => {
@@ -64,9 +76,16 @@ describe('parseCollectionsJson', () => {
 
   it('throws when an entry has a non-numeric amountDue', () => {
     const raw = JSON.stringify([
-      { paymentScheduleItemIds: ['item-1'], collectionStatus: 'collected', amountDue: '34.09' }
+      { paymentScheduleItemIds: ['item-1'], collectionStatus: 'collected', amountDue: 'not-a-number' }
     ]);
     expect(() => parseCollectionsJson(raw)).toThrow('missing or has an invalid amountDue');
+  });
+
+  it('accepts a numeric string amountDue (as the Collections API may serialize it)', () => {
+    const raw = JSON.stringify([
+      { paymentScheduleItemIds: ['item-1'], collectionStatus: 'collected', amountDue: '34.09' }
+    ]);
+    expect(parseCollectionsJson(raw)[0].amountDue).toBe('34.09');
   });
 });
 
