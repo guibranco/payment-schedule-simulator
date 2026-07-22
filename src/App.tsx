@@ -9,12 +9,12 @@ import TokenStatus from './components/TokenStatus';
 import { STORAGE_KEYS } from './constants';
 import { getRedirectUri } from './utils/url';
 
-type Tab = 'new' | 'amend' | 'view' | 'compare';
+const VALID_TABS = ['new', 'amend', 'view', 'compare'] as const;
 
-const VALID_TABS: Tab[] = ['new', 'amend', 'view', 'compare'];
+type Tab = (typeof VALID_TABS)[number];
 
 function isValidTab(value: string | null): value is Tab {
-  return !!value && (VALID_TABS as string[]).includes(value);
+  return !!value && (VALID_TABS as readonly string[]).includes(value);
 }
 
 /**
