@@ -49,6 +49,57 @@ export interface PaymentScheduleResponse {
   scheduleItems: ScheduleItem[];
 }
 
+// Collections reconciliation types
+
+export interface CollectionProviderDetails {
+  processingDate?: string;
+  filename?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+}
+
+/**
+ * A single collection attempt returned by the Collections Service for a schedule.
+ * `paymentScheduleItemIds` links it back to one or more ScheduleItem.id values —
+ * a batched/annual collection can cover several schedule items at once.
+ */
+export interface CollectionTransaction {
+  batchId?: string;
+  collectionId?: string;
+  paymentScheduleItemIds: string[];
+  documentId?: string;
+  isResubmission?: boolean;
+  resubmissionId?: string | null;
+  amountDue: number;
+  dueDate?: string;
+  valueDate?: string;
+  collectionStatus: string;
+  transactionReference?: string;
+  originalTransactionReference?: string | null;
+  providerDetails?: CollectionProviderDetails;
+  createdDate?: string;
+  modifiedDate?: string;
+}
+
+export type ReconciledStatus = 'collected' | 'rejected' | 'refunded' | 'pending';
+
+export interface ItemReconciliation {
+  status: ReconciledStatus;
+  transactions: CollectionTransaction[];
+  latestTransaction: CollectionTransaction | null;
+  amountMismatch: boolean;
+  statusMismatch: boolean;
+}
+
+export interface ReconciliationSummary {
+  totalItems: number;
+  collected: number;
+  rejected: number;
+  refunded: number;
+  pending: number;
+  mismatches: number;
+}
+
 // API Error Types
 export interface ValidationError {
   propertyName: string;

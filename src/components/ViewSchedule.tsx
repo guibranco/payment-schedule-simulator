@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { FileUp, Clipboard, Eye, PencilRuler, Info, RotateCcw } from 'lucide-react';
-import { PaymentScheduleResponse, PaymentScheduleInput } from '../types';
+import { FileUp, Clipboard, Eye, PencilRuler, Info, RotateCcw, ListChecks } from 'lucide-react';
+import { PaymentScheduleResponse, PaymentScheduleInput, CollectionTransaction } from '../types';
 import { detectAndNormalizeSchedule, FORMAT_LABELS, ScheduleFormat } from '../utils/scheduleDetector';
 import { SAMPLE_SCHEDULES, PLACEHOLDER_SAMPLE_JSON } from '../constants/sampleSchedules';
 import ScheduleDisplay from './ScheduleDisplay';
 import NewSchedule from './NewSchedule';
+import CollectionsLoader from './CollectionsLoader';
 
 interface Props {
   apiEndpoint: string;
@@ -26,6 +27,8 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
   const [schedule, setSchedule] = useState<PaymentScheduleResponse | null>(null);
   const [scheduleInput, setScheduleInput] = useState<PaymentScheduleInput | null>(null);
   const [showAmendSchedule, setShowAmendSchedule] = useState(false);
+  const [collections, setCollections] = useState<CollectionTransaction[] | null>(null);
+  const [isCollectionsLoaderOpen, setIsCollectionsLoaderOpen] = useState(false);
 
   const processJson = (raw: string) => {
     try {
@@ -34,6 +37,7 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
       setFormat(detected.format);
       setSchedule(detected.schedule);
       setScheduleInput(detected.input);
+      setCollections(null);
       setError(null);
     } catch (err) {
       setFormat(null);
@@ -81,6 +85,7 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
     setFormat(null);
     setSchedule(null);
     setScheduleInput(null);
+    setCollections(null);
   };
 
   const handleStatusChange = (index: number) => {
@@ -251,6 +256,15 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
                 <RotateCcw className="w-5 h-5" />
                 Parse New Schedule
               </button>
+              {schedule && (
+                <button
+                  onClick={() => setIsCollectionsLoaderOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                >
+                  <ListChecks className="w-5 h-5" />
+                  {collections ? 'Reload Collections' : 'Load Collections'}
+                </button>
+              )}
               <button
                 onClick={() => setShowAmendSchedule(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
@@ -261,7 +275,12 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
             </div>
 
             {schedule ? (
-              <ScheduleDisplay schedule={schedule} onStatusChange={handleStatusChange} />
+              <ScheduleDisplay
+                schedule={schedule}
+                onStatusChange={handleStatusChange}
+                collections={collections}
+                onClearCollections={() => setCollections(null)}
+              />
             ) : scheduleInput ? (
               <div className="bg-white border border-gray-200 rounded-lg p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -313,6 +332,13 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
           </div>
         )}
       </div>
+
+      {isCollectionsLoaderOpen && (
+        <CollectionsLoader
+          onLoad={setCollections}
+          onClose={() => setIsCollectionsLoaderOpen(false)}
+        />
+      )}
     </div>
   );
 }

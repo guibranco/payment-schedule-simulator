@@ -4,6 +4,7 @@ import ScheduleDisplay from '../../src/components/ScheduleDisplay';
 import { detectAndNormalizeSchedule } from '../../src/utils/scheduleDetector';
 import { SAMPLE_SCHEDULES } from '../../src/constants/sampleSchedules';
 import { STORAGE_KEYS } from '../../src/constants';
+import { CollectionTransaction } from '../../src/types';
 
 vi.mock('../../src/utils/scheduleImage', () => ({
   exportScheduleImage: vi.fn()
@@ -22,6 +23,7 @@ vi.mock('jspdf', () => ({
 
 const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!.json;
 const { schedule } = detectAndNormalizeSchedule(responseSample);
+const [firstItemId, secondItemId] = schedule!.scheduleItems.map((item) => item.id);
 
 const EXPORT_FORMAT_LABELS: Record<string, string> = {
   json: 'JSON',
@@ -322,5 +324,59 @@ describe('ScheduleDisplay', () => {
   it('renders a fallback message when no schedule is provided', () => {
     render(<ScheduleDisplay schedule={null as any} />);
     expect(screen.getByText('No schedule data available.')).toBeInTheDocument();
+  });
+
+  describe('Collections reconciliation', () => {
+    const collections: CollectionTransaction[] = [
+      {
+        paymentScheduleItemIds: [firstItemId],
+        amountDue: 620.93,
+        collectionStatus: 'collected',
+        transactionReference: 'REF-1',
+        providerDetails: { processingDate: '2026-06-30T11:00:41+00:00' }
+      },
+      {
+        paymentScheduleItemIds: [secondItemId],
+        amountDue: 1,
+        collectionStatus: 'rejected',
+        transactionReference: 'REF-2',
+        providerDetails: { processingDate: '2026-06-30T11:00:41+00:00', errorMessage: 'Not sufficient funds' }
+      }
+    ];
+
+    it('does not show a Collections column or summary banner without a collections prop', () => {
+      render(<ScheduleDisplay schedule={schedule!} />);
+      expect(screen.queryByText('Collections', { selector: 'th' })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Collections reconciliation:/)).not.toBeInTheDocument();
+    });
+
+    it('shows a summary banner and per-item status badges once collections are provided', () => {
+      render(<ScheduleDisplay schedule={schedule!} collections={collections} />);
+
+      expect(screen.getByText(/Collections reconciliation:/)).toHaveTextContent(
+        '1 collected, 1 rejected, 0 refunded, 0 pending'
+      );
+      expect(screen.getByRole('button', { name: /Collected/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Rejected/ })).toBeInTheDocument();
+    });
+
+    it('opens a transaction detail modal when a status badge is clicked', () => {
+      render(<ScheduleDisplay schedule={schedule!} collections={collections} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Rejected/ }));
+
+      expect(screen.getByText(/Collections history/)).toBeInTheDocument();
+      expect(screen.getByText('REF-2')).toBeInTheDocument();
+      expect(screen.getByText('Not sufficient funds')).toBeInTheDocument();
+    });
+
+    it('calls onClearCollections when the Clear button is clicked', () => {
+      const onClearCollections = vi.fn();
+      render(<ScheduleDisplay schedule={schedule!} collections={collections} onClearCollections={onClearCollections} />);
+
+      fireEvent.click(screen.getByTitle('Clear loaded collections'));
+
+      expect(onClearCollections).toHaveBeenCalledTimes(1);
+    });
   });
 });

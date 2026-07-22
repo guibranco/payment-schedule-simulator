@@ -90,6 +90,34 @@ describe('ViewSchedule', () => {
     expect(screen.getByLabelText('Load Example')).toBeInTheDocument();
   });
 
+  it('does not show the Load Collections button until a schedule is displayed', () => {
+    render(<ViewSchedule apiEndpoint="" />);
+    expect(screen.queryByRole('button', { name: /Load Collections/ })).not.toBeInTheDocument();
+  });
+
+  it('reconciles the displayed schedule against pasted Collections JSON', () => {
+    render(<ViewSchedule apiEndpoint="" />);
+    const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!.json as any;
+    submitJson(JSON.stringify(responseSample));
+
+    fireEvent.click(screen.getByRole('button', { name: /Load Collections/ }));
+    const collections = [
+      {
+        paymentScheduleItemIds: [responseSample.scheduleItems[0].id],
+        amountDue: responseSample.scheduleItems[0].amountDue,
+        collectionStatus: 'collected',
+        providerDetails: { processingDate: '2026-06-30T11:00:41+00:00' }
+      }
+    ];
+    fireEvent.change(screen.getByPlaceholderText(/Paste the Collections Service/), {
+      target: { value: JSON.stringify(collections) }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reconcile' }));
+
+    expect(screen.getByText(/Collections reconciliation:/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reload Collections' })).toBeInTheDocument();
+  });
+
   it('hands off to the Amend Schedule form with the derived input pre-filled', () => {
     const { container } = render(<ViewSchedule apiEndpoint="test-endpoint" />);
     const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!;

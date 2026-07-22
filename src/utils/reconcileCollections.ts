@@ -1,0 +1,102 @@
+import {
+  CollectionTransaction,
+  ItemReconciliation,
+  ReconciledStatus,
+  ReconciliationSummary,
+  ScheduleItem
+} from '../types';
+
+const AMOUNT_TOLERANCE = 0.01;
+const KNOWN_STATUSES: ReconciledStatus[] = ['collected', 'rejected', 'refunded'];
+
+function getProcessingTime(txn: CollectionTransaction): number {
+  const raw = txn.providerDetails?.processingDate || txn.modifiedDate || txn.createdDate || txn.valueDate || txn.dueDate;
+  const time = raw ? new Date(raw).getTime() : NaN;
+  return isNaN(time) ? 0 : time;
+}
+
+function normalizeStatus(status: string): ReconciledStatus {
+  const normalized = (status || '').toLowerCase() as ReconciledStatus;
+  return KNOWN_STATUSES.includes(normalized) ? normalized : 'pending';
+}
+
+/**
+ * Parses and lightly validates raw JSON as a Collections Service transaction array.
+ */
+export function parseCollectionsJson(raw: string): CollectionTransaction[] {
+  const json = JSON.parse(raw);
+
+  if (!Array.isArray(json)) {
+    throw new Error('Expected a JSON array of collection transactions.');
+  }
+
+  return json.map((entry, index) => {
+    if (!entry || typeof entry !== 'object') {
+      throw new Error(`Entry at index ${index} is not an object.`);
+    }
+    if (!Array.isArray(entry.paymentScheduleItemIds)) {
+      throw new Error(`Entry at index ${index} is missing paymentScheduleItemIds.`);
+    }
+    if (!entry.collectionStatus) {
+      throw new Error(`Entry at index ${index} is missing collectionStatus.`);
+    }
+    return entry as CollectionTransaction;
+  });
+}
+
+/**
+ * Reconciles each schedule item against the Collections Service transactions that
+ * reference it (via paymentScheduleItemIds). When an item has multiple attempts —
+ * a rejection followed by a resubmission, say — the chronologically latest one (by
+ * provider processing date) is treated as the item's current outcome.
+ */
+export function reconcileScheduleItems(
+  scheduleItems: ScheduleItem[],
+  collections: CollectionTransaction[]
+): Map<string, ItemReconciliation> {
+  const result = new Map<string, ItemReconciliation>();
+
+  for (const item of scheduleItems) {
+    const transactions = collections
+      .filter((txn) => txn.paymentScheduleItemIds.includes(item.id))
+      .sort((a, b) => getProcessingTime(a) - getProcessingTime(b));
+
+    const latestTransaction = transactions.length > 0 ? transactions[transactions.length - 1] : null;
+    const status: ReconciledStatus = latestTransaction ? normalizeStatus(latestTransaction.collectionStatus) : 'pending';
+
+    // Batched collections cover several items with one combined amount, so amount
+    // reconciliation only makes sense when the transaction covers this item alone.
+    const amountMismatch =
+      latestTransaction !== null &&
+      latestTransaction.paymentScheduleItemIds.length === 1 &&
+      Math.abs(Number(latestTransaction.amountDue) - Number(item.amountDue)) > AMOUNT_TOLERANCE;
+
+    const statusMismatch =
+      item.succeeded !== null &&
+      ((item.succeeded === true && status !== 'collected') || (item.succeeded === false && status === 'collected'));
+
+    result.set(item.id, { status, transactions, latestTransaction, amountMismatch, statusMismatch });
+  }
+
+  return result;
+}
+
+export function summarizeReconciliation(reconciliation: Map<string, ItemReconciliation>): ReconciliationSummary {
+  const summary: ReconciliationSummary = {
+    totalItems: reconciliation.size,
+    collected: 0,
+    rejected: 0,
+    refunded: 0,
+    pending: 0,
+    mismatches: 0
+  };
+
+  for (const entry of reconciliation.values()) {
+    summary[entry.status] += 1;
+    if (entry.amountMismatch || entry.statusMismatch) {
+      summary.mismatches += 1;
+    }
+  }
+
+  return summary;
+}

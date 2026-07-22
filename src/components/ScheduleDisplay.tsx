@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Euro,
   FileJson,
@@ -10,21 +10,37 @@ import {
   ChevronDown,
   Check,
   X,
-  MinusCircle
+  MinusCircle,
+  ListChecks,
+  CheckCircle2,
+  XCircle,
+  Undo2,
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
-import { PaymentScheduleResponse } from '../types';
+import { PaymentScheduleResponse, CollectionTransaction, ReconciledStatus } from '../types';
 import { exportScheduleImage } from '../utils/scheduleImage';
 import { convertResponseToFormat, ScheduleFormat } from '../utils/scheduleDetector';
 import { STORAGE_KEYS } from '../constants';
+import { reconcileScheduleItems, summarizeReconciliation } from '../utils/reconcileCollections';
 import Modal from './Modal';
 
 interface Props {
   schedule: PaymentScheduleResponse;
   onStatusChange?: (index: number) => void;
+  collections?: CollectionTransaction[] | null;
+  onClearCollections?: () => void;
 }
 
 type ExportFormat = 'json' | 'csv' | 'pdf' | 'html' | 'png' | 'svg';
 type IconComponent = React.ComponentType<{ className?: string }>;
+
+const RECONCILIATION_BADGES: Record<ReconciledStatus, { label: string; className: string; Icon: IconComponent }> = {
+  collected: { label: 'Collected', className: 'bg-green-100 text-green-800', Icon: CheckCircle2 },
+  rejected: { label: 'Rejected', className: 'bg-red-100 text-red-800', Icon: XCircle },
+  refunded: { label: 'Refunded', className: 'bg-blue-100 text-blue-800', Icon: Undo2 },
+  pending: { label: 'Pending', className: 'bg-gray-100 text-gray-600', Icon: Clock }
+};
 
 const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
   json: 'JSON',
@@ -89,8 +105,9 @@ function useCloseOnOutsideClick(ref: React.RefObject<HTMLElement | null>, isOpen
  * @param schedule - An object containing the schedule details including items, period dates, and amounts.
  * @param onStatusChange - A callback function that triggers when a status icon is clicked, allowing for status changes.
  */
-export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
+export default function ScheduleDisplay({ schedule, onStatusChange, collections, onClearCollections }: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
+  const [reconciliationDetailItemId, setReconciliationDetailItemId] = useState<string | null>(null);
   const [isViewJsonMenuOpen, setIsViewJsonMenuOpen] = useState(false);
   const [viewJsonFormat, setViewJsonFormat] = useState<ScheduleFormat>('response');
   const viewJsonMenuRef = useRef<HTMLDivElement>(null);
@@ -116,11 +133,21 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
     setIsExportMenuOpen(false);
   };
 
-  const scheduleItems = schedule?.scheduleItems || [];
-  
-  const totalAmount = scheduleItems.length > 0 
-    ? scheduleItems.reduce((sum, item) => sum + Number(item?.amountDue ?? 0), 0) 
+  const scheduleItems = useMemo(() => schedule?.scheduleItems || [], [schedule]);
+
+  const totalAmount = scheduleItems.length > 0
+    ? scheduleItems.reduce((sum, item) => sum + Number(item?.amountDue ?? 0), 0)
     : 0;
+
+  const reconciliation = useMemo(
+    () => (collections && collections.length > 0 ? reconcileScheduleItems(scheduleItems, collections) : null),
+    [scheduleItems, collections]
+  );
+  const reconciliationSummary = useMemo(
+    () => (reconciliation ? summarizeReconciliation(reconciliation) : null),
+    [reconciliation]
+  );
+  const reconciliationDetail = reconciliationDetailItemId ? reconciliation?.get(reconciliationDetailItemId) : null;
 
   const formatDate = (dateStr: string) => {
     if (!dateStr || dateStr === '0001-01-01T00:00:00+00:00') return '-';
@@ -527,6 +554,33 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
             </div>
           </div>
 
+        {reconciliationSummary && (
+          <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2 text-indigo-900">
+              <ListChecks className="w-5 h-5 flex-shrink-0" />
+              <span className="text-sm font-medium">
+                Collections reconciliation: {reconciliationSummary.collected} collected,{' '}
+                {reconciliationSummary.rejected} rejected, {reconciliationSummary.refunded} refunded,{' '}
+                {reconciliationSummary.pending} pending
+                {reconciliationSummary.mismatches > 0 && (
+                  <span className="text-amber-700"> — {reconciliationSummary.mismatches} flagged for review</span>
+                )}
+              </span>
+            </div>
+            {onClearCollections && (
+              <button
+                type="button"
+                onClick={onClearCollections}
+                className="flex items-center gap-1 text-sm text-indigo-700 hover:text-indigo-900 transition-colors"
+                title="Clear loaded collections"
+              >
+                <X className="w-4 h-4" />
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="mb-6">
           <h3 className="text-sm font-medium text-gray-900 mb-2">Legend</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -564,6 +618,9 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adjustment Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Has Original Item</th>
+                {reconciliation && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collections</th>
+                )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -619,6 +676,32 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {item.originalItem ? 'Yes' : 'No'}
                   </td>
+                  {reconciliation && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {(() => {
+                        const entry = reconciliation.get(item.id);
+                        if (!entry) return '-';
+                        const { label, className, Icon } = RECONCILIATION_BADGES[entry.status];
+                        const hasIssue = entry.amountMismatch || entry.statusMismatch;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setReconciliationDetailItemId(item.id)}
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-opacity hover:opacity-80 ${className}`}
+                            title={
+                              entry.transactions.length > 0
+                                ? `${entry.transactions.length} matching transaction(s) — click for details`
+                                : 'No matching Collections transaction found — click for details'
+                            }
+                          >
+                            <Icon className="w-3.5 h-3.5" />
+                            {label}
+                            {hasIssue && <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />}
+                          </button>
+                        );
+                      })()}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -635,6 +718,58 @@ export default function ScheduleDisplay({ schedule, onStatusChange }: Props) {
         <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
           <code>{JSON.stringify(convertResponseToFormat(schedule, viewJsonFormat), null, 2)}</code>
         </pre>
+      </Modal>
+
+      <Modal
+        isOpen={reconciliationDetailItemId !== null}
+        onClose={() => setReconciliationDetailItemId(null)}
+        title={`Collections history — item ${reconciliationDetailItemId ?? ''}`}
+      >
+        {!reconciliationDetail || reconciliationDetail.transactions.length === 0 ? (
+          <p className="text-gray-600">No matching Collections Service transactions found for this schedule item.</p>
+        ) : (
+          <div className="space-y-3">
+            {(reconciliationDetail.amountMismatch || reconciliationDetail.statusMismatch) && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <div>
+                  {reconciliationDetail.statusMismatch && (
+                    <p>The schedule item's recorded status doesn't match the latest Collections outcome.</p>
+                  )}
+                  {reconciliationDetail.amountMismatch && (
+                    <p>The collected amount differs from this item's amount due.</p>
+                  )}
+                </div>
+              </div>
+            )}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead>
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">Processed</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">Status</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">Amount</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">Reference</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">Error</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {reconciliationDetail.transactions.map((txn, i) => (
+                    <tr key={txn.transactionReference || i}>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {formatDate(txn.providerDetails?.processingDate || txn.valueDate || txn.dueDate || '')}
+                      </td>
+                      <td className="px-3 py-2 capitalize">{txn.collectionStatus}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">€{Number(txn.amountDue ?? 0).toFixed(2)}</td>
+                      <td className="px-3 py-2 break-all">{txn.transactionReference || '-'}</td>
+                      <td className="px-3 py-2">{txn.providerDetails?.errorMessage || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </Modal>
     </>
   );
