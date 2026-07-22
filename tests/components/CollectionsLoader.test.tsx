@@ -38,12 +38,17 @@ describe('CollectionsLoader', () => {
   });
 
   it('shows the underlying validation error message when the JSON is not a valid collections array', () => {
-    render(<CollectionsLoader onLoad={vi.fn()} onClose={vi.fn()} />);
+    const onLoad = vi.fn();
+    const onClose = vi.fn();
+
+    render(<CollectionsLoader onLoad={onLoad} onClose={onClose} />);
 
     fireEvent.change(getTextarea(), { target: { value: '{}' } });
     submit();
 
     expect(screen.getByText('Expected a JSON array of collection transactions.')).toBeInTheDocument();
+    expect(onLoad).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('calls onClose without onLoad when Cancel is clicked', () => {
