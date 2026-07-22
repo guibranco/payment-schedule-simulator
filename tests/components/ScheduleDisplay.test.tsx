@@ -12,13 +12,15 @@ vi.mock('../../src/utils/scheduleImage', () => ({
 import { exportScheduleImage } from '../../src/utils/scheduleImage';
 
 vi.mock('jspdf', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    setFontSize: vi.fn(),
-    text: vi.fn(),
-    addPage: vi.fn(),
-    save: vi.fn(),
-    internal: { pageSize: { height: 800 } }
-  }))
+  // A real `function` (not an arrow function) so `new jsPDFModule.default()` — as the
+  // component actually calls it — legitimately constructs an instance instead of throwing.
+  default: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
+    this.setFontSize = vi.fn();
+    this.text = vi.fn();
+    this.addPage = vi.fn();
+    this.save = vi.fn();
+    this.internal = { pageSize: { height: 800 } };
+  })
 }));
 
 const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!.json;
@@ -265,7 +267,7 @@ describe('ScheduleDisplay', () => {
     clickExportButton();
 
     await waitFor(() => {
-      expect(exportScheduleImage).toHaveBeenCalledWith(schedule, 'png');
+      expect(exportScheduleImage).toHaveBeenCalledWith(schedule, 'png', undefined);
     });
   });
 
@@ -276,7 +278,7 @@ describe('ScheduleDisplay', () => {
     clickExportButton();
 
     await waitFor(() => {
-      expect(exportScheduleImage).toHaveBeenCalledWith(schedule, 'svg');
+      expect(exportScheduleImage).toHaveBeenCalledWith(schedule, 'svg', undefined);
     });
   });
 
@@ -589,6 +591,173 @@ describe('ScheduleDisplay', () => {
 
       expect(screen.getByText(/generated on the fly by the Payment Schedule service/)).toBeInTheDocument();
       expect(screen.getByText('not-in-the-schedule')).toBeInTheDocument();
+    });
+  });
+
+  describe('Export content reflects Collections reconciliation', () => {
+    const scheduleWithNullStatus = {
+      ...schedule!,
+      scheduleItems: [{ ...schedule!.scheduleItems[0], id: 'export-item', succeeded: null, collectionItemCreatedDate: undefined }]
+    };
+    const collections: CollectionTransaction[] = [
+      {
+        paymentScheduleItemIds: ['export-item'],
+        amountDue: schedule!.scheduleItems[0].amountDue,
+        collectionStatus: 'rejected',
+        providerDetails: { processingDate: '2026-01-01T00:00:00Z' }
+      },
+      {
+        paymentScheduleItemIds: ['export-item'],
+        amountDue: schedule!.scheduleItems[0].amountDue,
+        collectionStatus: 'collected',
+        isResubmission: true,
+        transactionReference: 'REF-EXPORT',
+        providerDetails: { processingDate: '2026-02-01T00:00:00Z' }
+      }
+    ];
+
+    describe('text-based formats', () => {
+      let capturedCsv = '';
+      let capturedHtml = '';
+      let capturedJson = '';
+
+      class CapturingBlob extends Blob {
+        constructor(parts: BlobPart[] = [], options?: BlobPropertyBag) {
+          super(parts, options);
+          const text = String(parts[0]);
+          if (options?.type?.includes('csv')) capturedCsv = text;
+          else if (options?.type === 'text/html') capturedHtml = text;
+          else if (options?.type === 'application/json') capturedJson = text;
+        }
+      }
+
+      beforeEach(() => {
+        capturedCsv = '';
+        capturedHtml = '';
+        capturedJson = '';
+        vi.stubGlobal('Blob', CapturingBlob);
+      });
+
+      afterEach(() => {
+        vi.unstubAllGlobals();
+      });
+
+      it('includes the derived status/created date and Collections columns in the CSV export', () => {
+        render(<ScheduleDisplay schedule={scheduleWithNullStatus} collections={collections} />);
+        selectFormat('csv');
+        clickExportButton();
+
+        expect(capturedCsv).toContain('CollectionsStatus');
+        expect(capturedCsv).toContain('CollectionsRetried');
+        const dataRow = capturedCsv.split('\n')[1];
+        expect(dataRow).toContain('collected');
+        expect(dataRow).toContain('true');
+      });
+
+      it('includes the derived status/created date and a collectionsReconciliation block in the JSON export', () => {
+        render(<ScheduleDisplay schedule={scheduleWithNullStatus} collections={collections} />);
+        selectFormat('json');
+        clickExportButton();
+
+        const parsed = JSON.parse(capturedJson);
+        expect(parsed.scheduleItems[0].succeeded).toBe(true);
+        expect(parsed.scheduleItems[0].collectionItemCreatedDate).toBe('2026-02-01T00:00:00Z');
+        expect(parsed.collectionsReconciliation).toEqual([
+          {
+            scheduleItemId: 'export-item',
+            status: 'collected',
+            wasRetried: true,
+            amountMismatch: false,
+            statusMismatch: false,
+            transactionCount: 2
+          }
+        ]);
+      });
+
+      it('includes Created/Status/Collections columns in the HTML export', () => {
+        render(<ScheduleDisplay schedule={scheduleWithNullStatus} collections={collections} />);
+        selectFormat('html');
+        clickExportButton();
+
+        expect(capturedHtml).toContain('<th>Created</th>');
+        expect(capturedHtml).toContain('<th>Status</th>');
+        expect(capturedHtml).toContain('<th>Collections</th>');
+        expect(capturedHtml).toContain('collected (retried)');
+      });
+    });
+
+    it('includes status/created/collections info per item in the PDF export', async () => {
+      const jsPDFModule = await import('jspdf');
+      render(<ScheduleDisplay schedule={scheduleWithNullStatus} collections={collections} />);
+      selectFormat('pdf');
+      clickExportButton();
+
+      await waitFor(() => {
+        const instance = vi.mocked(jsPDFModule.default).mock.results.at(-1)!.value;
+        const calls = instance.text.mock.calls.map((call: unknown[]) => call[0]);
+        expect(calls.some((text: string) => text.includes('Status: Succeeded') && text.includes('Collections: collected (retried)'))).toBe(true);
+      });
+    });
+  });
+
+  describe('Frequency change detection', () => {
+    function makeItem(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 'item',
+        collectionType: 'Full',
+        periodStartDate: '2026-01-10',
+        periodEndDate: '2026-02-09',
+        adjustmentDate: '0001-01-01T00:00:00-00:25',
+        dueDate: '2025-11-25',
+        amountDue: 34.09,
+        netAmount: 32.46,
+        taxesAndLevies: {},
+        adminFees: {},
+        succeeded: null,
+        ...overrides
+      };
+    }
+
+    const monthlyPeriods: Array<[string, string]> = [
+      ['2025-12-10', '2026-01-09'],
+      ['2026-01-10', '2026-02-09']
+    ];
+    const monthlyItems = monthlyPeriods.map(([periodStartDate, periodEndDate], i) =>
+      makeItem({ id: `monthly-${i}`, periodStartDate, periodEndDate })
+    );
+    const pivotItem = makeItem({
+      id: 'pivot-item',
+      collectionType: 'ProRata',
+      periodStartDate: '2026-09-10',
+      periodEndDate: '2026-10-09',
+      originalItem: makeItem({
+        id: 'synthetic-annual-basis',
+        collectionType: 'Full',
+        periodStartDate: '2025-10-10',
+        periodEndDate: '2026-10-09'
+      })
+    });
+    const switchedSchedule = {
+      ...schedule!,
+      inceptionDate: '2025-10-10',
+      coverStartDate: '2025-10-10',
+      coverEndDate: '2026-10-09',
+      scheduleItems: [...monthlyItems, pivotItem]
+    };
+
+    it('shows no frequency-change banner for a schedule that never switched', () => {
+      render(<ScheduleDisplay schedule={schedule!} />);
+      expect(screen.queryByText(/switched from Monthly to Annual/)).not.toBeInTheDocument();
+    });
+
+    it('shows a banner and highlights the pivot row when a Monthly-to-Annual switch is detected', () => {
+      render(<ScheduleDisplay schedule={switchedSchedule as any} />);
+
+      expect(screen.getByText(/switched from Monthly to Annual/)).toBeInTheDocument();
+
+      const pivotIcon = screen.getByLabelText('Frequency changed here');
+      const pivotRow = pivotIcon.closest('tr')!;
+      expect(pivotRow.className).toContain('ring-amber-400');
     });
   });
 });

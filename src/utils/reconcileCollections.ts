@@ -129,6 +129,44 @@ export function reconcileScheduleItems(
   return result;
 }
 
+export interface EffectiveValue<T> {
+  value: T;
+  derived: boolean;
+}
+
+/**
+ * Falls back to the Collections-reconciled outcome when the schedule item itself has no
+ * recorded succeeded value (null) — shared by the on-screen table and every export format
+ * so they never disagree about what "the" status of an item is.
+ */
+export function getEffectiveSucceeded(
+  item: ScheduleItem,
+  reconciliation?: Map<string, ItemReconciliation> | null
+): EffectiveValue<boolean | null> {
+  if (item.succeeded !== null) return { value: item.succeeded, derived: false };
+
+  const entry = reconciliation?.get(item.id);
+  if (!entry || entry.status === 'pending') return { value: null, derived: false };
+
+  return { value: isSuccessfulReconciledStatus(entry.status), derived: true };
+}
+
+/**
+ * Falls back to the latest matching Collections transaction's date when the schedule item
+ * itself has no collectionItemCreatedDate recorded — shared by the on-screen table and
+ * every export format.
+ */
+export function getEffectiveCreatedDate(
+  item: ScheduleItem,
+  reconciliation?: Map<string, ItemReconciliation> | null
+): EffectiveValue<string | undefined> {
+  if (item.collectionItemCreatedDate) return { value: item.collectionItemCreatedDate, derived: false };
+
+  const txn = reconciliation?.get(item.id)?.latestTransaction;
+  const derivedDate = txn ? getTransactionDate(txn) : undefined;
+  return { value: derivedDate, derived: !!derivedDate };
+}
+
 export function summarizeReconciliation(reconciliation: Map<string, ItemReconciliation>): ReconciliationSummary {
   const summary: ReconciliationSummary = {
     totalItems: reconciliation.size,

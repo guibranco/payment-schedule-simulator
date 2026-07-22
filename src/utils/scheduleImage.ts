@@ -1,4 +1,9 @@
-import { PaymentScheduleResponse, ScheduleItem } from '../types';
+import { PaymentScheduleResponse, ScheduleItem, CollectionTransaction, ItemReconciliation } from '../types';
+import {
+  reconcileScheduleItems,
+  getEffectiveSucceeded,
+  getEffectiveCreatedDate
+} from './reconcileCollections';
 
 export type ScheduleImageFormat = 'png' | 'svg';
 
@@ -76,13 +81,32 @@ function statusLabel(succeeded: boolean | null): string {
   return succeeded ? '✓' : '✕';
 }
 
+const COLLECTIONS_STATUS_LABELS: Record<ItemReconciliation['status'], string> = {
+  collected: 'Collected',
+  rejected: 'Rejected',
+  refunded: 'Refunded',
+  pending: 'Pending'
+};
+
+function collectionsLabel(entry: ItemReconciliation | undefined): string {
+  if (!entry) return '-';
+  const label = COLLECTIONS_STATUS_LABELS[entry.status];
+  return entry.wasRetried ? `${label} (retried)` : label;
+}
+
 /**
  * Builds a standalone, plain-inline-style HTML clone of the schedule summary/legend/table
- * suitable for html2canvas capture (no external stylesheet/class dependency).
+ * suitable for html2canvas capture (no external stylesheet/class dependency). When
+ * `collections` is supplied, the Status/Created columns reflect the same Collections-derived
+ * values shown on screen, and a Collections column is appended.
  */
-export function buildPrintableScheduleNode(schedule: PaymentScheduleResponse): HTMLDivElement {
+export function buildPrintableScheduleNode(
+  schedule: PaymentScheduleResponse,
+  collections?: CollectionTransaction[] | null
+): HTMLDivElement {
   const scheduleItems = schedule.scheduleItems || [];
   const totalAmount = scheduleItems.reduce((sum, item) => sum + Number(item?.amountDue ?? 0), 0);
+  const reconciliation = collections && collections.length > 0 ? reconcileScheduleItems(scheduleItems, collections) : null;
 
   const container = document.createElement('div');
   container.style.position = 'fixed';
@@ -102,6 +126,8 @@ export function buildPrintableScheduleNode(schedule: PaymentScheduleResponse): H
       const fees = Object.entries(item.adminFees || {})
         .map(([key, value]) => `${escapeHtml(key)}: €${Number(value.amountDue || 0).toFixed(2)}`)
         .join('<br/>') || '-';
+      const { value: createdDate } = getEffectiveCreatedDate(item, reconciliation);
+      const { value: succeeded } = getEffectiveSucceeded(item, reconciliation);
 
       return `
         <tr>
@@ -112,16 +138,20 @@ export function buildPrintableScheduleNode(schedule: PaymentScheduleResponse): H
           ${tableCell(taxes)}
           ${tableCell(fees)}
           ${tableCell(`€${Number(item?.amountDue ?? 0).toFixed(2)}`)}
-          ${tableCell(statusLabel(item.succeeded))}
+          ${tableCell(createdDate ? formatImageDate(createdDate) : '-')}
+          ${tableCell(statusLabel(succeeded))}
+          ${reconciliation ? tableCell(escapeHtml(collectionsLabel(reconciliation.get(item.id)))) : ''}
         </tr>
       `;
     })
     .join('');
 
   container.innerHTML = `
-    <div style="display:flex; gap:16px; margin-bottom:24px;">
+    <div style="display:flex; gap:16px; margin-bottom:16px;">
       ${summaryCard('Total Amount', `€${totalAmount.toFixed(2)}`, { accent: true })}
-      ${summaryCard('Collection Day', schedule.collectionDay != null ? String(schedule.collectionDay) : '-')}
+      ${summaryCard('Collection Day', schedule.collectionFrequency === 'annual' ? '-' : String(schedule.collectionDay ?? '-'))}
+    </div>
+    <div style="display:flex; gap:16px; margin-bottom:24px;">
       ${summaryCard('Cover Period', `${formatImageDate(schedule.coverStartDate)} - ${formatImageDate(schedule.coverEndDate)}`)}
       ${summaryCard('Schedule ID', escapeHtml(schedule.id || '-'))}
     </div>
@@ -144,7 +174,9 @@ export function buildPrintableScheduleNode(schedule: PaymentScheduleResponse): H
           ${tableHeaderCell('Taxes & Levies')}
           ${tableHeaderCell('Admin Fees')}
           ${tableHeaderCell('Total')}
+          ${tableHeaderCell('Created')}
           ${tableHeaderCell('Status')}
+          ${reconciliation ? tableHeaderCell('Collections') : ''}
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -172,9 +204,10 @@ function triggerDownload(blob: Blob, filename: string) {
  */
 export async function exportScheduleImage(
   schedule: PaymentScheduleResponse,
-  format: ScheduleImageFormat
+  format: ScheduleImageFormat,
+  collections?: CollectionTransaction[] | null
 ): Promise<void> {
-  const node = buildPrintableScheduleNode(schedule);
+  const node = buildPrintableScheduleNode(schedule, collections);
   document.body.appendChild(node);
 
   try {

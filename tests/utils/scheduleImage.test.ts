@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { buildPrintableScheduleNode, exportScheduleImage } from '../../src/utils/scheduleImage';
 import { detectAndNormalizeSchedule } from '../../src/utils/scheduleDetector';
 import { SAMPLE_SCHEDULES } from '../../src/constants/sampleSchedules';
+import { CollectionTransaction } from '../../src/types';
 
 const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!.json;
 const { schedule } = detectAndNormalizeSchedule(responseSample);
@@ -28,6 +29,69 @@ describe('buildPrintableScheduleNode', () => {
     expect(node.style.position).toBe('fixed');
     expect(node.style.left).toBe('-99999px');
     expect(node.style.display).not.toBe('none');
+  });
+
+  function getCollectionDayValue(node: HTMLDivElement): string | null | undefined {
+    const titleDiv = Array.from(node.querySelectorAll('div')).find((el) => el.textContent?.trim() === 'Collection Day');
+    return titleDiv?.nextElementSibling?.textContent?.trim();
+  }
+
+  it('shows "-" for Collection Day on an annual schedule instead of the raw sentinel 0/null', () => {
+    const node = buildPrintableScheduleNode({ ...schedule!, collectionFrequency: 'annual', collectionDay: 0 });
+    expect(getCollectionDayValue(node)).toBe('-');
+  });
+
+  it('shows the actual Collection Day for a monthly schedule', () => {
+    const node = buildPrintableScheduleNode({ ...schedule!, collectionFrequency: 'monthly', collectionDay: 15 });
+    expect(getCollectionDayValue(node)).toBe('15');
+  });
+
+  it('renders Cover Period and Schedule ID on their own row, separate from Total Amount/Collection Day', () => {
+    const node = buildPrintableScheduleNode(schedule!);
+    const rows = node.querySelectorAll(':scope > div[style*="display:flex"]');
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+
+    const firstRowText = rows[0].textContent || '';
+    const secondRowText = rows[1].textContent || '';
+
+    expect(firstRowText).toContain('Total Amount');
+    expect(firstRowText).toContain('Collection Day');
+    expect(firstRowText).not.toContain('Cover Period');
+    expect(firstRowText).not.toContain('Schedule ID');
+
+    expect(secondRowText).toContain('Cover Period');
+    expect(secondRowText).toContain('Schedule ID');
+  });
+
+  it('does not add a Collections column when no collections are provided', () => {
+    const node = buildPrintableScheduleNode(schedule!);
+    expect(node.textContent).not.toContain('Collections');
+  });
+
+  it('adds a Collections column reflecting the reconciled status when collections are provided', () => {
+    const firstItem = schedule!.scheduleItems[0];
+    const collections: CollectionTransaction[] = [
+      {
+        paymentScheduleItemIds: [firstItem.id],
+        amountDue: firstItem.amountDue,
+        collectionStatus: 'rejected',
+        providerDetails: { processingDate: '2026-01-01T00:00:00Z' }
+      },
+      {
+        paymentScheduleItemIds: [firstItem.id],
+        amountDue: firstItem.amountDue,
+        collectionStatus: 'collected',
+        isResubmission: true,
+        providerDetails: { processingDate: '2026-01-05T00:00:00Z' }
+      }
+    ];
+
+    const node = buildPrintableScheduleNode(schedule!, collections);
+    const headerRow = node.querySelector('thead tr')!;
+    expect(headerRow.textContent).toContain('Collections');
+
+    const firstRow = node.querySelector('tbody tr')!;
+    expect(firstRow.textContent).toContain('Collected (retried)');
   });
 });
 
