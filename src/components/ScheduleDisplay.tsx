@@ -19,7 +19,8 @@ import {
   AlertTriangle,
   RefreshCw,
   History,
-  Info
+  Info,
+  ArrowRightLeft
 } from 'lucide-react';
 import { PaymentScheduleResponse, ScheduleItem, CollectionTransaction, ReconciledStatus } from '../types';
 import { exportScheduleImage } from '../utils/scheduleImage';
@@ -28,9 +29,11 @@ import { STORAGE_KEYS } from '../constants';
 import {
   reconcileScheduleItems,
   summarizeReconciliation,
-  isSuccessfulReconciledStatus,
-  getTransactionDate
+  getTransactionDate,
+  getEffectiveSucceeded,
+  getEffectiveCreatedDate
 } from '../utils/reconcileCollections';
+import { detectFrequencyChange } from '../utils/detectFrequencyChange';
 import Modal from './Modal';
 
 interface Props {
@@ -158,6 +161,8 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
   );
   const reconciliationDetail = reconciliationDetailItemId ? reconciliation?.get(reconciliationDetailItemId) : null;
 
+  const frequencyChange = useMemo(() => (schedule ? detectFrequencyChange(schedule) : { detected: false }), [schedule]);
+
   const formatDate = (dateStr: string) => {
     if (!dateStr || dateStr === '0001-01-01T00:00:00+00:00') return '-';
     const date = new Date(dateStr);
@@ -172,30 +177,8 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
     return 'bg-green-100';
   };
 
-  /**
-   * Falls back to the Collections-reconciled outcome for the Status column when the
-   * schedule item itself has no recorded succeeded value (null).
-   */
-  const getEffectiveSucceeded = (item: ScheduleItem): { value: boolean | null; derived: boolean } => {
-    if (item.succeeded !== null) return { value: item.succeeded, derived: false };
-
-    const entry = reconciliation?.get(item.id);
-    if (!entry || entry.status === 'pending') return { value: null, derived: false };
-
-    return { value: isSuccessfulReconciledStatus(entry.status), derived: true };
-  };
-
-  /**
-   * Falls back to the latest matching Collections transaction's date when the schedule
-   * item itself has no collectionItemCreatedDate recorded.
-   */
-  const getEffectiveCreatedDate = (item: ScheduleItem): { value: string | undefined; derived: boolean } => {
-    if (item.collectionItemCreatedDate) return { value: item.collectionItemCreatedDate, derived: false };
-
-    const txn = reconciliation?.get(item.id)?.latestTransaction;
-    const derivedDate = txn ? getTransactionDate(txn) : undefined;
-    return { value: derivedDate, derived: !!derivedDate };
-  };
+  const getEffectiveSucceededForItem = (item: ScheduleItem) => getEffectiveSucceeded(item, reconciliation);
+  const getEffectiveCreatedDateForItem = (item: ScheduleItem) => getEffectiveCreatedDate(item, reconciliation);
 
   /**
    * The channel a transaction was submitted through — used to explain, in the detail
@@ -235,9 +218,11 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
       'Succeeded',
       'AdjustmentDate',
       'HasOriginalItem',
-      'Type'
+      'Type',
+      'CollectionsStatus',
+      'CollectionsRetried'
     ];
-    
+
     const rows = scheduleItems.map((item, index) => {
       const periodStart = new Date(item.periodStartDate);
       const periodEnd = new Date(item.periodEndDate);
@@ -264,6 +249,10 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
         .map(([key, value]) => `${key}|${value}`)
         .join(':');
 
+      const { value: effectiveCreatedDate } = getEffectiveCreatedDateForItem(item);
+      const { value: effectiveSucceeded } = getEffectiveSucceededForItem(item);
+      const collectionsEntry = reconciliation?.get(item.id);
+
       return [
         index,
         formatDate(item.periodStartDate),
@@ -278,11 +267,13 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
         item.netAmount,
         taxesAndLeviesTotal,
         taxesAndLeviesStr || '',
-        item.collectionItemCreatedDate ? formatDate(item.collectionItemCreatedDate) : '',
-        item.succeeded?.toString() || '',
+        effectiveCreatedDate ? formatDate(effectiveCreatedDate) : '',
+        effectiveSucceeded?.toString() || '',
         item.adjustmentDate ? formatDate(item.adjustmentDate) : '',
         (item.originalItem !== undefined && item.originalItem !== null).toString(),
-        item.collectionType
+        item.collectionType,
+        collectionsEntry ? collectionsEntry.status : '',
+        collectionsEntry ? collectionsEntry.wasRetried.toString() : ''
       ];
     });
 
@@ -303,7 +294,28 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
   };
 
   const downloadJson = () => {
-    const dataStr = JSON.stringify(schedule, null, 2);
+    const exportedItems = scheduleItems.map((item) => {
+      const { value: effectiveCreatedDate } = getEffectiveCreatedDateForItem(item);
+      const { value: effectiveSucceeded } = getEffectiveSucceededForItem(item);
+      return { ...item, collectionItemCreatedDate: effectiveCreatedDate, succeeded: effectiveSucceeded };
+    });
+
+    const exportedSchedule: Record<string, unknown> = { ...schedule, scheduleItems: exportedItems };
+    if (reconciliation) {
+      exportedSchedule.collectionsReconciliation = scheduleItems.map((item) => {
+        const entry = reconciliation.get(item.id);
+        return {
+          scheduleItemId: item.id,
+          status: entry?.status ?? 'pending',
+          wasRetried: entry?.wasRetried ?? false,
+          amountMismatch: entry?.amountMismatch ?? false,
+          statusMismatch: entry?.statusMismatch ?? false,
+          transactionCount: entry?.transactions.length ?? 0
+        };
+      });
+    }
+
+    const dataStr = JSON.stringify(exportedSchedule, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
@@ -360,10 +372,21 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                 <th>Taxes & Levies</th>
                 <th>Admin Fees</th>
                 <th>Total</th>
+                <th>Created</th>
+                <th>Status</th>
+                ${reconciliation ? '<th>Collections</th>' : ''}
               </tr>
             </thead>
             <tbody>
-              ${scheduleItems.map(item => `
+              ${scheduleItems.map(item => {
+                const { value: effectiveCreatedDate } = getEffectiveCreatedDateForItem(item);
+                const { value: effectiveSucceeded } = getEffectiveSucceededForItem(item);
+                const collectionsEntry = reconciliation?.get(item.id);
+                const statusText = effectiveSucceeded === null ? '—' : effectiveSucceeded ? '✓' : '✕';
+                const collectionsText = collectionsEntry
+                  ? `${collectionsEntry.status}${collectionsEntry.wasRetried ? ' (retried)' : ''}`
+                  : '';
+                return `
                 <tr>
                   <td>${new Date(item.periodStartDate).toLocaleDateString()} - ${new Date(item.periodEndDate).toLocaleDateString()}</td>
                   <td>${new Date(item.dueDate).toLocaleDateString()}</td>
@@ -373,8 +396,12 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                   <td>${Object.entries(item.adminFees || {}).map(([key, value]) =>
                     `${escapeHtml(key)}: €${value.amountDue.toFixed(2)}`).join('<br>')}</td>
                   <td>€${item.amountDue.toFixed(2)}</td>
+                  <td>${effectiveCreatedDate ? new Date(effectiveCreatedDate).toLocaleDateString() : '-'}</td>
+                  <td>${statusText}</td>
+                  ${reconciliation ? `<td>${escapeHtml(collectionsText)}</td>` : ''}
                 </tr>
-              `).join('')}
+              `;
+              }).join('')}
             </tbody>
           </table>
         </body>
@@ -406,7 +433,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
     doc.text(`Total Amount: €${totalAmount.toFixed(2)}`, 20, 60);
 
     let y = 80;
-    const itemHeight = 10;
+    const itemHeight = 15;
     const pageHeight = doc.internal.pageSize.height;
 
     scheduleItems.forEach((item, index) => {
@@ -415,8 +442,18 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
         y = 20;
       }
 
+      const { value: effectiveCreatedDate } = getEffectiveCreatedDateForItem(item);
+      const { value: effectiveSucceeded } = getEffectiveSucceededForItem(item);
+      const collectionsEntry = reconciliation?.get(item.id);
+      const statusText = effectiveSucceeded === null ? 'Unknown' : effectiveSucceeded ? 'Succeeded' : 'Failed';
+      const createdText = effectiveCreatedDate ? new Date(effectiveCreatedDate).toLocaleDateString() : '-';
+      const collectionsText = collectionsEntry
+        ? ` | Collections: ${collectionsEntry.status}${collectionsEntry.wasRetried ? ' (retried)' : ''}`
+        : '';
+
       doc.text(`${index + 1}. Due Date: ${new Date(item.dueDate).toLocaleDateString()}`, 20, y);
       doc.text(`Amount: €${item.amountDue.toFixed(2)}`, 20, y + 5);
+      doc.text(`Status: ${statusText} | Created: ${createdText}${collectionsText}`, 20, y + 10);
 
       y += itemHeight;
     });
@@ -442,7 +479,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
           break;
         case 'png':
         case 'svg':
-          await exportScheduleImage(schedule, exportFormat);
+          await exportScheduleImage(schedule, exportFormat, collections);
           break;
       }
     } catch (err) {
@@ -613,6 +650,13 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
             </div>
           </div>
 
+        {frequencyChange.detected && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+            <ArrowRightLeft className="w-5 h-5 flex-shrink-0 text-amber-700 mt-0.5" />
+            <span className="text-sm font-medium text-amber-900">{frequencyChange.message}</span>
+          </div>
+        )}
+
         {reconciliationSummary && (
           <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2 text-indigo-900">
@@ -683,10 +727,23 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {scheduleItems.map((item, index) => (
-                <tr key={item.id} className="hover:bg-gray-50">
+              {scheduleItems.map((item, index) => {
+                const isFrequencyChangePivot = frequencyChange.detected && item.id === frequencyChange.pivotItemId;
+                return (
+                <tr
+                  key={item.id}
+                  className={`hover:bg-gray-50 ${isFrequencyChangePivot ? 'ring-2 ring-inset ring-amber-400' : ''}`}
+                >
                   <td className={`px-3 py-3 whitespace-nowrap text-sm text-gray-900 ${getIndexBackgroundColor(item)}`}>
-                    {index}
+                    <span className="inline-flex items-center gap-1">
+                      {index}
+                      {isFrequencyChangePivot && (
+                        <ArrowRightLeft
+                          className="w-3.5 h-3.5 text-amber-700"
+                          aria-label="Frequency changed here"
+                        />
+                      )}
+                    </span>
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
                     {formatDate(item.periodStartDate)} - {formatDate(item.periodEndDate)}
@@ -725,7 +782,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
                     {(() => {
-                      const { value, derived } = getEffectiveCreatedDate(item);
+                      const { value, derived } = getEffectiveCreatedDateForItem(item);
                       if (!value) return '-';
                       return (
                         <span
@@ -739,7 +796,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
                     {(() => {
-                      const { value, derived } = getEffectiveSucceeded(item);
+                      const { value, derived } = getEffectiveSucceededForItem(item);
                       return getStatusIcon(value, index, derived);
                     })()}
                   </td>
@@ -793,7 +850,8 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                     </td>
                   )}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
