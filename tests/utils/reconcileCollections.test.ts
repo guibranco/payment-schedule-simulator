@@ -80,6 +80,21 @@ describe('wasRetriedAfterFailure', () => {
     expect(wasRetriedAfterFailure(transactions)).toBe(false);
   });
 
+  it('is false when a real-time collection is refunded afterward, since the retry attempt did not follow a failure', () => {
+    const transactions = [
+      makeTxn({
+        collectionStatus: 'collected',
+        isRealtime: true,
+        providerDetails: { processingDate: '2026-01-01T00:00:00Z' }
+      }),
+      makeTxn({
+        collectionStatus: 'refunded',
+        providerDetails: { processingDate: '2026-02-01T00:00:00Z' }
+      })
+    ];
+    expect(wasRetriedAfterFailure(transactions)).toBe(false);
+  });
+
   it('is false for an empty transaction list', () => {
     expect(wasRetriedAfterFailure([])).toBe(false);
   });

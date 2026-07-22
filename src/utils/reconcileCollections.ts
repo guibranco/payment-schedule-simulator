@@ -44,12 +44,19 @@ export function isSuccessfulReconciledStatus(status: ReconciledStatus): boolean 
  * item that's already been retried can be told apart from one still awaiting a retry.
  */
 export function wasRetriedAfterFailure(transactions: CollectionTransaction[]): boolean {
-  const hadFailureOrRefund = transactions.some((txn) => {
+  const sorted = [...transactions].sort((a, b) => getProcessingTime(a) - getProcessingTime(b));
+
+  let hadFailureOrRefund = false;
+  for (const txn of sorted) {
     const status = (txn.collectionStatus || '').toLowerCase();
-    return status === 'rejected' || status === 'refunded';
-  });
-  const hasRetryAttempt = transactions.some((txn) => txn.isResubmission || txn.isRealtime);
-  return hadFailureOrRefund && hasRetryAttempt;
+    if (status === 'rejected' || status === 'refunded') {
+      hadFailureOrRefund = true;
+    } else if (hadFailureOrRefund && (txn.isResubmission || txn.isRealtime)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
