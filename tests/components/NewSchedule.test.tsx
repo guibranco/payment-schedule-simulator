@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import NewSchedule from '../../src/components/NewSchedule';
 import { STORAGE_KEYS } from '../../src/constants';
 import type { PaymentScheduleResponse } from '../../src/types';
