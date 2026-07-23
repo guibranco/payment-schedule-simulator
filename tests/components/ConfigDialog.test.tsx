@@ -89,12 +89,15 @@ describe('ConfigDialog', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const onSave = vi.fn();
     const onClose = vi.fn();
-    render(<ConfigDialog isOpen={true} onClose={onClose} onSave={onSave} />);
+    const { container } = render(<ConfigDialog isOpen={true} onClose={onClose} onSave={onSave} />);
 
+    // Bypass the <input type="url"> browser-level constraint validation (which would
+    // otherwise block the button-click submission path) to exercise the try/catch in
+    // handleSubmit directly.
     fireEvent.change(screen.getByLabelText('API Base URL'), { target: { value: 'not a url' } });
     fireEvent.change(screen.getByLabelText('Tenant ID'), { target: { value: 'tenant-123' } });
     fireEvent.change(screen.getByLabelText('Client ID'), { target: { value: 'client-456' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+    fireEvent.submit(container.querySelector('form')!);
 
     await waitFor(() => expect(consoleError).toHaveBeenCalledWith('Invalid URL:', expect.anything()));
     expect(onSave).not.toHaveBeenCalled();
