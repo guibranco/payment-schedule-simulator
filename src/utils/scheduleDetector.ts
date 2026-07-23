@@ -1,4 +1,4 @@
-import { AdminFee, PaymentScheduleInput, PaymentScheduleResponse, ScheduleItem } from '../types';
+import type { AdminFee, PaymentScheduleInput, PaymentScheduleResponse, ScheduleItem } from '../types';
 
 export type ScheduleFormat = 'response' | 'request' | 'policyAdmin' | 'rerates';
 

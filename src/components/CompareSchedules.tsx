@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FileUp, Eye, ArrowLeftRight, Info } from 'lucide-react';
-import { PaymentScheduleResponse } from '../types';
-import { detectAndNormalizeSchedule, FORMAT_LABELS, ScheduleFormat } from '../utils/scheduleDetector';
+import type { PaymentScheduleResponse } from '../types';
+import { detectAndNormalizeSchedule, FORMAT_LABELS, type ScheduleFormat } from '../utils/scheduleDetector';
 import { SAMPLE_SCHEDULES, PLACEHOLDER_SAMPLE_JSON } from '../constants/sampleSchedules';
 import ScheduleDisplay from './ScheduleDisplay';
 

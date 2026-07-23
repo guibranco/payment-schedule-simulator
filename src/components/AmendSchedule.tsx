@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FileUp, Clipboard, Calendar, ArrowRight, FileJson } from 'lucide-react';
-import { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
+import type { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
 import { deriveInputFromResponse } from '../utils/scheduleDetector';
 import { useTokenManager } from '../hooks/useTokenManager';
 import NewSchedule from './NewSchedule';

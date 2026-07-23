@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { detectFrequencyChange } from '../../src/utils/detectFrequencyChange';
-import { PaymentScheduleResponse, ScheduleItem } from '../../src/types';
+import type { PaymentScheduleResponse, ScheduleItem } from '../../src/types';
 
 function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
   return {

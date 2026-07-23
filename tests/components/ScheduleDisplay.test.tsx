@@ -4,7 +4,7 @@ import ScheduleDisplay from '../../src/components/ScheduleDisplay';
 import { detectAndNormalizeSchedule } from '../../src/utils/scheduleDetector';
 import { SAMPLE_SCHEDULES } from '../../src/constants/sampleSchedules';
 import { STORAGE_KEYS } from '../../src/constants';
-import { CollectionTransaction } from '../../src/types';
+import type { CollectionTransaction } from '../../src/types';
 
 vi.mock('../../src/utils/scheduleImage', () => ({
   exportScheduleImage: vi.fn()

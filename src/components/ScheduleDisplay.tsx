@@ -22,9 +22,9 @@ import {
   Info,
   ArrowRightLeft
 } from 'lucide-react';
-import { PaymentScheduleResponse, ScheduleItem, CollectionTransaction, ReconciledStatus } from '../types';
+import type { PaymentScheduleResponse, ScheduleItem, CollectionTransaction, ReconciledStatus } from '../types';
 import { exportScheduleImage } from '../utils/scheduleImage';
-import { convertResponseToFormat, ScheduleFormat } from '../utils/scheduleDetector';
+import { convertResponseToFormat, type ScheduleFormat } from '../utils/scheduleDetector';
 import { STORAGE_KEYS } from '../constants';
 import {
   reconcileScheduleItems,
