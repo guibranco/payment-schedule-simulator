@@ -8,15 +8,17 @@ An interactive **Vite + React + TypeScript** UI for simulating, inspecting, and 
 
 - **New Schedule (Inception):** Build a payment schedule from scratch by calling the backend API, or load a JSON request to prefill the form.
 - **Amend Schedule:** Apply changes to an existing schedule, with admin fees and taxes/levies aggregated from the current schedule's items.
-- **View Schedule:** Paste, upload, or pick a sample JSON document and auto-detect which of the 4 supported shapes it is:
+- **View Schedule:** Paste, upload, or pick a bundled sample JSON document and auto-detect which of the 4 supported shapes it is:
   - Payment Schedule Service Response
   - Payment Schedule Service Request
   - Policy Admin CosmosDB Document
   - Rerates CosmosDB Document
 - **Compare Schedules:** Load two schedules (of any supported format) side by side to diff their items.
-- **Export:** Download a displayed schedule as **JSON**, **CSV**, **PDF**, **HTML**, **PNG**, or **SVG** (image exports are rendered via `html2canvas`, PDF via `jspdf`); the last-used format is remembered.
+- **Collections Reconciliation:** Load a Collections Service response (a JSON array of transactions) and reconcile it against the schedule items on screen — surfaces collected/rejected/refunded/pending status per item, amount and status mismatches, and whether a failed item was retried.
+- **Frequency Change Detection:** Automatically flags schedules that appear to have switched from Monthly to Annual collections partway through, highlighting the pivot item.
+- **Export:** Download a displayed schedule as **JSON**, **CSV**, **PDF**, **HTML**, **PNG**, or **SVG** (image exports are rendered via `html2canvas`, PDF via `jspdf`), including Collections reconciliation data when available; the last-used format is remembered.
 - **Authentication:** OAuth2 Authorization Code + PKCE flow against Azure AD (Microsoft Entra ID), with automatic silent token refresh before expiry and a live token status indicator in the header.
-- **API Config:** Configure the backend base URL/port, tenant ID, client ID, and environment (prod/int/stg) at runtime; settings persist in `localStorage`.
+- **API Config:** Configure the backend base URL/port, tenant ID, client ID, and environment (prod/int/stg) at runtime; settings and the active tab persist in `localStorage` across reloads.
 
 ---
 
@@ -86,9 +88,11 @@ payment-schedule-simulator/
 ├── public/
 ├── src/
 │   ├── components/    # NewSchedule, AmendSchedule, ViewSchedule, CompareSchedules,
-│   │                  # ScheduleDisplay, ConfigDialog, TokenStatus, JsonLoader, etc.
+│   │                  # ScheduleDisplay, CollectionsLoader, ConfigDialog, TokenStatus,
+│   │                  # JsonLoader, ErrorDisplay, Modal
 │   ├── hooks/         # useTokenManager (OAuth token lifecycle)
-│   ├── utils/         # scheduleDetector, scheduleImage, pkce, url, errorHandler
+│   ├── utils/         # scheduleDetector, scheduleImage, reconcileCollections,
+│   │                  # detectFrequencyChange, pkce, url, errorHandler
 │   ├── constants/      # storage keys, sample schedules
 │   ├── types/          # shared TypeScript types
 │   ├── App.tsx
