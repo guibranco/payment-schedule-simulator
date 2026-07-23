@@ -78,16 +78,20 @@ describe('detectFrequencyChange', () => {
   });
 
   it('does not detect a switch for a schedule that stays monthly throughout', () => {
-    const items: ScheduleItem[] = Array.from({ length: 12 }, (_, i) =>
-      makeItem({
+    const items: ScheduleItem[] = Array.from({ length: 12 }, (_, i) => {
+      const startMonth = i + 1;
+      const endMonth = startMonth + 1;
+      const endYear = endMonth > 12 ? 2027 : 2026;
+      const endMonthNorm = endMonth > 12 ? 1 : endMonth;
+      return makeItem({
         id: `monthly-${i}`,
         collectionType: 'Full',
-        periodStartDate: `2026-${String(i + 1).padStart(2, '0')}-10`,
-        periodEndDate: `2026-${String(i + 1).padStart(2, '0')}-28`
-      })
-    );
+        periodStartDate: `2026-${String(startMonth).padStart(2, '0')}-10`,
+        periodEndDate: `${endYear}-${String(endMonthNorm).padStart(2, '0')}-09`
+      });
+    });
 
-    const result = detectFrequencyChange(makeSchedule(items));
+    const result = detectFrequencyChange(makeSchedule(items, { coverEndDate: '2027-01-09' }));
 
     expect(result.detected).toBe(false);
   });
