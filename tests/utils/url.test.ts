@@ -1,9 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { getRedirectUri, getCurrentUrl } from '../../src/utils/url';
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe('getRedirectUri', () => {
-  it('combines the window origin with the base path', () => {
+  it('returns just the origin when the base path is root', () => {
     expect(getRedirectUri()).toBe(window.location.origin);
+  });
+
+  it('combines the window origin with a non-root base path', () => {
+    vi.stubEnv('BASE_URL', '/payment-schedule-simulator/');
+
+    expect(getRedirectUri()).toBe(`${window.location.origin}/payment-schedule-simulator`);
   });
 });
 
