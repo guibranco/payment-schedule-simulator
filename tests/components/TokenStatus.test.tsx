@@ -22,8 +22,9 @@ describe('TokenStatus', () => {
     localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, String(Date.now() + 10 * 60 * 1000));
 
     render(<TokenStatus />);
+    await vi.advanceTimersByTimeAsync(0);
 
-    await waitFor(() => expect(screen.getByText('Token valid')).toBeInTheDocument());
+    expect(screen.getByText('Token valid')).toBeInTheDocument();
     expect(screen.getByText('(10m)')).toBeInTheDocument();
   });
 
@@ -34,8 +35,9 @@ describe('TokenStatus', () => {
     localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, String(Date.now() + 3 * 60 * 60 * 1000 + 5 * 60 * 1000));
 
     render(<TokenStatus />);
+    await vi.advanceTimersByTimeAsync(0);
 
-    await waitFor(() => expect(screen.getByText('Token valid')).toBeInTheDocument());
+    expect(screen.getByText('Token valid')).toBeInTheDocument();
     expect(screen.getByText('(3h 5m)')).toBeInTheDocument();
   });
 
@@ -46,8 +48,9 @@ describe('TokenStatus', () => {
     localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, String(Date.now() + 30 * 60 * 60 * 1000 + 10 * 60 * 1000));
 
     render(<TokenStatus />);
+    await vi.advanceTimersByTimeAsync(0);
 
-    await waitFor(() => expect(screen.getByText('Token valid')).toBeInTheDocument());
+    expect(screen.getByText('Token valid')).toBeInTheDocument();
     expect(screen.getByText('(1d 6h)')).toBeInTheDocument();
   });
 
