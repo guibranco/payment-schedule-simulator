@@ -94,7 +94,6 @@ payment-schedule-simulator/
 │   ├── App.tsx
 │   └── main.tsx
 ├── tests/
-├── samples/            # example request/response JSON payloads
 ├── index.html
 └── vite.config.ts
 ```
