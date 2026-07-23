@@ -7,7 +7,7 @@ import {
   getTransactionDate,
   wasRetriedAfterFailure
 } from '../../src/utils/reconcileCollections';
-import { CollectionTransaction, ReconciledStatus, ScheduleItem } from '../../src/types';
+import type { CollectionTransaction, ReconciledStatus, ScheduleItem } from '../../src/types';
 
 function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
   return {

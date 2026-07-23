@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Calendar, Euro, X, ArrowLeft, FileJson } from 'lucide-react';
-import { PaymentScheduleInput, PaymentScheduleResponse, ApiErrorResponse } from '../types';
+import type { PaymentScheduleInput, PaymentScheduleResponse, ApiErrorResponse } from '../types';
 import { useTokenManager } from '../hooks/useTokenManager';
 import { parseApiError } from '../utils/errorHandler';
 import ScheduleDisplay from './ScheduleDisplay';

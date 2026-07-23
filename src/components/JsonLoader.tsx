@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FileJson, Clipboard, X } from 'lucide-react';
-import { PaymentScheduleInput } from '../types';
+import type { PaymentScheduleInput } from '../types';
 
 interface Props {
   onLoad: (data: PaymentScheduleInput) => void;

@@ -1,4 +1,4 @@
-import { PaymentScheduleResponse, ScheduleItem, CollectionTransaction, ItemReconciliation } from '../types';
+import type { PaymentScheduleResponse, ScheduleItem, CollectionTransaction, ItemReconciliation } from '../types';
 import {
   reconcileScheduleItems,
   getEffectiveSucceeded,

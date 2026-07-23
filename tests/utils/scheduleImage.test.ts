@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { buildPrintableScheduleNode, exportScheduleImage } from '../../src/utils/scheduleImage';
 import { detectAndNormalizeSchedule } from '../../src/utils/scheduleDetector';
 import { SAMPLE_SCHEDULES } from '../../src/constants/sampleSchedules';
-import { CollectionTransaction } from '../../src/types';
+import type { CollectionTransaction } from '../../src/types';
 
 const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!.json;
 const { schedule } = detectAndNormalizeSchedule(responseSample);

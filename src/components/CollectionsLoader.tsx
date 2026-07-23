@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ListChecks, FileUp, X } from 'lucide-react';
-import { CollectionTransaction } from '../types';
+import type { CollectionTransaction } from '../types';
 import { parseCollectionsJson } from '../utils/reconcileCollections';
 
 interface Props {

@@ -1,4 +1,4 @@
-import { PaymentScheduleResponse, ScheduleItem } from '../types';
+import type { PaymentScheduleResponse, ScheduleItem } from '../types';
 
 export interface FrequencyChangeDetection {
   detected: boolean;

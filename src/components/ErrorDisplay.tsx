@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle, X, Info } from 'lucide-react';
-import { ApiErrorResponse, isValidationError } from '../utils/errorHandler';
+import type { ApiErrorResponse } from '../types';
+import { isValidationError } from '../utils/errorHandler';
 
 interface Props {
   error: ApiErrorResponse;

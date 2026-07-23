@@ -1,4 +1,4 @@
-import { ValidationError, ProblemDetailsError, ApiErrorResponse } from '../types';
+import type { ValidationError, ProblemDetailsError, ApiErrorResponse } from '../types';
 
 /**
  * Parses API error responses and returns a standardized error format.

@@ -1,4 +1,4 @@
-import { ScheduleFormat } from '../utils/scheduleDetector';
+import type { ScheduleFormat } from '../utils/scheduleDetector';
 
 export interface SampleSchedule {
   format: ScheduleFormat;
