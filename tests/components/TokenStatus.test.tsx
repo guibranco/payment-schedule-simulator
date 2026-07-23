@@ -1,10 +1,11 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import TokenStatus from '../../src/components/TokenStatus';
 import { STORAGE_KEYS } from '../../src/constants';
 
 afterEach(() => {
   localStorage.clear();
+  vi.useRealTimers();
 });
 
 describe('TokenStatus', () => {
@@ -15,9 +16,10 @@ describe('TokenStatus', () => {
   });
 
   it('shows "Token valid" with a minutes-only countdown for a fresh token', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
     localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, 'token');
-    // +30s buffer so a few ms of test/render latency can't floor this down to 9m.
-    localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, String(Date.now() + 10 * 60 * 1000 + 30 * 1000));
+    localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, String(Date.now() + 10 * 60 * 1000));
 
     render(<TokenStatus />);
 
@@ -26,6 +28,8 @@ describe('TokenStatus', () => {
   });
 
   it('shows an hours-and-minutes countdown', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
     localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, 'token');
     localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, String(Date.now() + 3 * 60 * 60 * 1000 + 5 * 60 * 1000));
 
@@ -36,6 +40,8 @@ describe('TokenStatus', () => {
   });
 
   it('shows a days-and-hours countdown', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
     localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, 'token');
     localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, String(Date.now() + 30 * 60 * 60 * 1000 + 10 * 60 * 1000));
 
@@ -74,7 +80,7 @@ describe('TokenStatus', () => {
     render(<TokenStatus />);
 
     await waitFor(() => expect(screen.getByText('Token valid')).toBeInTheDocument());
-    screen.getByTitle('Refresh token').click();
+    fireEvent.click(screen.getByTitle('Refresh token'));
 
     await waitFor(() =>
       expect(screen.getByText('OAuth configuration missing. Please reconfigure the application.')).toBeInTheDocument()
