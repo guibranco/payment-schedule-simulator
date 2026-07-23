@@ -60,7 +60,8 @@ describe('NewSchedule', () => {
 
     const collectionDayInput = document.querySelector('input[name="collectionDay"]') as HTMLInputElement;
     expect(collectionDayInput).toBeDisabled();
-    expect(collectionDayInput.value).toBe('0');
+    // schedule.collectionDay || '' means a 0 value renders as an empty string
+    expect(collectionDayInput.value).toBe('');
   });
 
   it('adds and removes a tax entry', () => {
