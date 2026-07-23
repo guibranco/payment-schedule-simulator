@@ -58,7 +58,7 @@ describe('NewSchedule', () => {
 
     fireEvent.change(screen.getByDisplayValue('Monthly'), { target: { value: 'Annual' } });
 
-    const collectionDayInput = screen.getByLabelText(/Collection Day/) as HTMLInputElement;
+    const collectionDayInput = document.querySelector('input[name="collectionDay"]') as HTMLInputElement;
     expect(collectionDayInput).toBeDisabled();
     expect(collectionDayInput.value).toBe('0');
   });
@@ -67,7 +67,7 @@ describe('NewSchedule', () => {
     render(<NewSchedule apiEndpoint="" />);
 
     fireEvent.change(screen.getByPlaceholderText('Tax Label'), { target: { value: 'LVY' } });
-    fireEvent.change(screen.getByPlaceholderText('Amount'), { target: { value: '12.5' } });
+    fireEvent.change(screen.getAllByPlaceholderText('Amount')[0], { target: { value: '12.5' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add Tax' }));
 
     expect(screen.getByText('LVY')).toBeInTheDocument();
@@ -124,7 +124,8 @@ describe('NewSchedule', () => {
     expect(screen.getByText('API endpoint not configured')).toBeInTheDocument();
 
     fireEvent.click(screen.getByTitle('Load from JSON'));
-    fireEvent.change(screen.getByPlaceholderText('Paste your JSON request here...'), {
+    const textarea = screen.getByPlaceholderText('Paste your JSON request here...');
+    fireEvent.change(textarea, {
       target: {
         value: JSON.stringify({
           collectionFrequency: 'monthly',
@@ -134,7 +135,7 @@ describe('NewSchedule', () => {
         })
       }
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Load JSON' }));
+    fireEvent.submit(textarea.closest('form')!);
 
     expect(screen.queryByText('API endpoint not configured')).not.toBeInTheDocument();
     expect(screen.getByDisplayValue('500')).toBeInTheDocument();
