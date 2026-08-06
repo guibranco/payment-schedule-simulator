@@ -77,14 +77,18 @@ function isExportFormat(value: string | null): value is ExportFormat {
   return !!value && (EXPORT_FORMATS as string[]).includes(value);
 }
 
-const VIEW_JSON_FORMAT_LABELS: Record<ScheduleFormat, string> = {
+// 'seq' is an input-only format (a SEQ log of Policy Admin's raw request) — it's never
+// a valid "View JSON as..." target, so it's excluded from the type rather than just the data.
+type ViewJsonFormat = Exclude<ScheduleFormat, 'seq'>;
+
+const VIEW_JSON_FORMAT_LABELS: Record<ViewJsonFormat, string> = {
   policyAdmin: 'Policy Admin CosmosDB Document',
   rerates: 'Rerates CosmosDB Document',
   request: 'Payment Schedule Request (Amendment)',
   response: 'Payment Schedule Response'
 };
 
-const VIEW_JSON_FORMATS: ScheduleFormat[] = ['policyAdmin', 'rerates', 'request', 'response'];
+const VIEW_JSON_FORMATS: ViewJsonFormat[] = ['policyAdmin', 'rerates', 'request', 'response'];
 
 /**
  * Closes an open dropdown when clicking outside of the given container ref.
@@ -121,11 +125,11 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
   const [reconciliationDetailItemId, setReconciliationDetailItemId] = useState<string | null>(null);
   const [originalItemDetail, setOriginalItemDetail] = useState<ScheduleItem | null>(null);
   const [isViewJsonMenuOpen, setIsViewJsonMenuOpen] = useState(false);
-  const [viewJsonFormat, setViewJsonFormat] = useState<ScheduleFormat>('response');
+  const [viewJsonFormat, setViewJsonFormat] = useState<ViewJsonFormat>('response');
   const viewJsonMenuRef = useRef<HTMLDivElement>(null);
   useCloseOnOutsideClick(viewJsonMenuRef, isViewJsonMenuOpen, () => setIsViewJsonMenuOpen(false));
 
-  const selectViewJsonFormat = (format: ScheduleFormat) => {
+  const selectViewJsonFormat = (format: ViewJsonFormat) => {
     setViewJsonFormat(format);
     setIsViewJsonMenuOpen(false);
   };
