@@ -6,7 +6,7 @@ export interface SampleSchedule {
   json: object;
 }
 
-// Anonymized examples of the 4 supported JSON shapes. Real policy numbers, emails,
+// Anonymized examples of the 5 supported JSON shapes. Real policy numbers, emails,
 // tokens, and CosmosDB resource identifiers have been replaced with placeholders.
 export const SAMPLE_SCHEDULES: SampleSchedule[] = [
   {
@@ -223,6 +223,97 @@ export const SAMPLE_SCHEDULES: SampleSchedule[] = [
       _self: 'dbs/SAMPLE/colls/SAMPLE/docs/SAMPLE/',
       _attachments: 'attachments/',
       _ts: 1783601016
+    }
+  },
+  {
+    format: 'seq',
+    label: 'SEQ Log (Policy Admin Raw Request)',
+    json: {
+      CollectionFrequency: 2,
+      ScheduleStartDate: '2026-04-26',
+      ScheduleEndDate: '2026-08-06',
+      CollectionDay: null,
+      EffectiveDate: '2026-08-06',
+      DueDate: '0001-01-01',
+      NetAmount: 1272.35438134493,
+      TaxesAndLevies: {
+        LVY: { '2024-01-01': 38.1706314403479 },
+        ICF: { '2026-01-01': 12.7235438134493 }
+      },
+      AdminFees: {
+        CAN: { AmountDue: 0, TaxAmount: 0 }
+      },
+      CurrentSchedule: {
+        Id: '3f7d5dcb-05c3-447e-a488-959e20e93be8',
+        Token: 'SAMPLE_TOKEN_PLACEHOLDER=',
+        Hash: 'SAMPLE_HASH_PLACEHOLDER=',
+        CollectionFrequency: 2,
+        CollectionDay: 0,
+        InceptionDate: '2026-04-26',
+        CoverStartDate: '2026-04-26',
+        CoverEndDate: '2027-04-25',
+        ScheduleItems: [
+          {
+            Id: '7177f3d7-7300-4a3c-aeb8-391ae77c8e4c',
+            CollectionType: 1,
+            PeriodStartDate: '2026-04-26',
+            PeriodEndDate: '2026-06-25',
+            AdjustmentDate: '0001-01-01T00:00:00+00:00',
+            DueDate: '2026-04-19',
+            AmountDue: 220.59,
+            NetAmount: 212.1,
+            TaxesAndLevies: { LVY: 6.37, ICF: 2.12 },
+            AdminFees: {},
+            OriginalItem: null,
+            CollectionItemCreatedDate: '2026-03-25T09:25:45.3401699+00:00',
+            Succeeded: true
+          },
+          {
+            Id: '43b831e3-c5f0-47ea-ba8b-56fe0b749111',
+            CollectionType: 1,
+            PeriodStartDate: '2026-04-19',
+            PeriodEndDate: '2026-06-25',
+            AdjustmentDate: '2026-03-25T09:24:34.2997201+00:00',
+            DueDate: '2026-04-19',
+            AmountDue: 1,
+            NetAmount: 1,
+            TaxesAndLevies: { SMD: 0 },
+            AdminFees: { SMD: { AmountDue: 1, TaxAmount: 0 } },
+            OriginalItem: null,
+            CollectionItemCreatedDate: '2026-03-25T09:25:45.3404144+00:00',
+            Succeeded: true
+          },
+          {
+            Id: 'b16dcfbb-bccb-48d9-94c6-fc8cf5c59d67',
+            CollectionType: 2,
+            PeriodStartDate: '2026-06-26',
+            PeriodEndDate: '2027-04-25',
+            AdjustmentDate: '2026-04-21T11:55:15.612916+00:00',
+            DueDate: '2026-04-21',
+            AmountDue: 845.63,
+            NetAmount: 813.11,
+            TaxesAndLevies: { LVY: 24.39, ICF: 8.13 },
+            AdminFees: {},
+            OriginalItem: {
+              Id: 'fb77d52f-a331-4723-b89c-afef4a39b5a8',
+              CollectionType: 1,
+              PeriodStartDate: '2026-04-26',
+              PeriodEndDate: '2027-04-25',
+              AdjustmentDate: '2026-04-21T11:55:15.612895+00:00',
+              DueDate: '2026-04-21',
+              AmountDue: 1066.21722033352,
+              NetAmount: 1025.20886570531,
+              TaxesAndLevies: { LVY: 30.7562659711593, ICF: 10.2520886570531 },
+              AdminFees: {},
+              OriginalItem: null,
+              CollectionItemCreatedDate: null,
+              Succeeded: null
+            },
+            CollectionItemCreatedDate: '2026-04-23T08:41:34.7013687+00:00',
+            Succeeded: true
+          }
+        ]
+      }
     }
   }
 ];

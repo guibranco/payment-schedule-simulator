@@ -14,9 +14,9 @@ interface Props {
 /**
  * Merged "View Schedule" page.
  *
- * Accepts any of the 4 supported payment schedule JSON shapes (Payment Schedule
+ * Accepts any of the 5 supported payment schedule JSON shapes (Payment Schedule
  * Service Response/Request, Policy Admin CosmosDB Document, Rerates CosmosDB
- * Document), auto-detects which one was provided, and normalizes it for display.
+ * Document, SEQ Log), auto-detects which one was provided, and normalizes it for display.
  */
 export default function ViewSchedule({ apiEndpoint }: Props) {
   const [jsonInput, setJsonInput] = useState('');
@@ -133,7 +133,7 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
             <div className="flex gap-3 p-4 bg-blue-50 border border-blue-200 rounded-md">
               <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-blue-900">
-                <p className="font-medium mb-1">You can paste or upload any of these 4 JSON formats — the format is detected automatically:</p>
+                <p className="font-medium mb-1">You can paste or upload any of these 5 JSON formats — the format is detected automatically:</p>
                 <ul className="list-disc list-inside space-y-0.5">
                   {Object.values(FORMAT_LABELS).map((label) => (
                     <li key={label}>{label}</li>

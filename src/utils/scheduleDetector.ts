@@ -1,12 +1,13 @@
 import type { AdminFee, PaymentScheduleInput, PaymentScheduleResponse, ScheduleItem } from '../types';
 
-export type ScheduleFormat = 'response' | 'request' | 'policyAdmin' | 'rerates';
+export type ScheduleFormat = 'response' | 'request' | 'policyAdmin' | 'rerates' | 'seq';
 
 export const FORMAT_LABELS: Record<ScheduleFormat, string> = {
   response: 'Payment Schedule Service Response',
   request: 'Payment Schedule Service Request',
   policyAdmin: 'Policy Admin CosmosDB Document',
-  rerates: 'Rerates CosmosDB Document'
+  rerates: 'Rerates CosmosDB Document',
+  seq: 'SEQ Log (Policy Admin Raw Request)'
 };
 
 export interface DetectedSchedule {
@@ -25,8 +26,23 @@ function getCI(obj: any, key: string): any {
   return foundKey ? obj[foundKey] : undefined;
 }
 
-function normalizeFrequencyLabel(frequency: string): 'Monthly' | 'Annual' {
+// SEQ logs Policy Admin's raw request, which serializes CollectionFrequency/CollectionType
+// enums as their underlying integers rather than the string labels used everywhere else.
+const COLLECTION_FREQUENCY_LABELS: Record<number, 'Monthly' | 'Annual'> = { 1: 'Monthly', 2: 'Annual' };
+const COLLECTION_TYPE_LABELS: Record<number, string> = { 1: 'Full', 2: 'ProRata' };
+
+function normalizeFrequencyLabel(frequency: string | number): 'Monthly' | 'Annual' {
+  if (typeof frequency === 'number') {
+    return COLLECTION_FREQUENCY_LABELS[frequency] ?? 'Annual';
+  }
   return (frequency || '').toLowerCase() === 'monthly' ? 'Monthly' : 'Annual';
+}
+
+function normalizeCollectionType(collectionType: any): string {
+  if (typeof collectionType === 'number') {
+    return COLLECTION_TYPE_LABELS[collectionType] ?? String(collectionType);
+  }
+  return collectionType || 'Full';
 }
 
 function normalizeAdminFees(fees: any): Record<string, AdminFee> {
@@ -62,7 +78,7 @@ function normalizeTaxesAndLevies(taxes: any): Record<string, Record<string, numb
 function normalizePascalItem(item: any): ScheduleItem {
   return {
     id: item.Id,
-    collectionType: item.CollectionType || 'Full',
+    collectionType: normalizeCollectionType(item.CollectionType),
     periodStartDate: item.PeriodStartDate,
     periodEndDate: item.PeriodEndDate,
     adjustmentDate: item.AdjustmentDate || null,
@@ -96,7 +112,7 @@ function normalizeCamelItem(item: any): ScheduleItem {
 }
 
 /**
- * Detects which of the four supported payment schedule JSON shapes was provided.
+ * Detects which of the five supported payment schedule JSON shapes was provided.
  *
  * Detection relies on structural markers rather than exact key casing, since
  * Policy Admin/Rerates CosmosDB documents use PascalCase while the Payment
@@ -104,7 +120,11 @@ function normalizeCamelItem(item: any): ScheduleItem {
  * - `scheduleItems`/`ScheduleItems` (array) distinguishes Response/Policy Admin from Rerates (`Items`).
  * - `PolicyNumber`/`RiskId`/`RiskCode`/`SchemaVersion` distinguish Policy Admin from a plain Response.
  * - Presence of `Items` alongside `collectionFrequency` identifies a Rerates document.
- * - Otherwise, top-level `collectionFrequency`/`scheduleStartDate`/`effectiveDate`/`netAmount` identify a Request.
+ * - Otherwise, top-level `collectionFrequency`/`scheduleStartDate`/`effectiveDate`/`netAmount` identify
+ *   a Request or a SEQ log of Policy Admin's raw calculate request — the two share this shape (down to
+ *   an embedded `currentSchedule`/`CurrentSchedule`), so the literal (case-sensitive) `CollectionFrequency`
+ *   key is what distinguishes SEQ's PascalCase, integer-enum log entry from the Payment Schedule
+ *   Service's camelCase, string-enum Request.
  */
 export function detectScheduleFormat(json: any): ScheduleFormat {
   if (!json || typeof json !== 'object' || Array.isArray(json)) {
@@ -132,7 +152,7 @@ export function detectScheduleFormat(json: any): ScheduleFormat {
     getCI(json, 'netAmount') != null &&
     !isNaN(Number(getCI(json, 'netAmount')))
   ) {
-    return 'request';
+    return Object.prototype.hasOwnProperty.call(json, 'CollectionFrequency') ? 'seq' : 'request';
   }
 
   throw new Error(
@@ -179,6 +199,26 @@ function convertRerates(json: any): PaymentScheduleResponse {
     coverStartDate: json.CoverStartDate,
     coverEndDate: json.CoverEndDate,
     scheduleItems: (json.Items || []).map(normalizePascalItem)
+  };
+}
+
+/**
+ * Converts the `CurrentSchedule`/`ScheduleItems` embedded in a SEQ-logged Policy Admin
+ * request into the canonical PaymentScheduleResponse. Field names match Policy Admin's
+ * PascalCase document shape (see `convertPolicyAdmin`) but CollectionFrequency arrives
+ * as an integer enum rather than a string label.
+ */
+function convertSeqCurrentSchedule(json: any): PaymentScheduleResponse {
+  return {
+    id: json.Id,
+    token: json.Token || '',
+    hash: json.Hash || '',
+    collectionFrequency: normalizeFrequencyLabel(json.CollectionFrequency).toLowerCase(),
+    collectionDay: json.CollectionDay,
+    inceptionDate: json.InceptionDate,
+    coverStartDate: json.CoverStartDate,
+    coverEndDate: json.CoverEndDate,
+    scheduleItems: (json.ScheduleItems || []).map(normalizePascalItem)
   };
 }
 
@@ -325,7 +365,8 @@ export function convertResponseToFormat(schedule: PaymentScheduleResponse, forma
  *
  * For the Request format, the original input parameters are used verbatim (more
  * accurate than deriving them from computed schedule items), and the schedule
- * shown is the request's embedded `currentSchedule`, if any.
+ * shown is the request's embedded `currentSchedule`, if any. The SEQ format is
+ * handled the same way, reading Policy Admin's raw PascalCase/integer-enum request log.
  */
 export function detectAndNormalizeSchedule(json: any): DetectedSchedule {
   const format = detectScheduleFormat(json);
@@ -343,6 +384,23 @@ export function detectAndNormalizeSchedule(json: any): DetectedSchedule {
   if (format === 'rerates') {
     const schedule = convertRerates(json);
     return { format, schedule, input: deriveInputFromResponse(schedule) };
+  }
+
+  if (format === 'seq') {
+    const schedule = json.CurrentSchedule ? convertSeqCurrentSchedule(json.CurrentSchedule) : null;
+    const input: PaymentScheduleInput = {
+      collectionFrequency: normalizeFrequencyLabel(json.CollectionFrequency),
+      scheduleStartDate: json.ScheduleStartDate,
+      scheduleEndDate: json.ScheduleEndDate || '0001-01-01',
+      collectionDay: json.CollectionDay ?? null,
+      effectiveDate: json.EffectiveDate,
+      dueDate: json.DueDate || null,
+      netAmount: Number(json.NetAmount || 0),
+      taxesAndLevies: normalizeTaxesAndLevies(json.TaxesAndLevies),
+      adminFees: normalizeAdminFees(json.AdminFees),
+      currentSchedule: schedule || undefined
+    };
+    return { format, schedule, input };
   }
 
   // format === 'request'

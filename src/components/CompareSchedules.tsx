@@ -24,10 +24,10 @@ const emptySlot: SlotState = {
 /**
  * Component to compare two payment schedules by uploading or pasting JSON data.
  *
- * Accepts any of the 4 supported payment schedule JSON shapes (Payment Schedule
+ * Accepts any of the 5 supported payment schedule JSON shapes (Payment Schedule
  * Service Response/Request, Policy Admin CosmosDB Document, Rerates CosmosDB
- * Document) on either side, auto-detecting which one was provided — the same
- * way the View Schedule page does.
+ * Document, SEQ Log) on either side, auto-detecting which one was provided — the
+ * same way the View Schedule page does.
  *
  * @returns A React functional component rendering the comparison interface.
  */
@@ -288,7 +288,7 @@ export default function CompareSchedules() {
         <div className="flex gap-3 p-4 mb-6 bg-blue-50 border border-blue-200 rounded-md">
           <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-blue-900">
-            <p className="font-medium mb-1">Each side accepts any of these 4 JSON formats — the format is detected automatically:</p>
+            <p className="font-medium mb-1">Each side accepts any of these 5 JSON formats — the format is detected automatically:</p>
             <ul className="list-disc list-inside space-y-0.5">
               {Object.values(FORMAT_LABELS).map((label) => (
                 <li key={label}>{label}</li>

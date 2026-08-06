@@ -33,6 +33,16 @@ describe('detectScheduleFormat', () => {
     expect(detectScheduleFormat(sampleFor('rerates'))).toBe('rerates');
   });
 
+  it('detects a SEQ log of a Policy Admin raw request', () => {
+    expect(detectScheduleFormat(sampleFor('seq'))).toBe('seq');
+  });
+
+  it('distinguishes SEQ (PascalCase) from Request (camelCase) sharing the same shape', () => {
+    const seq = sampleFor('seq');
+    expect(Object.prototype.hasOwnProperty.call(seq, 'CollectionFrequency')).toBe(true);
+    expect(detectScheduleFormat(sampleFor('request'))).toBe('request');
+  });
+
   it('accepts a numeric-string netAmount for the request format', () => {
     const request = { ...sampleFor('request'), netAmount: '749.06' };
     expect(detectScheduleFormat(request)).toBe('request');
@@ -118,6 +128,40 @@ describe('detectAndNormalizeSchedule', () => {
     delete request.currentSchedule;
     const { input } = detectAndNormalizeSchedule(request);
     expect(input!.netAmount).toBe(749.06);
+  });
+
+  it('normalizes a SEQ log (PascalCase, integer enums) with an embedded CurrentSchedule', () => {
+    const { format, schedule, input } = detectAndNormalizeSchedule(sampleFor('seq'));
+    expect(format).toBe('seq');
+    expect(input).not.toBeNull();
+    // Top-level CollectionFrequency: 2 -> Annual
+    expect(input!.collectionFrequency).toBe('Annual');
+    expect(input!.netAmount).toBeCloseTo(1272.35438134493, 5);
+    expect(input!.taxesAndLevies.LVY['2024-01-01']).toBeCloseTo(38.1706314403479, 5);
+    expect(input!.adminFees.CAN).toEqual({ amountDue: 0, taxAmount: 0 });
+
+    expect(schedule).not.toBeNull();
+    expect(schedule!.id).toBe('3f7d5dcb-05c3-447e-a488-959e20e93be8');
+    expect(schedule!.collectionFrequency).toBe('annual');
+    expect(schedule!.scheduleItems).toHaveLength(3);
+
+    // CollectionType: 1 -> Full, 2 -> ProRata
+    expect(schedule!.scheduleItems[0].collectionType).toBe('Full');
+    expect(schedule!.scheduleItems[2].collectionType).toBe('ProRata');
+    expect(schedule!.scheduleItems[2].originalItem?.collectionType).toBe('Full');
+    expect(schedule!.scheduleItems[1].adminFees.SMD).toEqual({ amountDue: 1, taxAmount: 0 });
+    expect(input!.currentSchedule).toBe(schedule);
+  });
+
+  it('normalizes a SEQ log without a CurrentSchedule', () => {
+    const seq = sampleFor('seq');
+    const { CurrentSchedule, ...withoutCurrentSchedule } = seq;
+    const { format, schedule, input } = detectAndNormalizeSchedule(withoutCurrentSchedule);
+    expect(format).toBe('seq');
+    expect(schedule).toBeNull();
+    expect(input).not.toBeNull();
+    expect(input!.netAmount).toBeCloseTo(1272.35438134493, 5);
+    expect(input!.currentSchedule).toBeUndefined();
   });
 });
 
