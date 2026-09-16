@@ -27,11 +27,31 @@ function isRoughlyAnnual(days: number, coverDays: number): boolean {
   return coverDays > 0 && days >= coverDays * ANNUAL_COVERAGE_RATIO;
 }
 
+function isAnnualSchedule(schedule: PaymentScheduleResponse): boolean {
+  return (schedule.collectionFrequency || '').toLowerCase() === 'annual';
+}
+
+function findLastIndex(items: ScheduleItem[], predicate: (item: ScheduleItem) => boolean): number {
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (predicate(items[i])) return i;
+  }
+  return -1;
+}
+
 /**
  * Detects a schedule that started on Monthly collections and later switched to Annual.
- * The tell is a run of ~monthly-length 'Full' items followed by a 'Full' record — either a
- * top-level item, or the originalItem basis behind a later pro-rata true-up adjustment —
- * whose period spans essentially the whole cover period rather than a single month.
+ *
+ * Both recognised shapes start with a run of at least two monthly-length 'Full' items:
+ *
+ * 1. Annual true-up — a later 'Full' record (a top-level item, or the originalItem basis behind a
+ *    pro-rata adjustment) whose period spans essentially the whole cover period. That record is the pivot.
+ *
+ * 2. Late switch — Policy Admin re-collects the remaining cover as a single 'Full' item under the new
+ *    frequency. When the switch happens near the end of the cover period that remainder is itself only a
+ *    month or so long, so no record spans the cover period and shape 1 cannot fire. The tell is then the
+ *    schedule's own collectionFrequency being Annual while it still carries monthly-length Full
+ *    collections, which a schedule that was Annual from inception never has. The pivot is the last Full
+ *    item ending on the cover end date: the remainder collection appended by the switch.
  */
 export function detectFrequencyChange(schedule: PaymentScheduleResponse): FrequencyChangeDetection {
   const coverDays = daysBetween(schedule.coverStartDate, schedule.coverEndDate);
@@ -62,6 +82,20 @@ export function detectFrequencyChange(schedule: PaymentScheduleResponse): Freque
         message: `This schedule appears to have switched from Monthly to Annual collection around item #${i} (basis period ${candidate.periodStartDate} to ${candidate.periodEndDate}).`
       };
     }
+  }
+
+  if (monthlyCount >= MIN_MONTHLY_OBSERVATIONS && isAnnualSchedule(schedule)) {
+    const items = schedule.scheduleItems;
+    const isFull = (item: ScheduleItem) => item.collectionType === 'Full';
+    const remainderIndex = findLastIndex(items, (item) => isFull(item) && daysBetween(item.periodEndDate, schedule.coverEndDate) === 0);
+    const pivotIndex = remainderIndex >= 0 ? remainderIndex : findLastIndex(items, isFull);
+    const pivot = items[pivotIndex];
+    return {
+      detected: true,
+      pivotItemId: pivot.id,
+      pivotIndex,
+      message: `This schedule is Annual but contains ${monthlyCount} monthly-length collections, so it appears to have switched from Monthly to Annual late in the cover period; the remaining cover is collected by item #${pivotIndex} (period ${pivot.periodStartDate} to ${pivot.periodEndDate}).`
+    };
   }
 
   return { detected: false };
