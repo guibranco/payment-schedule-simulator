@@ -65,8 +65,14 @@ export function wasRetriedAfterFailure(transactions: CollectionTransaction[]): b
  * Parses and lightly validates raw JSON as a Collections Service transaction array.
  */
 export function parseCollectionsJson(raw: string): CollectionTransaction[] {
-  const json = JSON.parse(raw);
+  return validateCollections(JSON.parse(raw));
+}
 
+/**
+ * Lightly validates already-parsed JSON (pasted, or returned by the Collections API)
+ * as a Collections Service transaction array.
+ */
+export function validateCollections(json: unknown): CollectionTransaction[] {
   if (!Array.isArray(json)) {
     throw new TypeError('Expected a JSON array of collection transactions.');
   }

@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { STORAGE_KEYS } from '../constants';
-import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
-import { getRedirectUri } from '../utils/url';
-import { isEnvironment, isSafeIdentifier, microsoftOAuthEndpoint } from '../utils/oauthValidation';
+import {
+  type OAuthService,
+  SERVICE_STORAGE,
+  buildAuthorizationUrl,
+  collectionsScope,
+  environmentSuffix,
+  savedEnvironment
+} from '../utils/oauthFlow';
 
-interface TokenInfo {
+export interface TokenInfo {
   accessToken: string | null;
   expiresAt: number | null;
   isExpired: boolean;
@@ -20,12 +24,21 @@ interface UseTokenManagerReturn {
   error: string | null;
 }
 
+interface UseTokenManagerOptions {
+  /**
+   * Silently re-authorize shortly before the token expires. This navigates away from the
+   * page, so it's only on for the Payment Schedule Service, whose token the app needs.
+   */
+  autoRefresh?: boolean;
+}
+
 /**
- * Reads token information from localStorage and calculates its expiration status.
+ * Reads a service's token information from localStorage and calculates its expiration status.
  */
-function readTokenInfo(): TokenInfo {
-  const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-  const expiresAtStr = localStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRES_AT);
+export function readTokenInfo(service: OAuthService = 'schedule'): TokenInfo {
+  const keys = SERVICE_STORAGE[service];
+  const accessToken = localStorage.getItem(keys.accessToken);
+  const expiresAtStr = localStorage.getItem(keys.expiresAt);
   const expiresAt = expiresAtStr ? Number.parseInt(expiresAtStr, 10) : null;
 
   const now = Date.now();
@@ -41,14 +54,23 @@ function readTokenInfo(): TokenInfo {
   };
 }
 
+/** The scope requested when re-authorizing a service. */
+function refreshScope(service: OAuthService): string {
+  if (service === 'collections') return collectionsScope();
+  return `api://schedule-api${environmentSuffix(savedEnvironment())}/user_impersonation`;
+}
+
 /**
- * Custom hook for managing OAuth tokens with automatic refresh capabilities.
+ * Custom hook for managing a service's OAuth token with automatic refresh capabilities.
  *
- * This hook handles token expiration detection, automatic refresh when tokens
- * are about to expire, and provides manual refresh functionality.
+ * This hook handles token expiration detection, optional automatic refresh when the token
+ * is about to expire, and provides manual refresh functionality.
  */
-export function useTokenManager(): UseTokenManagerReturn {
-  const [tokenInfo, setTokenInfo] = useState<TokenInfo>(readTokenInfo);
+export function useTokenManager(
+  service: OAuthService = 'schedule',
+  { autoRefresh = service === 'schedule' }: UseTokenManagerOptions = {}
+): UseTokenManagerReturn {
+  const [tokenInfo, setTokenInfo] = useState<TokenInfo>(() => readTokenInfo(service));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,76 +78,37 @@ export function useTokenManager(): UseTokenManagerReturn {
    * Updates token information from localStorage and calculates expiration status
    */
   const updateTokenInfo = useCallback(() => {
-    setTokenInfo(readTokenInfo());
-  }, []);
+    setTokenInfo(readTokenInfo(service));
+  }, [service]);
 
   /**
-   * Initiates the OAuth flow to refresh the token
+   * Initiates the OAuth flow to refresh the token, trying a silent sign-in first
    */
   const refreshToken = useCallback(async () => {
     setIsRefreshing(true);
     setError(null);
 
     try {
-      const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID);
-      const tenantId = localStorage.getItem(STORAGE_KEYS.TENANT_ID);
-      const environment = localStorage.getItem(STORAGE_KEYS.ENVIRONMENT) || 'prod';
-
-      if (!clientId || !tenantId) {
-        throw new Error('OAuth configuration missing. Please reconfigure the application.');
-      }
-      if (!isSafeIdentifier(clientId) || !isSafeIdentifier(tenantId) || !isEnvironment(environment)) {
-        throw new TypeError('OAuth configuration is invalid. Please reconfigure the application.');
-      }
-
-      const envSuffix = environment === 'prod' ? '' : `-${environment}`;
-      const scope = `api://schedule-api${envSuffix}/user_impersonation`;
-
-      // Generate PKCE parameters
-      const codeVerifier = generateCodeVerifier();
-      const codeChallenge = await generateCodeChallenge(codeVerifier);
-
-      // Store code_verifier for later use in token exchange
-      localStorage.setItem(STORAGE_KEYS.CODE_VERIFIER, codeVerifier);
-
-      const redirectUri = getRedirectUri();
-      const baseUrl = microsoftOAuthEndpoint(tenantId, 'authorize');
-
-      const params = new URLSearchParams({
-        client_id: clientId,
-        response_type: 'code',
-        redirect_uri: redirectUri,
-        scope,
-        state: crypto.randomUUID(),
-        code_challenge: codeChallenge,
-        code_challenge_method: 'S256',
-        prompt: 'none' // Try silent refresh first
-      });
-
-      // Store where to return to after auth, as a path on this origin only
-      const { pathname, search, hash } = window.location;
-      localStorage.setItem(STORAGE_KEYS.RETURN_URL, `${pathname}${search}${hash}`);
-
-      window.location.href = `${baseUrl}?${params.toString()}`;
+      window.location.href = await buildAuthorizationUrl(service, refreshScope(service), { silent: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to refresh token');
       setIsRefreshing(false);
     }
-  }, []);
+  }, [service]);
 
   /**
    * Automatically refresh token when it's about to expire.
    * The refresh is scheduled rather than run inline so no state is set synchronously in the effect.
    */
   useEffect(() => {
-    if (!tokenInfo.isExpiringSoon || tokenInfo.isExpired || isRefreshing) {
+    if (!autoRefresh || !tokenInfo.isExpiringSoon || tokenInfo.isExpired || isRefreshing) {
       return undefined;
     }
     const timeout = setTimeout(() => {
       void refreshToken();
     }, 0);
     return () => clearTimeout(timeout);
-  }, [tokenInfo.isExpiringSoon, tokenInfo.isExpired, isRefreshing, refreshToken]);
+  }, [autoRefresh, tokenInfo.isExpiringSoon, tokenInfo.isExpired, isRefreshing, refreshToken]);
 
   /**
    * Set up periodic token info updates (the initial read happens in the state initialiser)
@@ -140,16 +123,17 @@ export function useTokenManager(): UseTokenManagerReturn {
    * Listen for storage changes (token updates from other tabs)
    */
   useEffect(() => {
+    const keys = SERVICE_STORAGE[service];
     /** Re-reads token information when another tab changes the stored token. */
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEYS.ACCESS_TOKEN || e.key === STORAGE_KEYS.TOKEN_EXPIRES_AT) {
+      if (e.key === keys.accessToken || e.key === keys.expiresAt) {
         updateTokenInfo();
       }
     };
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [updateTokenInfo]);
+  }, [service, updateTokenInfo]);
 
   return {
     tokenInfo,

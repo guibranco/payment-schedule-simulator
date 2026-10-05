@@ -7,8 +7,8 @@ import CompareSchedules from './components/CompareSchedules';
 import ConfigDialog from './components/ConfigDialog';
 import TokenStatus from './components/TokenStatus';
 import { STORAGE_KEYS } from './constants';
-import { getRedirectUri } from './utils/url';
-import { isSafeIdentifier, microsoftOAuthEndpoint, toSameOriginUrl } from './utils/oauthValidation';
+import { toSameOriginUrl } from './utils/oauthValidation';
+import { exchangeCodeForToken } from './utils/oauthFlow';
 
 const VALID_TABS = ['new', 'amend', 'view', 'compare'] as const;
 
@@ -58,60 +58,6 @@ function handleOAuthError(error: string): void {
     }
   }
   window.history.replaceState({}, document.title, window.location.pathname);
-}
-
-/**
- * Exchanges an authorization code for an access token, stores the token and its
- * expiry, and returns to the original (same-origin) URL if one was saved.
- * Throws if the configuration is invalid or the exchange fails.
- */
-async function exchangeCodeForToken(code: string, codeVerifier: string): Promise<void> {
-  const tenantId = localStorage.getItem(STORAGE_KEYS.TENANT_ID);
-  const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID);
-
-  if (!isSafeIdentifier(tenantId)) {
-    throw new TypeError('Invalid or missing tenant ID');
-  }
-  const redirectUri = getRedirectUri();
-
-  const response = await fetch(microsoftOAuthEndpoint(tenantId, 'token'), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code: code,
-      client_id: isSafeIdentifier(clientId) ? clientId : '',
-      redirect_uri: redirectUri,
-      code_verifier: codeVerifier,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Token exchange failed: ${response.status}`);
-  }
-
-  const data: { access_token?: unknown; expires_in?: unknown } = await response.json();
-  if (typeof data.access_token !== 'string' || data.access_token === '') {
-    throw new TypeError('Token response did not include an access token');
-  }
-  localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token);
-
-  // Calculate and store expiration time, defaulting to 1 hour if missing or invalid
-  const expiresIn = Number(data.expires_in);
-  const expiresAt = Date.now() + (Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600) * 1000;
-  localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, expiresAt.toString());
-
-  // Clean up the code verifier
-  localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
-
-  // Return to the original URL if available — only ever on this origin
-  const returnUrl = toSameOriginUrl(localStorage.getItem(STORAGE_KEYS.RETURN_URL));
-  localStorage.removeItem(STORAGE_KEYS.RETURN_URL);
-  if (returnUrl && returnUrl !== window.location.href) {
-    window.location.href = returnUrl;
-  }
 }
 
 /**
@@ -190,7 +136,7 @@ export default function App() {
       }
 
       try {
-        await exchangeCodeForToken(code, codeVerifier);
+        await exchangeCodeForToken(code, state, codeVerifier);
       } catch (err) {
         console.error('Error exchanging code for token:', err);
         // Clean up the code verifier on error

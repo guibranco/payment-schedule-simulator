@@ -3,6 +3,7 @@ import { Settings, X } from 'lucide-react';
 import { STORAGE_KEYS } from '../constants';
 import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
 import { getRedirectUri } from '../utils/url';
+import CollectionsServiceForm from './CollectionsServiceForm';
 import {
   type Environment,
   isEnvironment,
@@ -78,10 +79,73 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Readonly<Props
   return <ConfigDialogForm onClose={onClose} onSave={onSave} />;
 }
 
+type ConfigTab = 'schedule' | 'collections';
+
+const TABS: Array<{ id: ConfigTab; label: string }> = [
+  { id: 'schedule', label: 'Payment Schedule Service' },
+  { id: 'collections', label: 'Collections Service' }
+];
+
 /**
- * The open configuration dialog, initialised from the saved configuration.
+ * The open configuration dialog: one tab per service, each with its own sign-in.
  */
 function ConfigDialogForm({ onClose, onSave }: Readonly<FormProps>) {
+  const [activeTab, setActiveTab] = useState<ConfigTab>('schedule');
+
+  /** Records that the dialog was cancelled and closes it. */
+  const handleCancel = useCallback(() => {
+    localStorage.setItem(STORAGE_KEYS.CONFIG_CANCELLED, 'true');
+    onClose();
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            Configuration
+          </h2>
+          <button
+            onClick={handleCancel}
+            className="text-gray-400 hover:text-gray-500"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div role="tablist" aria-label="Service" className="flex border-b">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 px-3 py-2 text-sm font-medium border-b-2 ${
+                activeTab === tab.id
+                  ? 'border-secondary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {activeTab === 'schedule' ? (
+          <ScheduleServiceForm onCancel={handleCancel} onClose={onClose} onSave={onSave} />
+        ) : (
+          <CollectionsServiceForm onCancel={handleCancel} onClose={onClose} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The Payment Schedule Service settings, initialised from the saved configuration.
+ */
+function ScheduleServiceForm({ onClose, onSave, onCancel }: Readonly<FormProps & { onCancel: () => void }>) {
   const [saved] = useState(readSavedConfig);
   const [baseUrl, setBaseUrl] = useState(saved.baseUrl);
   const [port, setPort] = useState(saved.port);
@@ -167,30 +231,9 @@ function ConfigDialogForm({ onClose, onSave }: Readonly<FormProps>) {
     onClose();
   }, [baseUrl, port, clientId, tenantId, environment, selectedScopes, getAuthorizationUrl, onSave, onClose]);
 
-  /** Records that the dialog was cancelled and closes it. */
-  const handleClose = useCallback(() => {
-    // Save the cancellation state to localStorage
-    localStorage.setItem(STORAGE_KEYS.CONFIG_CANCELLED, 'true');
-    onClose();
-  }, [onClose]);
-
   const redirectUri = getRedirectUri();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <Settings className="w-5 h-5" />
-            Configuration
-          </h2>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-gray-500"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
         <form onSubmit={handleSubmit} className="p-4">
           <div className="space-y-4">
             <div>
@@ -291,7 +334,7 @@ function ConfigDialogForm({ onClose, onSave }: Readonly<FormProps>) {
             <div className="flex justify-end gap-3">
               <button
                 type="button"
-                onClick={handleClose}
+                onClick={onCancel}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
               >
                 Cancel
@@ -305,7 +348,5 @@ function ConfigDialogForm({ onClose, onSave }: Readonly<FormProps>) {
             </div>
           </div>
         </form>
-      </div>
-    </div>
   );
 }
