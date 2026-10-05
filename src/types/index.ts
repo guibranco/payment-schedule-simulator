@@ -47,6 +47,14 @@ export interface PaymentScheduleResponse {
   coverStartDate: string;
   coverEndDate: string;
   scheduleItems: ScheduleItem[];
+  // Policy-level context only present on CosmosDB documents (not on Payment Schedule
+  // Service responses), used to detect Schedule Anomalies.
+  /** The policy's full-year net premium (`RiskTotalAnnualisedPremium`, Policy Admin only). */
+  annualisedPremium?: number | null;
+  /** The policy's status, e.g. AC (active) or CX (cancelled) (`RiskStatus`, Policy Admin only). */
+  riskStatus?: string | null;
+  /** Who last modified the document: a system account, or a person's email after a Surgery. */
+  modifiedBy?: string | null;
 }
 
 // Collections reconciliation types

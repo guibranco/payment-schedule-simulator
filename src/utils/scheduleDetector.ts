@@ -184,7 +184,10 @@ function convertPolicyAdmin(json: any): PaymentScheduleResponse {
     inceptionDate: json.InceptionDate,
     coverStartDate: json.CoverStartDate,
     coverEndDate: json.CoverEndDate,
-    scheduleItems: (json.ScheduleItems || []).map(normalizePascalItem)
+    scheduleItems: (json.ScheduleItems || []).map(normalizePascalItem),
+    annualisedPremium: json.RiskTotalAnnualisedPremium ?? null,
+    riskStatus: json.RiskStatus ?? null,
+    modifiedBy: json.ModifiedBy ?? null
   };
 }
 
@@ -198,7 +201,8 @@ function convertRerates(json: any): PaymentScheduleResponse {
     inceptionDate: json.InceptionDate,
     coverStartDate: json.CoverStartDate,
     coverEndDate: json.CoverEndDate,
-    scheduleItems: (json.Items || []).map(normalizePascalItem)
+    scheduleItems: (json.Items || []).map(normalizePascalItem),
+    modifiedBy: json.ModifiedBy ?? null
   };
 }
 

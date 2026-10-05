@@ -781,7 +781,7 @@ describe("ScheduleDisplay", () => {
     it("does not show an original-item button when the item has none", () => {
       render(<ScheduleDisplay schedule={schedule!} />);
       expect(
-        screen.queryByTitle("View original item details"),
+        screen.queryByTitle("View Basis Item details"),
       ).not.toBeInTheDocument();
     });
 
@@ -798,9 +798,9 @@ describe("ScheduleDisplay", () => {
       };
 
       render(<ScheduleDisplay schedule={scheduleWithMatch} />);
-      fireEvent.click(screen.getByTitle("View original item details"));
+      fireEvent.click(screen.getByTitle("View Basis Item details"));
 
-      expect(screen.getByText("Original Item")).toBeInTheDocument();
+      expect(screen.getByText("Basis Item")).toBeInTheDocument();
       expect(screen.getByText("#1")).toBeInTheDocument();
       expect(
         screen.getByText(schedule!.scheduleItems[0].id),
@@ -821,7 +821,7 @@ describe("ScheduleDisplay", () => {
       };
 
       render(<ScheduleDisplay schedule={scheduleWithSynthetic} />);
-      fireEvent.click(screen.getByTitle("View original item details"));
+      fireEvent.click(screen.getByTitle("View Basis Item details"));
 
       expect(
         screen.getByText(
@@ -844,14 +844,14 @@ describe("ScheduleDisplay", () => {
       };
 
       render(<ScheduleDisplay schedule={scheduleWithMatch} />);
-      fireEvent.click(screen.getByTitle("View original item details"));
+      fireEvent.click(screen.getByTitle("View Basis Item details"));
 
       const modal = screen
-        .getByText("Original Item")
+        .getByText("Basis Item")
         .closest("div")!.parentElement!;
       fireEvent.click(within(modal).getByRole("button", { name: "" }));
 
-      expect(screen.queryByText("Original Item")).not.toBeInTheDocument();
+      expect(screen.queryByText("Basis Item")).not.toBeInTheDocument();
     });
 
     it("shows non-empty admin fees and flags a nested original item on its own original item", () => {
@@ -871,7 +871,7 @@ describe("ScheduleDisplay", () => {
       };
 
       render(<ScheduleDisplay schedule={scheduleWithNestedOriginal} />);
-      fireEvent.click(screen.getByTitle("View original item details"));
+      fireEvent.click(screen.getByTitle("View Basis Item details"));
 
       const [feeKey, feeValue] = Object.entries(
         schedule!.scheduleItems[1].adminFees,
@@ -881,8 +881,8 @@ describe("ScheduleDisplay", () => {
           `${feeKey}: €${Number(feeValue.amountDue).toFixed(2)}`,
         ),
       ).toBeInTheDocument();
-      expect(screen.getByText("Has Its Own Original Item")).toBeInTheDocument();
-      const header = screen.getByText("Has Its Own Original Item");
+      expect(screen.getByText("Has Its Own Basis Item")).toBeInTheDocument();
+      const header = screen.getByText("Has Its Own Basis Item");
       expect(header.nextElementSibling?.textContent).toBe("Yes");
     });
   });
@@ -1154,55 +1154,107 @@ describe("ScheduleDisplay", () => {
     });
   });
 
-  describe("Pro-rata item without original item", () => {
+  describe("Schedule Anomalies panel", () => {
     const fullItem = {
       ...schedule!.scheduleItems[0],
       id: "full",
       collectionType: "Full",
       originalItem: null,
     };
+    const stampDutyItem = schedule!.scheduleItems[1]; // carries the SMD admin fee
     const proRataItem = {
       ...schedule!.scheduleItems[0],
       id: "pro-rata",
       collectionType: "ProRata",
     };
 
-    it("shows a warning banner and flags the row when a pro-rata item has no original item", () => {
-      render(
-        <ScheduleDisplay
-          schedule={{
-            ...schedule!,
-            scheduleItems: [fullItem, { ...proRataItem, originalItem: null }],
-          }}
-        />,
-      );
-
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "This schedule is possibly wrong: pro-rata item #1 has no original item.",
-      );
-      const flag = screen.getByLabelText("Pro-rata item without original item");
-      expect(flag.closest("tr")!.querySelector("td")!.textContent).toBe("1");
-    });
-
-    it("shows no warning when every pro-rata item has its original item", () => {
+    it("lists an Orphaned Pro-Rata Item as a warning and flags its row", () => {
       render(
         <ScheduleDisplay
           schedule={{
             ...schedule!,
             scheduleItems: [
               fullItem,
-              { ...proRataItem, originalItem: fullItem },
+              stampDutyItem,
+              { ...proRataItem, originalItem: null },
             ],
           }}
         />,
       );
 
+      const panel = screen.getByRole("region", { name: "Schedule Anomalies" });
+      const warning = within(panel).getByRole("alert");
+      expect(warning).toHaveTextContent("Orphaned Pro-Rata Item");
+      expect(warning).toHaveTextContent("Pro-Rata Item #2 has no Basis Item");
+      const flag = screen.getByLabelText("Orphaned Pro-Rata Item");
+      expect(flag.closest("tr")!.querySelector("td")!.textContent).toBe("2");
+    });
+
+    it("lists warnings before info", () => {
+      render(
+        <ScheduleDisplay
+          schedule={{
+            ...schedule!,
+            modifiedBy: "someone@example.com",
+            scheduleItems: [fullItem, { ...proRataItem, originalItem: null }],
+          }}
+        />,
+      );
+
+      // Warnings carry role="alert", which replaces their implicit listitem role.
+      const entries = Array.from(
+        screen
+          .getByRole("region", { name: "Schedule Anomalies" })
+          .querySelectorAll("li"),
+      );
+      expect(entries.map((entry) => entry.textContent)).toEqual([
+        expect.stringContaining("Orphaned Pro-Rata Item"),
+        expect.stringContaining("Stamp Duty Imbalance"),
+        expect.stringContaining("Surgery Detected"),
+      ]);
+    });
+
+    it("shows no panel when the schedule has no anomalies", () => {
+      render(
+        <ScheduleDisplay
+          schedule={{ ...schedule!, scheduleItems: [fullItem, stampDutyItem] }}
+        />,
+      );
+
       expect(
-        screen.queryByText(/This schedule is possibly wrong/),
+        screen.queryByRole("region", { name: "Schedule Anomalies" }),
       ).not.toBeInTheDocument();
-      expect(
-        screen.queryByLabelText("Pro-rata item without original item"),
-      ).not.toBeInTheDocument();
+    });
+
+    it("includes the anomalies in the HTML export", () => {
+      let capturedHtml = "";
+      class CapturingBlob extends Blob {
+        constructor(parts: BlobPart[] = [], options?: BlobPropertyBag) {
+          super(parts, options);
+          capturedHtml = String(parts[0]);
+        }
+      }
+      vi.stubGlobal("Blob", CapturingBlob);
+
+      render(
+        <ScheduleDisplay
+          schedule={{
+            ...schedule!,
+            scheduleItems: [
+              fullItem,
+              stampDutyItem,
+              { ...proRataItem, originalItem: null },
+            ],
+          }}
+        />,
+      );
+      selectFormat("html");
+      clickExportButton();
+
+      expect(capturedHtml).toContain("Schedule Anomalies (1)");
+      expect(capturedHtml).toContain("Orphaned Pro-Rata Item");
+
+      vi.unstubAllGlobals();
     });
   });
 });

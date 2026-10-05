@@ -9,6 +9,7 @@ import {
   formatReportDate,
   type ReportRow,
 } from "./scheduleReport";
+import type { ScheduleAnomaly } from "./scheduleAnomalies";
 
 const MARGIN = 12;
 const LINE_HEIGHT = 4.2;
@@ -58,6 +59,50 @@ function drawSummaryCard(
   doc.setFontSize(value.length > 24 ? 8 : 12);
   doc.setTextColor(accent ? REPORT_COLORS.primary : REPORT_COLORS.gray900);
   doc.text(value, x + 4, y + 13);
+}
+
+/** Draws one coloured box per Schedule Anomaly (warnings first); returns the y below the last one. */
+function drawAnomalies(
+  doc: jsPDF,
+  anomalies: ScheduleAnomaly[],
+  startY: number,
+  contentWidth: number,
+  pageHeight: number,
+): number {
+  if (anomalies.length === 0) return startY;
+
+  let y = startY;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(REPORT_COLORS.gray900);
+  doc.text(`Schedule Anomalies (${anomalies.length})`, MARGIN, y + 3);
+  y += 6;
+
+  for (const anomaly of anomalies) {
+    const isWarning = anomaly.severity === "warning";
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    const lines = doc.splitTextToSize(
+      `${anomaly.title} (${anomaly.severity}): ${anomaly.message}`,
+      contentWidth - 6,
+    ) as string[];
+    const height = lines.length * LINE_HEIGHT + 3;
+
+    if (y + height > pageHeight - FOOTER_SPACE) {
+      doc.addPage();
+      y = MARGIN;
+    }
+
+    doc.setFillColor(isWarning ? REPORT_COLORS.red100 : REPORT_COLORS.blue100);
+    doc.roundedRect(MARGIN, y, contentWidth, height, 1.5, 1.5, "F");
+    doc.setTextColor(isWarning ? REPORT_COLORS.red800 : REPORT_COLORS.blue800);
+    lines.forEach((line, i) => {
+      doc.setFont("helvetica", i === 0 ? "bold" : "normal");
+      doc.text(line, MARGIN + 3, y + 4.5 + i * LINE_HEIGHT);
+    });
+    y += height + 2;
+  }
+  return y + 3;
 }
 
 function drawTableHeader(
@@ -159,7 +204,7 @@ export function renderSchedulePdf(
     legendX += 6 + doc.getTextWidth(label) + 8;
   });
 
-  // Table.
+  // Table (after the Schedule Anomalies, if any).
   const columns: Column[] = [
     { label: "#", weight: 8, render: (row) => [String(row.index)] },
     { label: "Period", weight: 40, render: (row) => [row.period] },
@@ -200,7 +245,7 @@ export function renderSchedulePdf(
   );
   const totalIndex = columns.findIndex((column) => column.label === "Total");
 
-  let y = legendY + 6;
+  let y = drawAnomalies(doc, report.anomalies, legendY + 6, contentWidth, pageHeight);
   drawTableHeader(doc, columns, widths, y);
   y += TABLE_HEADER_HEIGHT;
 
