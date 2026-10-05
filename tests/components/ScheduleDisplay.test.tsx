@@ -1,4 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  type Mock,
+} from "vitest";
 import {
   render,
   screen,
@@ -10,12 +18,16 @@ import ScheduleDisplay from "../../src/components/ScheduleDisplay";
 import { detectAndNormalizeSchedule } from "../../src/utils/scheduleDetector";
 import { SAMPLE_SCHEDULES } from "../../src/constants/sampleSchedules";
 import { STORAGE_KEYS } from "../../src/constants";
-import type { CollectionTransaction } from "../../src/types";
+import type {
+  CollectionTransaction,
+  PaymentScheduleResponse,
+} from "../../src/types";
 
 vi.mock("../../src/utils/scheduleImage", () => ({
   exportScheduleImage: vi.fn(),
 }));
 import { exportScheduleImage } from "../../src/utils/scheduleImage";
+import { must } from "../helpers";
 
 vi.mock("jspdf", () => ({
   // A real `function` (not an arrow function) so `new jsPDFModule.default()` — as the
@@ -47,11 +59,11 @@ vi.mock("jspdf", () => ({
   }),
 }));
 
-const responseSample = SAMPLE_SCHEDULES.find(
-  (s) => s.format === "response",
-)!.json;
-const { schedule } = detectAndNormalizeSchedule(responseSample);
-const [firstItemId, secondItemId] = schedule!.scheduleItems.map(
+const responseSample = must(
+  SAMPLE_SCHEDULES.find((s) => s.format === "response"),
+).json;
+const schedule = must(detectAndNormalizeSchedule(responseSample).schedule);
+const [firstItemId, secondItemId] = schedule.scheduleItems.map(
   (item) => item.id,
 );
 
@@ -103,19 +115,19 @@ function clickViewJsonButton() {
 
 describe("ScheduleDisplay", () => {
   let clickSpy: ReturnType<typeof vi.spyOn>;
-  let createObjectURL: ReturnType<typeof vi.fn>;
-  let revokeObjectURL: ReturnType<typeof vi.fn>;
+  let createObjectURL: Mock<(obj: Blob | MediaSource) => string>;
+  let revokeObjectURL: Mock<(url: string) => void>;
 
   beforeEach(() => {
     vi.mocked(exportScheduleImage).mockReset();
     localStorage.clear();
     createObjectURL = vi.fn(() => "blob:fake-url");
     revokeObjectURL = vi.fn();
-    (globalThis.URL as any).createObjectURL = createObjectURL;
-    (globalThis.URL as any).revokeObjectURL = revokeObjectURL;
+    URL.createObjectURL = createObjectURL;
+    URL.revokeObjectURL = revokeObjectURL;
     clickSpy = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(() => {});
+      .mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -123,17 +135,17 @@ describe("ScheduleDisplay", () => {
   });
 
   it("shows the fully visible schedule id (not truncated)", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
-    const idEl = screen.getByText(schedule!.id);
+    render(<ScheduleDisplay schedule={schedule} />);
+    const idEl = screen.getByText(schedule.id);
     expect(idEl.className).not.toContain("truncate");
-    expect(idEl).toHaveTextContent(schedule!.id);
+    expect(idEl).toHaveTextContent(schedule.id);
   });
 
   it('shows "-" for Collection Day on an annual schedule instead of the raw sentinel 0/null', () => {
     render(
       <ScheduleDisplay
         schedule={{
-          ...schedule!,
+          ...schedule,
           collectionFrequency: "annual",
           collectionDay: 0,
         }}
@@ -147,7 +159,7 @@ describe("ScheduleDisplay", () => {
     render(
       <ScheduleDisplay
         schedule={{
-          ...schedule!,
+          ...schedule,
           collectionFrequency: "monthly",
           collectionDay: 15,
         }}
@@ -158,21 +170,21 @@ describe("ScheduleDisplay", () => {
   });
 
   it("renders the total amount and one row per schedule item", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
-    const totalAmount = schedule!.scheduleItems.reduce(
+    render(<ScheduleDisplay schedule={schedule} />);
+    const totalAmount = schedule.scheduleItems.reduce(
       (sum, item) => sum + item.amountDue,
       0,
     );
     expect(screen.getByText(totalAmount.toFixed(2))).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(
-      schedule!.scheduleItems.length + 1,
+      schedule.scheduleItems.length + 1,
     ); // + header row
   });
 
   it("calls onStatusChange with the row index when a status icon is clicked", () => {
     const onStatusChange = vi.fn();
     render(
-      <ScheduleDisplay schedule={schedule!} onStatusChange={onStatusChange} />,
+      <ScheduleDisplay schedule={schedule} onStatusChange={onStatusChange} />,
     );
 
     const statusButtons = screen.getAllByTitle("Click to change status");
@@ -182,7 +194,7 @@ describe("ScheduleDisplay", () => {
   });
 
   it('defaults to "View JSON as Payment Schedule Response" and opens the modal showing the canonical response', () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     expect(
       screen.getByRole("button", {
         name: "View JSON as Payment Schedule Response",
@@ -191,17 +203,17 @@ describe("ScheduleDisplay", () => {
 
     clickViewJsonButton();
 
-    const modal = screen
-      .getByText(/Schedule JSON/)
-      .closest("div")!.parentElement!;
+    const modal = must(
+      must(screen.getByText(/Schedule JSON/).closest("div")).parentElement,
+    );
     expect(
-      within(modal).getByText(new RegExp(schedule!.id)),
+      within(modal).getByText(new RegExp(schedule.id)),
     ).toBeInTheDocument();
     expect(within(modal).getByText(/"scheduleItems"/)).toBeInTheDocument();
   });
 
   it("opens a dropdown menu listing all 4 JSON view formats", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     openViewJsonMenu();
 
     Object.values(VIEW_JSON_FORMAT_LABELS).forEach((label) => {
@@ -210,7 +222,7 @@ describe("ScheduleDisplay", () => {
   });
 
   it("changes the View JSON button label when a different format is chosen", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     selectViewJsonFormat("policyAdmin");
 
     expect(
@@ -222,43 +234,43 @@ describe("ScheduleDisplay", () => {
   });
 
   it("shows the schedule re-serialized as a Policy Admin CosmosDB document (PascalCase, ScheduleItems)", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     selectViewJsonFormat("policyAdmin");
     clickViewJsonButton();
 
-    const modal = screen
-      .getByText(/Schedule JSON/)
-      .closest("div")!.parentElement!;
+    const modal = must(
+      must(screen.getByText(/Schedule JSON/).closest("div")).parentElement,
+    );
     expect(within(modal).getByText(/"PaymentScheduleId"/)).toBeInTheDocument();
     expect(within(modal).getByText(/"ScheduleItems"/)).toBeInTheDocument();
   });
 
   it("shows the schedule re-serialized as a Rerates CosmosDB document (PascalCase, Items)", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     selectViewJsonFormat("rerates");
     clickViewJsonButton();
 
-    const modal = screen
-      .getByText(/Schedule JSON/)
-      .closest("div")!.parentElement!;
+    const modal = must(
+      must(screen.getByText(/Schedule JSON/).closest("div")).parentElement,
+    );
     expect(within(modal).getByText(/"PaymentScheduleId"/)).toBeInTheDocument();
     expect(within(modal).getByText(/"Items"/)).toBeInTheDocument();
   });
 
   it("shows the schedule re-serialized as a Payment Schedule Request (amendment)", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     selectViewJsonFormat("request");
     clickViewJsonButton();
 
-    const modal = screen
-      .getByText(/Schedule JSON/)
-      .closest("div")!.parentElement!;
+    const modal = must(
+      must(screen.getByText(/Schedule JSON/).closest("div")).parentElement,
+    );
     expect(within(modal).getByText(/"scheduleStartDate"/)).toBeInTheDocument();
     expect(within(modal).getByText(/"netAmount"/)).toBeInTheDocument();
   });
 
   it('defaults to a single "Export as JSON" button when nothing is saved', () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     expect(
       screen.getByRole("button", { name: "Export as JSON" }),
     ).toBeInTheDocument();
@@ -266,7 +278,7 @@ describe("ScheduleDisplay", () => {
 
   it("restores the previously selected export format from localStorage into the button label", () => {
     localStorage.setItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT, "svg");
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     expect(
       screen.getByRole("button", { name: "Export as SVG" }),
     ).toBeInTheDocument();
@@ -274,14 +286,14 @@ describe("ScheduleDisplay", () => {
 
   it("ignores an invalid saved export format and falls back to JSON", () => {
     localStorage.setItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT, "not-a-format");
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     expect(
       screen.getByRole("button", { name: "Export as JSON" }),
     ).toBeInTheDocument();
   });
 
   it("opens a dropdown menu listing all 6 export formats", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     openExportMenu();
 
     Object.values(EXPORT_FORMAT_LABELS).forEach((label) => {
@@ -290,7 +302,7 @@ describe("ScheduleDisplay", () => {
   });
 
   it("changes the export button's label and closes the menu when a format is chosen", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     selectFormat("csv");
 
     expect(
@@ -302,7 +314,7 @@ describe("ScheduleDisplay", () => {
   });
 
   it("saves the selected export format to localStorage when changed", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     selectFormat("csv");
     expect(localStorage.getItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT)).toBe(
       "csv",
@@ -310,7 +322,7 @@ describe("ScheduleDisplay", () => {
   });
 
   it("closes the dropdown menu when clicking outside of it", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     openExportMenu();
     expect(screen.getByRole("menu")).toBeInTheDocument();
 
@@ -320,7 +332,7 @@ describe("ScheduleDisplay", () => {
   });
 
   it("exports JSON via the single Export button", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     clickExportButton();
 
     expect(clickSpy).toHaveBeenCalledTimes(1);
@@ -330,7 +342,7 @@ describe("ScheduleDisplay", () => {
   });
 
   it("exports CSV via the single Export button after choosing it from the menu", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     selectFormat("csv");
     clickExportButton();
 
@@ -339,7 +351,7 @@ describe("ScheduleDisplay", () => {
   });
 
   it("exports HTML via the single Export button after choosing it from the menu", () => {
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     selectFormat("html");
     clickExportButton();
 
@@ -348,38 +360,34 @@ describe("ScheduleDisplay", () => {
   });
 
   it("exports a PNG via the scheduleImage util after choosing it from the menu", async () => {
-    vi.mocked(exportScheduleImage).mockResolvedValueOnce(undefined);
-    render(<ScheduleDisplay schedule={schedule!} />);
+    vi.mocked(exportScheduleImage).mockImplementationOnce(() =>
+      Promise.resolve(),
+    );
+    render(<ScheduleDisplay schedule={schedule} />);
     selectFormat("png");
     clickExportButton();
 
     await waitFor(() => {
-      expect(exportScheduleImage).toHaveBeenCalledWith(
-        schedule,
-        "png",
-        undefined,
-      );
+      expect(exportScheduleImage).toHaveBeenCalledWith(schedule, "png", null);
     });
   });
 
   it("exports an SVG via the scheduleImage util after choosing it from the menu", async () => {
-    vi.mocked(exportScheduleImage).mockResolvedValueOnce(undefined);
-    render(<ScheduleDisplay schedule={schedule!} />);
+    vi.mocked(exportScheduleImage).mockImplementationOnce(() =>
+      Promise.resolve(),
+    );
+    render(<ScheduleDisplay schedule={schedule} />);
     selectFormat("svg");
     clickExportButton();
 
     await waitFor(() => {
-      expect(exportScheduleImage).toHaveBeenCalledWith(
-        schedule,
-        "svg",
-        undefined,
-      );
+      expect(exportScheduleImage).toHaveBeenCalledWith(schedule, "svg", null);
     });
   });
 
   it("exports a PDF via jsPDF after choosing it from the menu", async () => {
     const jsPDFModule = await import("jspdf");
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     selectFormat("pdf");
     clickExportButton();
 
@@ -391,9 +399,9 @@ describe("ScheduleDisplay", () => {
   it("adds a new PDF page once enough items overflow the current one", async () => {
     const jsPDFModule = await import("jspdf");
     const manyItemsSchedule = {
-      ...schedule!,
+      ...schedule,
       scheduleItems: Array.from({ length: 50 }, (_, i) => ({
-        ...schedule!.scheduleItems[0],
+        ...schedule.scheduleItems[0],
         id: `item-${i}`,
       })),
     };
@@ -403,16 +411,16 @@ describe("ScheduleDisplay", () => {
     clickExportButton();
 
     await waitFor(() => {
-      const instance = vi
-        .mocked(jsPDFModule.default)
-        .mock.results.at(-1)!.value;
+      const instance = must(
+        vi.mocked(jsPDFModule.default).mock.results.at(-1),
+      ).value;
       expect(instance.addPage).toHaveBeenCalled();
     });
   });
 
   it("shows a format-specific error message when an export fails", async () => {
     vi.mocked(exportScheduleImage).mockRejectedValueOnce(new Error("boom"));
-    render(<ScheduleDisplay schedule={schedule!} />);
+    render(<ScheduleDisplay schedule={schedule} />);
     selectFormat("png");
     clickExportButton();
 
@@ -425,11 +433,11 @@ describe("ScheduleDisplay", () => {
 
   it("escapes HTML special characters in the HTML export to prevent injection", () => {
     const maliciousSchedule = {
-      ...schedule!,
+      ...schedule,
       id: "<script>alert(1)</script>",
       scheduleItems: [
         {
-          ...schedule!.scheduleItems[0],
+          ...schedule.scheduleItems[0],
           taxesAndLevies: { "<img src=x onerror=alert(1)>": 1 },
         },
       ],
@@ -444,7 +452,7 @@ describe("ScheduleDisplay", () => {
     }
     vi.stubGlobal("Blob", CapturingBlob);
 
-    render(<ScheduleDisplay schedule={maliciousSchedule as any} />);
+    render(<ScheduleDisplay schedule={maliciousSchedule} />);
     selectFormat("html");
     clickExportButton();
 
@@ -457,7 +465,9 @@ describe("ScheduleDisplay", () => {
   });
 
   it("renders a fallback message when no schedule is provided", () => {
-    render(<ScheduleDisplay schedule={null as any} />);
+    render(
+      <ScheduleDisplay schedule={null as unknown as PaymentScheduleResponse} />,
+    );
     expect(screen.getByText("No schedule data available.")).toBeInTheDocument();
   });
 
@@ -483,7 +493,7 @@ describe("ScheduleDisplay", () => {
     ];
 
     it("does not show a Collections column or summary banner without a collections prop", () => {
-      render(<ScheduleDisplay schedule={schedule!} />);
+      render(<ScheduleDisplay schedule={schedule} />);
       expect(
         screen.queryByText("Collections", { selector: "th" }),
       ).not.toBeInTheDocument();
@@ -493,9 +503,7 @@ describe("ScheduleDisplay", () => {
     });
 
     it("shows a summary banner and per-item status badges once collections are provided", () => {
-      render(
-        <ScheduleDisplay schedule={schedule!} collections={collections} />,
-      );
+      render(<ScheduleDisplay schedule={schedule} collections={collections} />);
 
       expect(screen.getByText(/Collections reconciliation:/)).toHaveTextContent(
         "1 collected, 1 rejected, 0 refunded, 0 pending",
@@ -509,9 +517,7 @@ describe("ScheduleDisplay", () => {
     });
 
     it("opens a transaction detail modal when a status badge is clicked", () => {
-      render(
-        <ScheduleDisplay schedule={schedule!} collections={collections} />,
-      );
+      render(<ScheduleDisplay schedule={schedule} collections={collections} />);
 
       fireEvent.click(screen.getByRole("button", { name: /Rejected/ }));
 
@@ -521,14 +527,13 @@ describe("ScheduleDisplay", () => {
     });
 
     it("closes the transaction detail modal via its close button", () => {
-      render(
-        <ScheduleDisplay schedule={schedule!} collections={collections} />,
-      );
+      render(<ScheduleDisplay schedule={schedule} collections={collections} />);
       fireEvent.click(screen.getByRole("button", { name: /Rejected/ }));
 
-      const modal = screen
-        .getByText(/Collections history/)
-        .closest("div")!.parentElement!;
+      const modal = must(
+        must(screen.getByText(/Collections history/).closest("div"))
+          .parentElement,
+      );
       fireEvent.click(within(modal).getByRole("button", { name: "" }));
 
       expect(screen.queryByText(/Collections history/)).not.toBeInTheDocument();
@@ -538,7 +543,7 @@ describe("ScheduleDisplay", () => {
       const mismatchedAmountCollections: CollectionTransaction[] = [
         {
           paymentScheduleItemIds: [firstItemId],
-          amountDue: schedule!.scheduleItems[0].amountDue + 100,
+          amountDue: schedule.scheduleItems[0].amountDue + 100,
           collectionStatus: "collected",
           providerDetails: { processingDate: "2026-01-01T00:00:00Z" },
         },
@@ -546,7 +551,7 @@ describe("ScheduleDisplay", () => {
 
       render(
         <ScheduleDisplay
-          schedule={schedule!}
+          schedule={schedule}
           collections={mismatchedAmountCollections}
         />,
       );
@@ -563,7 +568,7 @@ describe("ScheduleDisplay", () => {
       const modifiedDateOnlyCollections: CollectionTransaction[] = [
         {
           paymentScheduleItemIds: [firstItemId],
-          amountDue: schedule!.scheduleItems[0].amountDue,
+          amountDue: schedule.scheduleItems[0].amountDue,
           collectionStatus: "collected",
           transactionReference: "REF-MODIFIED-ONLY",
           modifiedDate: "2026-04-05T00:00:00+00:00",
@@ -573,22 +578,22 @@ describe("ScheduleDisplay", () => {
 
       render(
         <ScheduleDisplay
-          schedule={schedule!}
+          schedule={schedule}
           collections={modifiedDateOnlyCollections}
         />,
       );
       fireEvent.click(screen.getByRole("button", { name: /Collected/ }));
 
-      const row = screen.getByText("REF-MODIFIED-ONLY").closest("tr")!;
+      const row = must(screen.getByText("REF-MODIFIED-ONLY").closest("tr"));
       expect(within(row).getByText("05/04/2026")).toBeInTheDocument();
     });
 
     it("backfills the Status and Collection Item Created Date columns when the schedule item has no recorded values", () => {
       const scheduleWithMissingInfo = {
-        ...schedule!,
+        ...schedule,
         scheduleItems: [
           {
-            ...schedule!.scheduleItems[0],
+            ...schedule.scheduleItems[0],
             id: "derive-item",
             succeeded: null,
             collectionItemCreatedDate: undefined,
@@ -598,7 +603,7 @@ describe("ScheduleDisplay", () => {
       const derivedCollections: CollectionTransaction[] = [
         {
           paymentScheduleItemIds: ["derive-item"],
-          amountDue: schedule!.scheduleItems[0].amountDue,
+          amountDue: schedule.scheduleItems[0].amountDue,
           collectionStatus: "collected",
           providerDetails: { processingDate: "2026-03-01T10:00:00+00:00" },
         },
@@ -626,10 +631,10 @@ describe("ScheduleDisplay", () => {
 
     it("falls back through modifiedDate/createdDate/valueDate before dueDate when deriving the created date", () => {
       const scheduleWithMissingDate = {
-        ...schedule!,
+        ...schedule,
         scheduleItems: [
           {
-            ...schedule!.scheduleItems[0],
+            ...schedule.scheduleItems[0],
             id: "derive-item-2",
             succeeded: true,
             collectionItemCreatedDate: undefined,
@@ -639,7 +644,7 @@ describe("ScheduleDisplay", () => {
       const collectionsWithoutProcessingDate: CollectionTransaction[] = [
         {
           paymentScheduleItemIds: ["derive-item-2"],
-          amountDue: schedule!.scheduleItems[0].amountDue,
+          amountDue: schedule.scheduleItems[0].amountDue,
           collectionStatus: "collected",
           modifiedDate: "2026-04-05T00:00:00+00:00",
           dueDate: "2026-01-01",
@@ -662,15 +667,15 @@ describe("ScheduleDisplay", () => {
 
     it("backfills the Status column as successful when the latest reconciled outcome is a refund", () => {
       const scheduleWithMissingStatus = {
-        ...schedule!,
+        ...schedule,
         scheduleItems: [
-          { ...schedule!.scheduleItems[0], id: "refund-item", succeeded: null },
+          { ...schedule.scheduleItems[0], id: "refund-item", succeeded: null },
         ],
       };
       const refundCollections: CollectionTransaction[] = [
         {
           paymentScheduleItemIds: ["refund-item"],
-          amountDue: schedule!.scheduleItems[0].amountDue,
+          amountDue: schedule.scheduleItems[0].amountDue,
           collectionStatus: "refunded",
           providerDetails: { processingDate: "2026-03-01T10:00:00+00:00" },
         },
@@ -693,9 +698,7 @@ describe("ScheduleDisplay", () => {
     });
 
     it("does not override a schedule item that already has a recorded status", () => {
-      render(
-        <ScheduleDisplay schedule={schedule!} collections={collections} />,
-      );
+      render(<ScheduleDisplay schedule={schedule} collections={collections} />);
       expect(screen.queryByText("auto")).not.toBeInTheDocument();
     });
 
@@ -703,7 +706,7 @@ describe("ScheduleDisplay", () => {
       const onClearCollections = vi.fn();
       render(
         <ScheduleDisplay
-          schedule={schedule!}
+          schedule={schedule}
           collections={collections}
           onClearCollections={onClearCollections}
         />,
@@ -718,7 +721,7 @@ describe("ScheduleDisplay", () => {
       const retriedCollections: CollectionTransaction[] = [
         {
           paymentScheduleItemIds: [firstItemId],
-          amountDue: schedule!.scheduleItems[0].amountDue,
+          amountDue: schedule.scheduleItems[0].amountDue,
           collectionStatus: "rejected",
           providerDetails: {
             processingDate: "2026-01-25T22:04:10+00:00",
@@ -727,7 +730,7 @@ describe("ScheduleDisplay", () => {
         },
         {
           paymentScheduleItemIds: [firstItemId],
-          amountDue: schedule!.scheduleItems[0].amountDue,
+          amountDue: schedule.scheduleItems[0].amountDue,
           collectionStatus: "collected",
           isResubmission: true,
           transactionReference: "REF-RETRY",
@@ -737,7 +740,7 @@ describe("ScheduleDisplay", () => {
 
       render(
         <ScheduleDisplay
-          schedule={schedule!}
+          schedule={schedule}
           collections={retriedCollections}
         />,
       );
@@ -750,7 +753,7 @@ describe("ScheduleDisplay", () => {
 
       fireEvent.click(badge);
       const channelHeader = screen.getByText("Channel");
-      const row = screen.getByText("REF-RETRY").closest("tr")!;
+      const row = must(screen.getByText("REF-RETRY").closest("tr"));
       expect(within(row).getByText("Resubmission")).toBeInTheDocument();
       expect(channelHeader).toBeInTheDocument();
     });
@@ -759,14 +762,14 @@ describe("ScheduleDisplay", () => {
       const notYetRetried: CollectionTransaction[] = [
         {
           paymentScheduleItemIds: [firstItemId],
-          amountDue: schedule!.scheduleItems[0].amountDue,
+          amountDue: schedule.scheduleItems[0].amountDue,
           collectionStatus: "rejected",
           providerDetails: { processingDate: "2026-01-25T22:04:10+00:00" },
         },
       ];
 
       render(
-        <ScheduleDisplay schedule={schedule!} collections={notYetRetried} />,
+        <ScheduleDisplay schedule={schedule} collections={notYetRetried} />,
       );
 
       const badge = screen.getByRole("button", { name: /Rejected/ });
@@ -779,7 +782,7 @@ describe("ScheduleDisplay", () => {
 
   describe("Original Item breakdown", () => {
     it("does not show an original-item button when the item has none", () => {
-      render(<ScheduleDisplay schedule={schedule!} />);
+      render(<ScheduleDisplay schedule={schedule} />);
       expect(
         screen.queryByTitle("View Basis Item details"),
       ).not.toBeInTheDocument();
@@ -787,13 +790,13 @@ describe("ScheduleDisplay", () => {
 
     it("shows a breakdown referencing the matching row when the original item exists in the current schedule", () => {
       const scheduleWithMatch = {
-        ...schedule!,
+        ...schedule,
         scheduleItems: [
           {
-            ...schedule!.scheduleItems[1],
-            originalItem: { ...schedule!.scheduleItems[0] },
+            ...schedule.scheduleItems[1],
+            originalItem: { ...schedule.scheduleItems[0] },
           },
-          schedule!.scheduleItems[0],
+          schedule.scheduleItems[0],
         ],
       };
 
@@ -803,20 +806,20 @@ describe("ScheduleDisplay", () => {
       expect(screen.getByText("Basis Item")).toBeInTheDocument();
       expect(screen.getByText("#1")).toBeInTheDocument();
       expect(
-        screen.getByText(schedule!.scheduleItems[0].id),
+        screen.getByText(schedule.scheduleItems[0].id),
       ).toBeInTheDocument();
     });
 
     it("flags the original item as synthetic when it is not found among the current schedule items", () => {
       const syntheticOriginal = {
-        ...schedule!.scheduleItems[0],
+        ...schedule.scheduleItems[0],
         id: "not-in-the-schedule",
         collectionItemCreatedDate: undefined,
       };
       const scheduleWithSynthetic = {
-        ...schedule!,
+        ...schedule,
         scheduleItems: [
-          { ...schedule!.scheduleItems[1], originalItem: syntheticOriginal },
+          { ...schedule.scheduleItems[1], originalItem: syntheticOriginal },
         ],
       };
 
@@ -833,22 +836,22 @@ describe("ScheduleDisplay", () => {
 
     it("closes the original item modal via its close button", () => {
       const scheduleWithMatch = {
-        ...schedule!,
+        ...schedule,
         scheduleItems: [
           {
-            ...schedule!.scheduleItems[1],
-            originalItem: { ...schedule!.scheduleItems[0] },
+            ...schedule.scheduleItems[1],
+            originalItem: { ...schedule.scheduleItems[0] },
           },
-          schedule!.scheduleItems[0],
+          schedule.scheduleItems[0],
         ],
       };
 
       render(<ScheduleDisplay schedule={scheduleWithMatch} />);
       fireEvent.click(screen.getByTitle("View Basis Item details"));
 
-      const modal = screen
-        .getByText("Basis Item")
-        .closest("div")!.parentElement!;
+      const modal = must(
+        must(screen.getByText("Basis Item").closest("div")).parentElement,
+      );
       fireEvent.click(within(modal).getByRole("button", { name: "" }));
 
       expect(screen.queryByText("Basis Item")).not.toBeInTheDocument();
@@ -856,14 +859,14 @@ describe("ScheduleDisplay", () => {
 
     it("shows non-empty admin fees and flags a nested original item on its own original item", () => {
       const nestedOriginal = {
-        ...schedule!.scheduleItems[1], // has non-empty adminFees (SMD) in the sample fixture
-        originalItem: { ...schedule!.scheduleItems[0] },
+        ...schedule.scheduleItems[1], // has non-empty adminFees (SMD) in the sample fixture
+        originalItem: { ...schedule.scheduleItems[0] },
       };
       const scheduleWithNestedOriginal = {
-        ...schedule!,
+        ...schedule,
         scheduleItems: [
           {
-            ...schedule!.scheduleItems[0],
+            ...schedule.scheduleItems[0],
             id: "holder-item",
             originalItem: nestedOriginal,
           },
@@ -874,7 +877,7 @@ describe("ScheduleDisplay", () => {
       fireEvent.click(screen.getByTitle("View Basis Item details"));
 
       const [feeKey, feeValue] = Object.entries(
-        schedule!.scheduleItems[1].adminFees,
+        schedule.scheduleItems[1].adminFees,
       )[0];
       expect(
         screen.getByText(
@@ -889,10 +892,10 @@ describe("ScheduleDisplay", () => {
 
   describe("Export content reflects Collections reconciliation", () => {
     const scheduleWithNullStatus = {
-      ...schedule!,
+      ...schedule,
       scheduleItems: [
         {
-          ...schedule!.scheduleItems[0],
+          ...schedule.scheduleItems[0],
           id: "export-item",
           succeeded: null,
           collectionItemCreatedDate: undefined,
@@ -902,13 +905,13 @@ describe("ScheduleDisplay", () => {
     const collections: CollectionTransaction[] = [
       {
         paymentScheduleItemIds: ["export-item"],
-        amountDue: schedule!.scheduleItems[0].amountDue,
+        amountDue: schedule.scheduleItems[0].amountDue,
         collectionStatus: "rejected",
         providerDetails: { processingDate: "2026-01-01T00:00:00Z" },
       },
       {
         paymentScheduleItemIds: ["export-item"],
-        amountDue: schedule!.scheduleItems[0].amountDue,
+        amountDue: schedule.scheduleItems[0].amountDue,
         collectionStatus: "collected",
         isResubmission: true,
         transactionReference: "REF-EXPORT",
@@ -1015,9 +1018,9 @@ describe("ScheduleDisplay", () => {
       clickExportButton();
 
       await waitFor(() => {
-        const instance = vi
-          .mocked(jsPDFModule.default)
-          .mock.results.at(-1)!.value;
+        const instance = must(
+          vi.mocked(jsPDFModule.default).mock.results.at(-1),
+        ).value;
         const calls = instance.text.mock.calls.map(
           (call: unknown[]) => call[0],
         );
@@ -1067,7 +1070,7 @@ describe("ScheduleDisplay", () => {
       }),
     });
     const switchedSchedule = {
-      ...schedule!,
+      ...schedule,
       inceptionDate: "2025-10-10",
       coverStartDate: "2025-10-10",
       coverEndDate: "2026-10-09",
@@ -1075,21 +1078,21 @@ describe("ScheduleDisplay", () => {
     };
 
     it("shows no frequency-change banner for a schedule that never switched", () => {
-      render(<ScheduleDisplay schedule={schedule!} />);
+      render(<ScheduleDisplay schedule={schedule} />);
       expect(
         screen.queryByText(/switched from Monthly to Annual/),
       ).not.toBeInTheDocument();
     });
 
     it("shows a banner and highlights the pivot row when a Monthly-to-Annual switch is detected", () => {
-      render(<ScheduleDisplay schedule={switchedSchedule as any} />);
+      render(<ScheduleDisplay schedule={switchedSchedule} />);
 
       expect(
         screen.getByText(/switched from Monthly to Annual/),
       ).toBeInTheDocument();
 
       const pivotIcon = screen.getByLabelText("Frequency changed here");
-      const pivotRow = pivotIcon.closest("tr")!;
+      const pivotRow = must(pivotIcon.closest("tr"));
       expect(pivotRow.className).toContain("ring-amber-400");
     });
   });
@@ -1143,7 +1146,7 @@ describe("ScheduleDisplay", () => {
         ],
       });
       const { container } = render(
-        <ScheduleDisplay schedule={policyAdminSchedule!} />,
+        <ScheduleDisplay schedule={must(policyAdminSchedule)} />,
       );
 
       const indexCells = container.querySelectorAll(
@@ -1156,14 +1159,14 @@ describe("ScheduleDisplay", () => {
 
   describe("Schedule Anomalies panel", () => {
     const fullItem = {
-      ...schedule!.scheduleItems[0],
+      ...schedule.scheduleItems[0],
       id: "full",
       collectionType: "Full",
       originalItem: null,
     };
-    const stampDutyItem = schedule!.scheduleItems[1]; // carries the SMD admin fee
+    const stampDutyItem = schedule.scheduleItems[1]; // carries the SMD admin fee
     const proRataItem = {
-      ...schedule!.scheduleItems[0],
+      ...schedule.scheduleItems[0],
       id: "pro-rata",
       collectionType: "ProRata",
     };
@@ -1172,7 +1175,7 @@ describe("ScheduleDisplay", () => {
       render(
         <ScheduleDisplay
           schedule={{
-            ...schedule!,
+            ...schedule,
             scheduleItems: [
               fullItem,
               stampDutyItem,
@@ -1187,14 +1190,16 @@ describe("ScheduleDisplay", () => {
       expect(warning).toHaveTextContent("Orphaned Pro-Rata Item");
       expect(warning).toHaveTextContent("Pro-Rata Item #2 has no Basis Item");
       const flag = screen.getByLabelText("Orphaned Pro-Rata Item");
-      expect(flag.closest("tr")!.querySelector("td")!.textContent).toBe("2");
+      expect(
+        must(must(flag.closest("tr")).querySelector("td")).textContent,
+      ).toBe("2");
     });
 
     it("lists warnings before info", () => {
       render(
         <ScheduleDisplay
           schedule={{
-            ...schedule!,
+            ...schedule,
             modifiedBy: "someone@example.com",
             scheduleItems: [fullItem, { ...proRataItem, originalItem: null }],
           }}
@@ -1217,7 +1222,7 @@ describe("ScheduleDisplay", () => {
     it("shows no panel when the schedule has no anomalies", () => {
       render(
         <ScheduleDisplay
-          schedule={{ ...schedule!, scheduleItems: [fullItem, stampDutyItem] }}
+          schedule={{ ...schedule, scheduleItems: [fullItem, stampDutyItem] }}
         />,
       );
 
@@ -1239,7 +1244,7 @@ describe("ScheduleDisplay", () => {
       render(
         <ScheduleDisplay
           schedule={{
-            ...schedule!,
+            ...schedule,
             scheduleItems: [
               fullItem,
               stampDutyItem,

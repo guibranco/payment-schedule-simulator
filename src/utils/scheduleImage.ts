@@ -25,6 +25,7 @@ export function buildPrintableScheduleNode(
   return container;
 }
 
+/** Triggers a browser download of the given content. */
 function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");

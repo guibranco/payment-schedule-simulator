@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from "vitest";
 import {
   detectScheduleFormat,
   detectAndNormalizeSchedule,
@@ -6,9 +6,10 @@ import {
   convertResponseToFormat,
   convertResponseToPolicyAdminDocument,
   convertResponseToReratesDocument,
-  convertResponseToRequest
-} from '../../src/utils/scheduleDetector';
-import { SAMPLE_SCHEDULES } from '../../src/constants/sampleSchedules';
+  convertResponseToRequest,
+} from "../../src/utils/scheduleDetector";
+import { SAMPLE_SCHEDULES } from "../../src/constants/sampleSchedules";
+import { must } from "../helpers";
 
 function sampleFor(format: string) {
   const sample = SAMPLE_SCHEDULES.find((s) => s.format === format);
@@ -16,227 +17,281 @@ function sampleFor(format: string) {
   return sample.json as any;
 }
 
-describe('detectScheduleFormat', () => {
-  it('detects a Payment Schedule Service Response', () => {
-    expect(detectScheduleFormat(sampleFor('response'))).toBe('response');
+describe("detectScheduleFormat", () => {
+  it("detects a Payment Schedule Service Response", () => {
+    expect(detectScheduleFormat(sampleFor("response"))).toBe("response");
   });
 
-  it('detects a Payment Schedule Service Request', () => {
-    expect(detectScheduleFormat(sampleFor('request'))).toBe('request');
+  it("detects a Payment Schedule Service Request", () => {
+    expect(detectScheduleFormat(sampleFor("request"))).toBe("request");
   });
 
-  it('detects a Policy Admin CosmosDB Document', () => {
-    expect(detectScheduleFormat(sampleFor('policyAdmin'))).toBe('policyAdmin');
+  it("detects a Policy Admin CosmosDB Document", () => {
+    expect(detectScheduleFormat(sampleFor("policyAdmin"))).toBe("policyAdmin");
   });
 
-  it('detects a Rerates CosmosDB Document', () => {
-    expect(detectScheduleFormat(sampleFor('rerates'))).toBe('rerates');
+  it("detects a Rerates CosmosDB Document", () => {
+    expect(detectScheduleFormat(sampleFor("rerates"))).toBe("rerates");
   });
 
-  it('detects a SEQ log of a Policy Admin raw request', () => {
-    expect(detectScheduleFormat(sampleFor('seq'))).toBe('seq');
+  it("detects a SEQ log of a Policy Admin raw request", () => {
+    expect(detectScheduleFormat(sampleFor("seq"))).toBe("seq");
   });
 
-  it('distinguishes SEQ (PascalCase) from Request (camelCase) sharing the same shape', () => {
-    const seq = sampleFor('seq');
-    expect(Object.prototype.hasOwnProperty.call(seq, 'CollectionFrequency')).toBe(true);
-    expect(detectScheduleFormat(sampleFor('request'))).toBe('request');
+  it("distinguishes SEQ (PascalCase) from Request (camelCase) sharing the same shape", () => {
+    const seq = sampleFor("seq");
+    expect(
+      Object.prototype.hasOwnProperty.call(seq, "CollectionFrequency"),
+    ).toBe(true);
+    expect(detectScheduleFormat(sampleFor("request"))).toBe("request");
   });
 
-  it('accepts a numeric-string netAmount for the request format', () => {
-    const request = { ...sampleFor('request'), netAmount: '749.06' };
-    expect(detectScheduleFormat(request)).toBe('request');
+  it("accepts a numeric-string netAmount for the request format", () => {
+    const request = { ...sampleFor("request"), netAmount: "749.06" };
+    expect(detectScheduleFormat(request)).toBe("request");
   });
 
-  it('throws for a non-numeric-string netAmount', () => {
-    const request = { ...sampleFor('request'), netAmount: 'not-a-number' };
-    expect(() => detectScheduleFormat(request)).toThrow(/Unrecognized JSON format/);
+  it("throws for a non-numeric-string netAmount", () => {
+    const request = { ...sampleFor("request"), netAmount: "not-a-number" };
+    expect(() => detectScheduleFormat(request)).toThrow(
+      /Unrecognized JSON format/,
+    );
   });
 
-  it('throws for null input', () => {
-    expect(() => detectScheduleFormat(null)).toThrow('Input must be a JSON object.');
+  it("throws for null input", () => {
+    expect(() => detectScheduleFormat(null)).toThrow(
+      "Input must be a JSON object.",
+    );
   });
 
-  it('throws for array input', () => {
-    expect(() => detectScheduleFormat([1, 2, 3])).toThrow('Input must be a JSON object.');
+  it("throws for array input", () => {
+    expect(() => detectScheduleFormat([1, 2, 3])).toThrow(
+      "Input must be a JSON object.",
+    );
   });
 
-  it('throws for an unrecognized shape', () => {
-    expect(() => detectScheduleFormat({ foo: 'bar' })).toThrow(/Unrecognized JSON format/);
+  it("throws for an unrecognized shape", () => {
+    expect(() => detectScheduleFormat({ foo: "bar" })).toThrow(
+      /Unrecognized JSON format/,
+    );
   });
 });
 
-describe('detectAndNormalizeSchedule', () => {
-  it('normalizes a Response document', () => {
-    const { format, schedule, input } = detectAndNormalizeSchedule(sampleFor('response'));
-    expect(format).toBe('response');
+describe("detectAndNormalizeSchedule", () => {
+  it("normalizes a Response document", () => {
+    const { format, schedule, input } = detectAndNormalizeSchedule(
+      sampleFor("response"),
+    );
+    expect(format).toBe("response");
     expect(schedule).not.toBeNull();
-    expect(schedule!.id).toBe('b679beb3-b37d-42e5-b075-ae0ce2374009');
-    expect(schedule!.collectionFrequency).toBe('annual');
-    expect(schedule!.scheduleItems).toHaveLength(2);
-    expect(schedule!.scheduleItems[0].succeeded).toBe(true);
+    expect(must(schedule).id).toBe("b679beb3-b37d-42e5-b075-ae0ce2374009");
+    expect(must(schedule).collectionFrequency).toBe("annual");
+    expect(must(schedule).scheduleItems).toHaveLength(2);
+    expect(must(schedule).scheduleItems[0].succeeded).toBe(true);
     expect(input).not.toBeNull();
   });
 
-  it('normalizes a Policy Admin CosmosDB document (PascalCase -> camelCase)', () => {
-    const { format, schedule } = detectAndNormalizeSchedule(sampleFor('policyAdmin'));
-    expect(format).toBe('policyAdmin');
-    expect(schedule!.id).toBe('75360b78-48a4-4244-8a67-30bf6cfd1571');
-    expect(schedule!.collectionFrequency).toBe('monthly');
-    expect(schedule!.collectionDay).toBe(23);
-    expect(schedule!.scheduleItems).toHaveLength(2);
+  it("normalizes a Policy Admin CosmosDB document (PascalCase -> camelCase)", () => {
+    const { format, schedule } = detectAndNormalizeSchedule(
+      sampleFor("policyAdmin"),
+    );
+    expect(format).toBe("policyAdmin");
+    expect(must(schedule).id).toBe("75360b78-48a4-4244-8a67-30bf6cfd1571");
+    expect(must(schedule).collectionFrequency).toBe("monthly");
+    expect(must(schedule).collectionDay).toBe(23);
+    expect(must(schedule).scheduleItems).toHaveLength(2);
     // Policy Admin sample items have no explicit Succeeded field
-    expect(schedule!.scheduleItems[0].succeeded).toBeNull();
+    expect(must(schedule).scheduleItems[0].succeeded).toBeNull();
     // Second item has an AdminFees.SMD entry
-    expect(schedule!.scheduleItems[1].adminFees.SMD).toEqual({ amountDue: 1, taxAmount: 0 });
+    expect(must(schedule).scheduleItems[1].adminFees.SMD).toEqual({
+      amountDue: 1,
+      taxAmount: 0,
+    });
   });
 
-  it('normalizes a Rerates CosmosDB document (Items -> scheduleItems)', () => {
-    const { format, schedule } = detectAndNormalizeSchedule(sampleFor('rerates'));
-    expect(format).toBe('rerates');
-    expect(schedule!.id).toBe('fd394238-476c-469b-b368-8bab0fcf65ae');
-    expect(schedule!.collectionFrequency).toBe('annual');
-    expect(schedule!.scheduleItems).toHaveLength(2);
+  it("normalizes a Rerates CosmosDB document (Items -> scheduleItems)", () => {
+    const { format, schedule } = detectAndNormalizeSchedule(
+      sampleFor("rerates"),
+    );
+    expect(format).toBe("rerates");
+    expect(must(schedule).id).toBe("fd394238-476c-469b-b368-8bab0fcf65ae");
+    expect(must(schedule).collectionFrequency).toBe("annual");
+    expect(must(schedule).scheduleItems).toHaveLength(2);
     // Rerates sample items explicitly set Succeeded: null
-    expect(schedule!.scheduleItems[0].succeeded).toBeNull();
+    expect(must(schedule).scheduleItems[0].succeeded).toBeNull();
   });
 
-  it('normalizes a Request with an embedded currentSchedule', () => {
-    const { format, schedule, input } = detectAndNormalizeSchedule(sampleFor('request'));
-    expect(format).toBe('request');
+  it("normalizes a Request with an embedded currentSchedule", () => {
+    const { format, schedule, input } = detectAndNormalizeSchedule(
+      sampleFor("request"),
+    );
+    expect(format).toBe("request");
     expect(schedule).not.toBeNull();
-    expect(schedule!.id).toBe('b679beb3-b37d-42e5-b075-ae0ce2374009');
+    expect(must(schedule).id).toBe("b679beb3-b37d-42e5-b075-ae0ce2374009");
     expect(input).not.toBeNull();
-    expect(input!.collectionFrequency).toBe('Annual');
-    expect(input!.netAmount).toBe(749.06);
-    expect(input!.currentSchedule).toBe(schedule);
+    expect(must(input).collectionFrequency).toBe("Annual");
+    expect(must(input).netAmount).toBe(749.06);
+    expect(must(input).currentSchedule).toBe(schedule);
   });
 
-  it('normalizes a Request without a currentSchedule', () => {
-    const request = sampleFor('request');
+  it("normalizes a Request without a currentSchedule", () => {
+    const request = sampleFor("request");
     const { currentSchedule, ...withoutCurrentSchedule } = request;
-    const { format, schedule, input } = detectAndNormalizeSchedule(withoutCurrentSchedule);
-    expect(format).toBe('request');
+    const { format, schedule, input } = detectAndNormalizeSchedule(
+      withoutCurrentSchedule,
+    );
+    expect(format).toBe("request");
     expect(schedule).toBeNull();
     expect(input).not.toBeNull();
-    expect(input!.netAmount).toBe(749.06);
-    expect(input!.currentSchedule).toBeUndefined();
+    expect(must(input).netAmount).toBe(749.06);
+    expect(must(input).currentSchedule).toBeUndefined();
   });
 
-  it('coerces a numeric-string netAmount on a Request', () => {
-    const request = { ...sampleFor('request'), netAmount: '749.06' };
+  it("coerces a numeric-string netAmount on a Request", () => {
+    const request = { ...sampleFor("request"), netAmount: "749.06" };
     delete request.currentSchedule;
     const { input } = detectAndNormalizeSchedule(request);
-    expect(input!.netAmount).toBe(749.06);
+    expect(must(input).netAmount).toBe(749.06);
   });
 
-  it('normalizes a SEQ log (PascalCase, integer enums) with an embedded CurrentSchedule', () => {
-    const { format, schedule, input } = detectAndNormalizeSchedule(sampleFor('seq'));
-    expect(format).toBe('seq');
+  it("normalizes a SEQ log (PascalCase, integer enums) with an embedded CurrentSchedule", () => {
+    const { format, schedule, input } = detectAndNormalizeSchedule(
+      sampleFor("seq"),
+    );
+    expect(format).toBe("seq");
     expect(input).not.toBeNull();
     // Top-level CollectionFrequency: 2 -> Annual
-    expect(input!.collectionFrequency).toBe('Annual');
-    expect(input!.netAmount).toBeCloseTo(1272.35438134493, 5);
-    expect(input!.taxesAndLevies.LVY['2024-01-01']).toBeCloseTo(38.1706314403479, 5);
-    expect(input!.adminFees.CAN).toEqual({ amountDue: 0, taxAmount: 0 });
+    expect(must(input).collectionFrequency).toBe("Annual");
+    expect(must(input).netAmount).toBeCloseTo(1272.35438134493, 5);
+    expect(must(input).taxesAndLevies.LVY["2024-01-01"]).toBeCloseTo(
+      38.1706314403479,
+      5,
+    );
+    expect(must(input).adminFees.CAN).toEqual({ amountDue: 0, taxAmount: 0 });
 
     expect(schedule).not.toBeNull();
-    expect(schedule!.id).toBe('3f7d5dcb-05c3-447e-a488-959e20e93be8');
-    expect(schedule!.collectionFrequency).toBe('annual');
-    expect(schedule!.scheduleItems).toHaveLength(3);
+    expect(must(schedule).id).toBe("3f7d5dcb-05c3-447e-a488-959e20e93be8");
+    expect(must(schedule).collectionFrequency).toBe("annual");
+    expect(must(schedule).scheduleItems).toHaveLength(3);
 
     // CollectionType: 1 -> Full, 2 -> ProRata
-    expect(schedule!.scheduleItems[0].collectionType).toBe('Full');
-    expect(schedule!.scheduleItems[2].collectionType).toBe('ProRata');
-    expect(schedule!.scheduleItems[2].originalItem?.collectionType).toBe('Full');
-    expect(schedule!.scheduleItems[1].adminFees.SMD).toEqual({ amountDue: 1, taxAmount: 0 });
-    expect(input!.currentSchedule).toBe(schedule);
+    expect(must(schedule).scheduleItems[0].collectionType).toBe("Full");
+    expect(must(schedule).scheduleItems[2].collectionType).toBe("ProRata");
+    expect(must(schedule).scheduleItems[2].originalItem?.collectionType).toBe(
+      "Full",
+    );
+    expect(must(schedule).scheduleItems[1].adminFees.SMD).toEqual({
+      amountDue: 1,
+      taxAmount: 0,
+    });
+    expect(must(input).currentSchedule).toBe(schedule);
   });
 
-  it('normalizes a SEQ log without a CurrentSchedule', () => {
-    const seq = sampleFor('seq');
+  it("normalizes a SEQ log without a CurrentSchedule", () => {
+    const seq = sampleFor("seq");
     const { CurrentSchedule, ...withoutCurrentSchedule } = seq;
-    const { format, schedule, input } = detectAndNormalizeSchedule(withoutCurrentSchedule);
-    expect(format).toBe('seq');
+    const { format, schedule, input } = detectAndNormalizeSchedule(
+      withoutCurrentSchedule,
+    );
+    expect(format).toBe("seq");
     expect(schedule).toBeNull();
     expect(input).not.toBeNull();
-    expect(input!.netAmount).toBeCloseTo(1272.35438134493, 5);
-    expect(input!.currentSchedule).toBeUndefined();
+    expect(must(input).netAmount).toBeCloseTo(1272.35438134493, 5);
+    expect(must(input).currentSchedule).toBeUndefined();
   });
 });
 
-describe('deriveInputFromResponse', () => {
-  it('derives approximate input parameters from a computed schedule', () => {
-    const { schedule } = detectAndNormalizeSchedule(sampleFor('response'));
-    const input = deriveInputFromResponse(schedule!);
+describe("deriveInputFromResponse", () => {
+  it("derives approximate input parameters from a computed schedule", () => {
+    const { schedule } = detectAndNormalizeSchedule(sampleFor("response"));
+    const input = deriveInputFromResponse(must(schedule));
 
-    expect(input.collectionFrequency).toBe('Annual');
-    expect(input.scheduleStartDate).toBe(schedule!.coverStartDate);
-    expect(input.dueDate).toBe(schedule!.scheduleItems[0].dueDate);
+    expect(input.collectionFrequency).toBe("Annual");
+    expect(input.scheduleStartDate).toBe(must(schedule).coverStartDate);
+    expect(input.dueDate).toBe(must(schedule).scheduleItems[0].dueDate);
     // netAmount is approximated as the sum of item net amounts
-    const expectedNet = schedule!.scheduleItems.reduce((sum, item) => sum + item.netAmount, 0);
+    const expectedNet = must(schedule).scheduleItems.reduce(
+      (sum, item) => sum + item.netAmount,
+      0,
+    );
     expect(input.netAmount).toBeCloseTo(expectedNet, 5);
     expect(input.currentSchedule).toBe(schedule);
   });
 
-  it('normalizes Monthly frequency casing', () => {
-    const { schedule } = detectAndNormalizeSchedule(sampleFor('policyAdmin'));
-    const input = deriveInputFromResponse(schedule!);
-    expect(input.collectionFrequency).toBe('Monthly');
+  it("normalizes Monthly frequency casing", () => {
+    const { schedule } = detectAndNormalizeSchedule(sampleFor("policyAdmin"));
+    const input = deriveInputFromResponse(must(schedule));
+    expect(input.collectionFrequency).toBe("Monthly");
   });
 });
 
-describe('reverse converters (View JSON as...)', () => {
-  const { schedule } = detectAndNormalizeSchedule(sampleFor('response'));
+describe("reverse converters (View JSON as...)", () => {
+  const { schedule } = detectAndNormalizeSchedule(sampleFor("response"));
 
-  it('convertResponseToPolicyAdminDocument produces PascalCase fields with ScheduleItems', () => {
-    const doc = convertResponseToPolicyAdminDocument(schedule!) as any;
-    expect(doc.PaymentScheduleId).toBe(schedule!.id);
-    expect(doc.CollectionFrequency).toBe('Annual');
+  it("convertResponseToPolicyAdminDocument produces PascalCase fields with ScheduleItems", () => {
+    const doc = convertResponseToPolicyAdminDocument(must(schedule)) as any;
+    expect(doc.PaymentScheduleId).toBe(must(schedule).id);
+    expect(doc.CollectionFrequency).toBe("Annual");
     expect(Array.isArray(doc.ScheduleItems)).toBe(true);
-    expect(doc.ScheduleItems).toHaveLength(schedule!.scheduleItems.length);
-    expect(doc.ScheduleItems[0].Id).toBe(schedule!.scheduleItems[0].id);
-    expect(doc.ScheduleItems[0].AmountDue).toBe(schedule!.scheduleItems[0].amountDue);
+    expect(doc.ScheduleItems).toHaveLength(must(schedule).scheduleItems.length);
+    expect(doc.ScheduleItems[0].Id).toBe(must(schedule).scheduleItems[0].id);
+    expect(doc.ScheduleItems[0].AmountDue).toBe(
+      must(schedule).scheduleItems[0].amountDue,
+    );
     expect(doc.Items).toBeUndefined();
   });
 
-  it('convertResponseToReratesDocument produces PascalCase fields with Items', () => {
-    const doc = convertResponseToReratesDocument(schedule!) as any;
-    expect(doc.PaymentScheduleId).toBe(schedule!.id);
+  it("convertResponseToReratesDocument produces PascalCase fields with Items", () => {
+    const doc = convertResponseToReratesDocument(must(schedule)) as any;
+    expect(doc.PaymentScheduleId).toBe(must(schedule).id);
     expect(Array.isArray(doc.Items)).toBe(true);
-    expect(doc.Items).toHaveLength(schedule!.scheduleItems.length);
-    expect(doc.Items[0].Id).toBe(schedule!.scheduleItems[0].id);
+    expect(doc.Items).toHaveLength(must(schedule).scheduleItems.length);
+    expect(doc.Items[0].Id).toBe(must(schedule).scheduleItems[0].id);
     expect(doc.ScheduleItems).toBeUndefined();
   });
 
-  it('convertResponseToRequest derives a PaymentScheduleInput from the schedule', () => {
-    const request = convertResponseToRequest(schedule!);
-    expect(request.collectionFrequency).toBe('Annual');
-    expect(request.scheduleStartDate).toBe(schedule!.coverStartDate);
+  it("convertResponseToRequest derives a PaymentScheduleInput from the schedule", () => {
+    const request = convertResponseToRequest(must(schedule));
+    expect(request.collectionFrequency).toBe("Annual");
+    expect(request.scheduleStartDate).toBe(must(schedule).coverStartDate);
     expect(request.currentSchedule).toBe(schedule);
   });
 
-  it('convertResponseToFormat dispatches to the right converter for each format', () => {
-    expect(convertResponseToFormat(schedule!, 'response')).toBe(schedule);
-    expect((convertResponseToFormat(schedule!, 'policyAdmin') as any).ScheduleItems).toBeDefined();
-    expect((convertResponseToFormat(schedule!, 'rerates') as any).Items).toBeDefined();
-    expect((convertResponseToFormat(schedule!, 'request') as any).scheduleStartDate).toBeDefined();
+  it("convertResponseToFormat dispatches to the right converter for each format", () => {
+    expect(convertResponseToFormat(must(schedule), "response")).toBe(schedule);
+    expect(
+      (convertResponseToFormat(must(schedule), "policyAdmin") as any)
+        .ScheduleItems,
+    ).toBeDefined();
+    expect(
+      (convertResponseToFormat(must(schedule), "rerates") as any).Items,
+    ).toBeDefined();
+    expect(
+      (convertResponseToFormat(must(schedule), "request") as any)
+        .scheduleStartDate,
+    ).toBeDefined();
   });
 
-  it('round-trips a Policy Admin document through convert -> detect -> normalize', () => {
-    const doc = convertResponseToPolicyAdminDocument(schedule!);
+  it("round-trips a Policy Admin document through convert -> detect -> normalize", () => {
+    const doc = convertResponseToPolicyAdminDocument(must(schedule));
     const redetected = detectAndNormalizeSchedule(doc);
-    expect(redetected.format).toBe('policyAdmin');
-    expect(redetected.schedule!.id).toBe(schedule!.id);
-    expect(redetected.schedule!.scheduleItems).toHaveLength(schedule!.scheduleItems.length);
-    expect(redetected.schedule!.scheduleItems[0].amountDue).toBe(schedule!.scheduleItems[0].amountDue);
+    expect(redetected.format).toBe("policyAdmin");
+    expect(must(redetected.schedule).id).toBe(must(schedule).id);
+    expect(must(redetected.schedule).scheduleItems).toHaveLength(
+      must(schedule).scheduleItems.length,
+    );
+    expect(must(redetected.schedule).scheduleItems[0].amountDue).toBe(
+      must(schedule).scheduleItems[0].amountDue,
+    );
   });
 
-  it('round-trips a Rerates document through convert -> detect -> normalize', () => {
-    const doc = convertResponseToReratesDocument(schedule!);
+  it("round-trips a Rerates document through convert -> detect -> normalize", () => {
+    const doc = convertResponseToReratesDocument(must(schedule));
     const redetected = detectAndNormalizeSchedule(doc);
-    expect(redetected.format).toBe('rerates');
-    expect(redetected.schedule!.id).toBe(schedule!.id);
-    expect(redetected.schedule!.scheduleItems).toHaveLength(schedule!.scheduleItems.length);
+    expect(redetected.format).toBe("rerates");
+    expect(must(redetected.schedule).id).toBe(must(schedule).id);
+    expect(must(redetected.schedule).scheduleItems).toHaveLength(
+      must(schedule).scheduleItems.length,
+    );
   });
 });

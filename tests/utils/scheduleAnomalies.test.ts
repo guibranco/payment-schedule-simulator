@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { detectScheduleAnomalies } from "../../src/utils/scheduleAnomalies";
 import { detectAndNormalizeSchedule } from "../../src/utils/scheduleDetector";
 import type { PaymentScheduleResponse, ScheduleItem } from "../../src/types";
+import { must } from "../helpers";
 
 // A real Policy Admin document (identifiers trimmed): an Annual schedule after a Surgery, with a
 // Full Item for the running + Buffer Period, its Stamp Duty, and a Pro-Rata Item collecting the
@@ -74,7 +75,9 @@ const policyAdminDocument = {
   ModifiedBy: "RERATE",
 };
 
-const baseSchedule = detectAndNormalizeSchedule(policyAdminDocument).schedule!;
+const baseSchedule = must(
+  detectAndNormalizeSchedule(policyAdminDocument).schedule,
+);
 const [fullItem, stampDutyItem, proRataItem] = baseSchedule.scheduleItems;
 
 function withItems(
@@ -90,7 +93,7 @@ function kinds(schedule: PaymentScheduleResponse): string[] {
 
 function stampDuty(
   amount: number,
-  adjustmentDate: string,
+  adjustmentDate: string | null,
   id = `smd-${adjustmentDate}`,
 ): ScheduleItem {
   return {
@@ -137,7 +140,10 @@ describe("detectScheduleAnomalies", () => {
     it("flags a Basis Item that has a Basis Item of its own", () => {
       const nested = {
         ...proRataItem,
-        originalItem: { ...proRataItem.originalItem!, originalItem: fullItem },
+        originalItem: {
+          ...must(proRataItem.originalItem),
+          originalItem: fullItem,
+        },
       };
       expect(kinds(withItems([fullItem, stampDutyItem, nested]))).toContain(
         "nestedBasisItem",

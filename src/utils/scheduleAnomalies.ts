@@ -52,18 +52,22 @@ function dayNumber(date: string | null | undefined): number {
   );
 }
 
+/** Formats an amount in euros with two decimals. */
 function formatAmount(amount: number): string {
   return `€${amount.toFixed(2)}`;
 }
 
+/** Lists item indexes as "#1, #3" for anomaly messages. */
 function itemList(indexes: number[]): string {
   return indexes.map((i) => `#${i}`).join(", ");
 }
 
+/** Picks the singular or plural form for a count. */
 function plural(count: number, singular: string, pluralForm: string): string {
   return count === 1 ? singular : pluralForm;
 }
 
+/** The amount due of the item's admin fee with this code (case-insensitive), or null when absent. */
 function adminFeeAmount(item: ScheduleItem, code: string): number | null {
   const fee = Object.entries(item.adminFees || {}).find(
     ([key]) => key.toUpperCase() === code,
@@ -71,6 +75,7 @@ function adminFeeAmount(item: ScheduleItem, code: string): number | null {
   return fee ? Number(fee.amountDue || 0) : null;
 }
 
+/** Whether the item is an Admin Fee Item (carries any admin fee). */
 function isAdminFeeItem(item: ScheduleItem): boolean {
   return Object.keys(item.adminFees || {}).length > 0;
 }
@@ -86,6 +91,7 @@ function premiumFullItems(
     );
 }
 
+/** Frequency Switch (info): Monthly changed to Annual partway through the cover period. */
 function detectFrequencySwitch(
   schedule: PaymentScheduleResponse,
 ): ScheduleAnomaly[] {
@@ -105,6 +111,7 @@ function detectFrequencySwitch(
   ];
 }
 
+/** Orphaned Pro-Rata Item (warning): Pro-Rata Items with no Basis Item. */
 function detectOrphanedProRataItems(items: ScheduleItem[]): ScheduleAnomaly[] {
   const indexes = items.flatMap((item, index) =>
     isCollectionType(item, "proRata") && !item.originalItem ? [index] : [],
@@ -121,6 +128,7 @@ function detectOrphanedProRataItems(items: ScheduleItem[]): ScheduleAnomaly[] {
   ];
 }
 
+/** Nested Basis Item (warning): Basis Items that have a Basis Item of their own. */
 function detectNestedBasisItems(items: ScheduleItem[]): ScheduleAnomaly[] {
   const indexes = items.flatMap((item, index) =>
     item.originalItem?.originalItem ? [index] : [],
@@ -187,6 +195,7 @@ function expectedProRataAmount(
   };
 }
 
+/** Pro-Rata Amount Mismatch (warning) for checkable Pro-Rata Items; Unverified Pro-Rata Amount (info) for the rest. */
 function detectProRataAmounts(items: ScheduleItem[]): ScheduleAnomaly[] {
   const fullItems = premiumFullItems(items);
   const mismatches: Array<{ index: number; expected: number; actual: number }> =
@@ -232,10 +241,12 @@ function detectProRataAmounts(items: ScheduleItem[]): ScheduleAnomaly[] {
   return anomalies;
 }
 
+/** Sum of the items' amounts due. */
 function totalAmountDue(items: ScheduleItem[]): number {
   return items.reduce((sum, item) => sum + Number(item.amountDue || 0), 0);
 }
 
+/** Stamp Duty Imbalance (warning) and Unexpected Stamp Duty Amount (info). */
 function detectStampDuty(schedule: PaymentScheduleResponse): ScheduleAnomaly[] {
   const items = schedule.scheduleItems;
   // Charges and refunds in the order they were applied (Adjustment Date, then schedule order).
@@ -300,6 +311,7 @@ function detectStampDuty(schedule: PaymentScheduleResponse): ScheduleAnomaly[] {
   return anomalies;
 }
 
+/** Annual Premium Mismatch (warning): a full-period Full Item whose net amount isn't the Annualised Premium. */
 function detectAnnualPremiumMismatch(
   schedule: PaymentScheduleResponse,
 ): ScheduleAnomaly[] {
@@ -335,6 +347,7 @@ function detectAnnualPremiumMismatch(
     }));
 }
 
+/** Collection Fee Charged and Prohibited Cancellation Fee (warnings). */
 function detectAdminFees(schedule: PaymentScheduleResponse): ScheduleAnomaly[] {
   const items = schedule.scheduleItems;
   const anomalies: ScheduleAnomaly[] = [];
@@ -372,6 +385,7 @@ function detectAdminFees(schedule: PaymentScheduleResponse): ScheduleAnomaly[] {
   return anomalies;
 }
 
+/** Surgery Detected (info): the schedule was last modified by a person. */
 function detectSurgery(schedule: PaymentScheduleResponse): ScheduleAnomaly[] {
   const modifiedBy = schedule.modifiedBy;
   if (!modifiedBy || !modifiedBy.includes("@")) return [];

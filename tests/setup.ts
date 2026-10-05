@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom/vitest';
+import "@testing-library/jest-dom/vitest";
 
 // Node 22+'s built-in Web Storage global can shadow jsdom's window.localStorage and
 // throws without a `--localstorage-file`. Replace it with a plain in-memory Storage
@@ -15,7 +15,7 @@ class MemoryStorage implements Storage {
   }
 
   getItem(key: string) {
-    return this.store.has(key) ? this.store.get(key)! : null;
+    return this.store.get(key) ?? null;
   }
 
   key(index: number) {
@@ -31,8 +31,8 @@ class MemoryStorage implements Storage {
   }
 }
 
-Object.defineProperty(globalThis, 'localStorage', {
+Object.defineProperty(globalThis, "localStorage", {
   value: new MemoryStorage(),
   writable: true,
-  configurable: true
+  configurable: true,
 });

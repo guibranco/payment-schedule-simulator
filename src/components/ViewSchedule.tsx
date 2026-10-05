@@ -55,6 +55,7 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
   >(null);
   const [isCollectionsLoaderOpen, setIsCollectionsLoaderOpen] = useState(false);
 
+  /** Detects and normalizes pasted/uploaded JSON, showing the schedule or a parse error. */
   const processJson = (raw: string) => {
     try {
       const json = JSON.parse(raw);
@@ -80,11 +81,13 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
     }
   };
 
+  /** Parses the pasted JSON. */
   const handlePasteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     processJson(jsonInput);
   };
 
+  /** Reads an uploaded JSON file into the text area and parses it. */
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -98,6 +101,7 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
     reader.readAsText(file);
   };
 
+  /** Fills the text area with the chosen sample schedule. */
   const handleExampleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     setSelectedExample(value);
@@ -107,6 +111,7 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
     }
   };
 
+  /** Clears the current schedule so a new one can be parsed. */
   const handleReset = () => {
     setJsonInput("");
     setSelectedExample("");
@@ -117,6 +122,7 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
     setCollections(null);
   };
 
+  /** Cycles an item's succeeded status: unknown → succeeded → failed → unknown. */
   const handleStatusChange = (index: number) => {
     if (!schedule) return;
 
@@ -177,8 +183,8 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
                   ))}
                 </ul>
                 <p className="mt-2">
-                  Use the "Load Example" dropdown next to the buttons below to
-                  try a sample of each format.
+                  Use the &quot;Load Example&quot; dropdown next to the buttons
+                  below to try a sample of each format.
                 </p>
               </div>
             </div>
