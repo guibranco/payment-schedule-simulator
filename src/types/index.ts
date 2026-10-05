@@ -1,4 +1,4 @@
-export type CollectionFrequency = 'Monthly' | 'Annual';
+export type CollectionFrequency = "Monthly" | "Annual";
 
 export interface AdminFee {
   amountDue: number;
@@ -47,6 +47,14 @@ export interface PaymentScheduleResponse {
   coverStartDate: string;
   coverEndDate: string;
   scheduleItems: ScheduleItem[];
+  // Policy-level context only present on CosmosDB documents (not on Payment Schedule
+  // Service responses), used to detect Schedule Anomalies.
+  /** The policy's full-year net premium (`RiskTotalAnnualisedPremium`, Policy Admin only). */
+  annualisedPremium?: number | null;
+  /** The policy's status, e.g. AC (active) or CX (cancelled) (`RiskStatus`, Policy Admin only). */
+  riskStatus?: string | null;
+  /** Who last modified the document: a system account, or a person's email after a Surgery. */
+  modifiedBy?: string | null;
 }
 
 // Collections reconciliation types
@@ -82,7 +90,11 @@ export interface CollectionTransaction {
   modifiedDate?: string;
 }
 
-export type ReconciledStatus = 'collected' | 'rejected' | 'refunded' | 'pending';
+export type ReconciledStatus =
+  | "collected"
+  | "rejected"
+  | "refunded"
+  | "pending";
 
 export interface ItemReconciliation {
   status: ReconciledStatus;
@@ -125,5 +137,5 @@ export interface ProblemDetailsError {
 export interface ApiErrorResponse {
   message: string;
   details: string[];
-  type: 'validation' | 'problem-details' | 'generic';
+  type: "validation" | "problem-details" | "generic";
 }

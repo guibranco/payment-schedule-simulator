@@ -43,11 +43,8 @@ import {
   getEffectiveSucceeded,
   getEffectiveCreatedDate,
 } from "../utils/reconcileCollections";
-import { detectFrequencyChange } from "../utils/detectFrequencyChange";
-import {
-  isCollectionType,
-  findProRataItemsWithoutOriginal,
-} from "../utils/collectionType";
+import { detectScheduleAnomalies } from "../utils/scheduleAnomalies";
+import { isCollectionType } from "../utils/collectionType";
 import Modal from "./Modal";
 
 interface Props {
@@ -232,14 +229,19 @@ export default function ScheduleDisplay({
     ? reconciliation?.get(reconciliationDetailItemId)
     : null;
 
-  const frequencyChange = useMemo(
-    () => (schedule ? detectFrequencyChange(schedule) : { detected: false }),
+  const anomalies = useMemo(
+    () => detectScheduleAnomalies(schedule),
     [schedule],
   );
-  const orphanProRataIndexes = useMemo(
-    () => findProRataItemsWithoutOriginal(scheduleItems),
-    [scheduleItems],
-  );
+  const frequencySwitchIndex = anomalies.find(
+    (anomaly) => anomaly.kind === "frequencySwitch",
+  )?.itemIndexes[0];
+  const itemAnomalies = (index: number) =>
+    anomalies.filter(
+      (anomaly) =>
+        anomaly.kind !== "frequencySwitch" &&
+        anomaly.itemIndexes.includes(index),
+    );
 
   const formatDate = (dateStr: string) => {
     if (!dateStr || dateStr === "0001-01-01T00:00:00+00:00") return "-";
@@ -672,33 +674,49 @@ export default function ScheduleDisplay({
             </div>
           </div>
 
-          {frequencyChange.detected && (
-            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-              <ArrowRightLeft className="w-5 h-5 flex-shrink-0 text-amber-700 mt-0.5" />
-              <span className="text-sm font-medium text-amber-900">
-                {frequencyChange.message}
-              </span>
-            </div>
-          )}
-
-          {orphanProRataIndexes.length > 0 && (
-            <div
-              role="alert"
-              className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2"
+          {anomalies.length > 0 && (
+            <section
+              aria-label="Schedule Anomalies"
+              className="mb-6 border border-gray-200 rounded-lg overflow-hidden"
             >
-              <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-700 mt-0.5" />
-              <span className="text-sm font-medium text-red-900">
-                This schedule is possibly wrong:{" "}
-                {orphanProRataIndexes.length === 1
-                  ? "pro-rata item"
-                  : "pro-rata items"}{" "}
-                #{orphanProRataIndexes.join(", #")}{" "}
-                {orphanProRataIndexes.length === 1 ? "has" : "have"} no original
-                item. A pro-rata adjustment is always calculated against the
-                Full item it replaces, so without it the amount and period can't
-                be verified.
-              </span>
-            </div>
+              <h3 className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                Schedule Anomalies ({anomalies.length})
+              </h3>
+              <ul className="divide-y divide-gray-200">
+                {anomalies.map((anomaly) => {
+                  const isWarning = anomaly.severity === "warning";
+                  const Icon =
+                    anomaly.kind === "frequencySwitch"
+                      ? ArrowRightLeft
+                      : isWarning
+                        ? AlertTriangle
+                        : Info;
+                  return (
+                    <li
+                      key={anomaly.kind + anomaly.itemIndexes.join(",")}
+                      role={isWarning ? "alert" : undefined}
+                      className={`p-3 flex items-start gap-2 ${isWarning ? "bg-red-50" : "bg-blue-50"}`}
+                    >
+                      <Icon
+                        className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isWarning ? "text-red-700" : "text-blue-700"}`}
+                      />
+                      <div
+                        className={`text-sm ${isWarning ? "text-red-900" : "text-blue-900"}`}
+                      >
+                        <p className="font-semibold">
+                          {anomaly.title}
+                          <span className="ml-2 text-xs font-medium uppercase opacity-70">
+                            {anomaly.severity}
+                          </span>
+                        </p>
+                        <p>{anomaly.message}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           )}
 
           {reconciliationSummary && (
@@ -737,21 +755,19 @@ export default function ScheduleDisplay({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-green-100 rounded"></div>
-                <span className="text-sm text-gray-600">Full Collection</span>
+                <span className="text-sm text-gray-600">Full Item</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-yellow-100 rounded"></div>
-                <span className="text-sm text-gray-600">
-                  Pro Rata Collection
-                </span>
+                <span className="text-sm text-gray-600">Pro-Rata Item</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-orange-100 rounded"></div>
-                <span className="text-sm text-gray-600">Admin Fee</span>
+                <span className="text-sm text-gray-600">Admin Fee Item</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-blue-100 rounded"></div>
-                <span className="text-sm text-gray-600">Refund</span>
+                <span className="text-sm text-gray-600">Refund Item</span>
               </div>
             </div>
           </div>
@@ -791,7 +807,7 @@ export default function ScheduleDisplay({
                     Adjustment Date
                   </th>
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Has Original Item
+                    Has Basis Item
                   </th>
                   {reconciliation && (
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -802,9 +818,7 @@ export default function ScheduleDisplay({
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {scheduleItems.map((item, index) => {
-                  const isFrequencyChangePivot =
-                    frequencyChange.detected &&
-                    item.id === frequencyChange.pivotItemId;
+                  const isFrequencyChangePivot = index === frequencySwitchIndex;
                   return (
                     <tr
                       key={item.id}
@@ -821,11 +835,20 @@ export default function ScheduleDisplay({
                               aria-label="Frequency changed here"
                             />
                           )}
-                          {orphanProRataIndexes.includes(index) && (
-                            <AlertTriangle
-                              className="w-3.5 h-3.5 text-red-700"
-                              aria-label="Pro-rata item without original item"
-                            />
+                          {itemAnomalies(index).map((anomaly) =>
+                            anomaly.severity === "warning" ? (
+                              <AlertTriangle
+                                key={anomaly.kind}
+                                className="w-3.5 h-3.5 text-red-700"
+                                aria-label={anomaly.title}
+                              />
+                            ) : (
+                              <Info
+                                key={anomaly.kind}
+                                className="w-3.5 h-3.5 text-blue-700"
+                                aria-label={anomaly.title}
+                              />
+                            ),
                           )}
                         </span>
                       </td>
@@ -908,7 +931,7 @@ export default function ScheduleDisplay({
                               setOriginalItemDetail(item.originalItem!)
                             }
                             className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:opacity-80 transition-opacity"
-                            title="View original item details"
+                            title="View Basis Item details"
                           >
                             <History className="w-3.5 h-3.5" />
                             Yes
@@ -1075,7 +1098,7 @@ export default function ScheduleDisplay({
       <Modal
         isOpen={originalItemDetail !== null}
         onClose={() => setOriginalItemDetail(null)}
-        title="Original Item"
+        title="Basis Item"
       >
         {originalItemDetail &&
           (() => {
@@ -1093,16 +1116,21 @@ export default function ScheduleDisplay({
                     </p>
                   </div>
                 ) : (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 text-sm flex items-start gap-2">
+                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
                     <p>
                       This item isn't part of the current schedule's items — it
                       was likely generated on the fly by the Payment Schedule
                       service to compute this adjustment, rather than being a
-                      persisted schedule item.
+                      persisted schedule item. This is the usual case for a
+                      Basis Item.
                     </p>
                   </div>
                 )}
+                <p className="text-xs text-gray-500">
+                  The full-period item this Pro-Rata Item's amount is calculated
+                  from (<code>originalItem</code> in the JSON).
+                </p>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <h3 className="font-medium text-gray-500">Id</h3>
@@ -1184,7 +1212,7 @@ export default function ScheduleDisplay({
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-500">
-                      Has Its Own Original Item
+                      Has Its Own Basis Item
                     </h3>
                     <p>{originalItemDetail.originalItem ? "Yes" : "No"}</p>
                   </div>

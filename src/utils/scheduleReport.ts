@@ -10,6 +10,10 @@ import {
   getEffectiveSucceeded,
   getEffectiveCreatedDate,
 } from "./reconcileCollections";
+import {
+  detectScheduleAnomalies,
+  type ScheduleAnomaly,
+} from "./scheduleAnomalies";
 
 // Hex equivalents of the Tailwind theme (tailwind.config.js) and utility classes used in
 // ScheduleDisplay. Exports can't rely on the app's stylesheet: html2canvas's CSS parser cannot
@@ -38,10 +42,10 @@ export const REPORT_COLORS = {
 };
 
 export const ROW_TYPE_LEGEND: Array<{ color: string; label: string }> = [
-  { color: REPORT_COLORS.green100, label: "Full Collection" },
-  { color: REPORT_COLORS.yellow100, label: "Pro Rata Collection" },
-  { color: REPORT_COLORS.orange100, label: "Admin Fee" },
-  { color: REPORT_COLORS.blue100, label: "Refund" },
+  { color: REPORT_COLORS.green100, label: "Full Item" },
+  { color: REPORT_COLORS.yellow100, label: "Pro-Rata Item" },
+  { color: REPORT_COLORS.orange100, label: "Admin Fee Item" },
+  { color: REPORT_COLORS.blue100, label: "Refund Item" },
 ];
 
 export function escapeHtml(value: unknown): string {
@@ -120,6 +124,7 @@ export interface ScheduleReport {
   rows: ReportRow[];
   totalAmount: number;
   hasCollections: boolean;
+  anomalies: ScheduleAnomaly[];
 }
 
 /**
@@ -164,7 +169,31 @@ export function buildScheduleReport(
       0,
     ),
     hasCollections: reconciliation !== null,
+    anomalies: detectScheduleAnomalies(schedule),
   };
+}
+
+function anomaliesSection(anomalies: ScheduleAnomaly[]): string {
+  if (anomalies.length === 0) return "";
+  const entries = anomalies
+    .map((anomaly) => {
+      const isWarning = anomaly.severity === "warning";
+      const bg = isWarning ? REPORT_COLORS.red100 : REPORT_COLORS.blue100;
+      const fg = isWarning ? REPORT_COLORS.red800 : REPORT_COLORS.blue800;
+      return `
+        <div style="background:${bg}; color:${fg}; border-radius:6px; padding:10px 12px; margin-bottom:8px; font-size:13px;">
+          <div style="font-weight:700;">${escapeHtml(anomaly.title)} <span style="font-size:11px; font-weight:600; text-transform:uppercase; opacity:0.75;">${anomaly.severity}</span></div>
+          <div style="margin-top:2px;">${escapeHtml(anomaly.message)}</div>
+        </div>
+      `;
+    })
+    .join("");
+  return `
+    <div style="margin-bottom:24px;">
+      <div style="font-size:13px; font-weight:600; color:${REPORT_COLORS.gray900}; margin-bottom:8px;">Schedule Anomalies (${anomalies.length})</div>
+      ${entries}
+    </div>
+  `;
 }
 
 function statusSymbol(succeeded: boolean | null): string {
@@ -268,6 +297,7 @@ export function buildScheduleReportHtml(
       ${summaryCard("Cover Period", `${formatReportDate(schedule.coverStartDate)} - ${formatReportDate(schedule.coverEndDate)}`)}
       ${summaryCard("Schedule ID", escapeHtml(schedule.id || "-"))}
     </div>
+    ${anomaliesSection(report.anomalies)}
     <div style="margin-bottom:24px;">
       <div style="font-size:13px; font-weight:600; color:${REPORT_COLORS.gray900}; margin-bottom:8px;">Legend</div>
       <div>
