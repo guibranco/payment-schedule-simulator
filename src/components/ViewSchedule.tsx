@@ -1,11 +1,31 @@
-import React, { useState } from 'react';
-import { FileUp, Clipboard, Eye, PencilRuler, Info, RotateCcw, ListChecks } from 'lucide-react';
-import type { PaymentScheduleResponse, PaymentScheduleInput, CollectionTransaction } from '../types';
-import { detectAndNormalizeSchedule, FORMAT_LABELS, type ScheduleFormat } from '../utils/scheduleDetector';
-import { SAMPLE_SCHEDULES, PLACEHOLDER_SAMPLE_JSON } from '../constants/sampleSchedules';
-import ScheduleDisplay from './ScheduleDisplay';
-import NewSchedule from './NewSchedule';
-import CollectionsLoader from './CollectionsLoader';
+import React, { useState } from "react";
+import {
+  FileUp,
+  Clipboard,
+  Eye,
+  PencilRuler,
+  Info,
+  RotateCcw,
+  ListChecks,
+} from "lucide-react";
+import type {
+  PaymentScheduleResponse,
+  PaymentScheduleInput,
+  CollectionTransaction,
+} from "../types";
+import {
+  detectAndNormalizeSchedule,
+  FORMAT_LABELS,
+  type ScheduleFormat,
+} from "../utils/scheduleDetector";
+import {
+  SAMPLE_SCHEDULES,
+  PLACEHOLDER_SAMPLE_JSON,
+} from "../constants/sampleSchedules";
+import ScheduleDisplay from "./ScheduleDisplay";
+import NewSchedule from "./NewSchedule";
+import CollectionsLoader from "./CollectionsLoader";
+import CollectionsHelp from "./CollectionsHelp";
 
 interface Props {
   apiEndpoint: string;
@@ -19,15 +39,20 @@ interface Props {
  * Document, SEQ Log), auto-detects which one was provided, and normalizes it for display.
  */
 export default function ViewSchedule({ apiEndpoint }: Props) {
-  const [jsonInput, setJsonInput] = useState('');
+  const [jsonInput, setJsonInput] = useState("");
   const [showPasteInput, setShowPasteInput] = useState(true);
-  const [selectedExample, setSelectedExample] = useState('');
+  const [selectedExample, setSelectedExample] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [format, setFormat] = useState<ScheduleFormat | null>(null);
-  const [schedule, setSchedule] = useState<PaymentScheduleResponse | null>(null);
-  const [scheduleInput, setScheduleInput] = useState<PaymentScheduleInput | null>(null);
+  const [schedule, setSchedule] = useState<PaymentScheduleResponse | null>(
+    null,
+  );
+  const [scheduleInput, setScheduleInput] =
+    useState<PaymentScheduleInput | null>(null);
   const [showAmendSchedule, setShowAmendSchedule] = useState(false);
-  const [collections, setCollections] = useState<CollectionTransaction[] | null>(null);
+  const [collections, setCollections] = useState<
+    CollectionTransaction[] | null
+  >(null);
   const [isCollectionsLoaderOpen, setIsCollectionsLoaderOpen] = useState(false);
 
   const processJson = (raw: string) => {
@@ -44,9 +69,13 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
       setSchedule(null);
       setScheduleInput(null);
       if (err instanceof SyntaxError) {
-        setError('Invalid JSON syntax. Please check for missing commas, quotes, or brackets.');
+        setError(
+          "Invalid JSON syntax. Please check for missing commas, quotes, or brackets.",
+        );
       } else {
-        setError(err instanceof Error ? err.message : 'Invalid schedule format');
+        setError(
+          err instanceof Error ? err.message : "Invalid schedule format",
+        );
       }
     }
   };
@@ -79,8 +108,8 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
   };
 
   const handleReset = () => {
-    setJsonInput('');
-    setSelectedExample('');
+    setJsonInput("");
+    setSelectedExample("");
     setError(null);
     setFormat(null);
     setSchedule(null);
@@ -91,9 +120,13 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
   const handleStatusChange = (index: number) => {
     if (!schedule) return;
 
-    const newSchedule = { ...schedule, scheduleItems: [...schedule.scheduleItems] };
+    const newSchedule = {
+      ...schedule,
+      scheduleItems: [...schedule.scheduleItems],
+    };
     const currentStatus = newSchedule.scheduleItems[index].succeeded;
-    const newStatus = currentStatus === null ? true : currentStatus ? false : null;
+    const newStatus =
+      currentStatus === null ? true : currentStatus ? false : null;
 
     newSchedule.scheduleItems[index] = {
       ...newSchedule.scheduleItems[index],
@@ -101,7 +134,8 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
       collectionItemCreatedDate:
         newStatus === null
           ? undefined
-          : newSchedule.scheduleItems[index].collectionItemCreatedDate || new Date().toISOString()
+          : newSchedule.scheduleItems[index].collectionItemCreatedDate ||
+            new Date().toISOString(),
     };
 
     setSchedule(newSchedule);
@@ -133,13 +167,19 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
             <div className="flex gap-3 p-4 bg-blue-50 border border-blue-200 rounded-md">
               <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-blue-900">
-                <p className="font-medium mb-1">You can paste or upload any of these 5 JSON formats — the format is detected automatically:</p>
+                <p className="font-medium mb-1">
+                  You can paste or upload any of these 5 JSON formats — the
+                  format is detected automatically:
+                </p>
                 <ul className="list-disc list-inside space-y-0.5">
                   {Object.values(FORMAT_LABELS).map((label) => (
                     <li key={label}>{label}</li>
                   ))}
                 </ul>
-                <p className="mt-2">Use the "Load Example" dropdown next to the buttons below to try a sample of each format.</p>
+                <p className="mt-2">
+                  Use the "Load Example" dropdown next to the buttons below to
+                  try a sample of each format.
+                </p>
               </div>
             </div>
 
@@ -148,8 +188,8 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
                 onClick={() => setShowPasteInput(true)}
                 className={`px-6 py-3 rounded-md transition-colors ${
                   showPasteInput
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? "bg-primary text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -161,8 +201,8 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
                 onClick={() => setShowPasteInput(false)}
                 className={`px-6 py-3 rounded-md transition-colors ${
                   !showPasteInput
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? "bg-primary text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -237,33 +277,53 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
 
         {hasResult && (
           <div className="space-y-6">
-            <div className="bg-primary/10 p-4 rounded-lg">
-              <h2 className="text-lg font-semibold text-primary mb-2">
-                Detected format: {format ? FORMAT_LABELS[format] : ''}
-              </h2>
-              <p className="text-gray-700">
-                {schedule
-                  ? 'Click on the status icons to toggle between succeeded states (null → true → false).'
-                  : 'This request does not include an embedded currentSchedule, so only the input parameters are shown below.'}
-              </p>
-            </div>
-
-            <div className="flex justify-end flex-wrap gap-2">
+            <div className="bg-primary/10 p-4 rounded-lg flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-primary mb-2">
+                  Detected format: {format ? FORMAT_LABELS[format] : ""}
+                </h2>
+                <p className="text-gray-700">
+                  {schedule
+                    ? "Click on the status icons to toggle between succeeded states (null → true → false)."
+                    : "This request does not include an embedded currentSchedule, so only the input parameters are shown below."}
+                </p>
+              </div>
               <button
                 onClick={handleReset}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                className="flex items-center gap-2 px-5 py-3 font-semibold text-white bg-secondary rounded-md shadow-md hover:bg-secondary-dark focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 transition-colors"
               >
                 <RotateCcw className="w-5 h-5" />
                 Parse New Schedule
               </button>
+            </div>
+
+            <div className="flex justify-end flex-wrap gap-2">
               {schedule && (
-                <button
-                  onClick={() => setIsCollectionsLoaderOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-                >
-                  <ListChecks className="w-5 h-5" />
-                  {collections ? 'Reload Collections' : 'Load Collections'}
-                </button>
+                <div className="relative group">
+                  <button
+                    onClick={() => setIsCollectionsLoaderOpen(true)}
+                    aria-describedby="load-collections-help"
+                    className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    <ListChecks className="w-5 h-5" />
+                    {collections ? "Reload Collections" : "Load Collections"}
+                    <Info
+                      className="w-4 h-4 text-gray-400"
+                      aria-hidden="true"
+                    />
+                  </button>
+                  {/* pt-2 (not mt-2) keeps the tooltip contiguous with the button, so the pointer can
+                      move onto it to follow the Swagger link without the hover state dropping. */}
+                  <div
+                    id="load-collections-help"
+                    role="tooltip"
+                    className="absolute right-0 top-full z-20 pt-2 w-80 hidden group-hover:block group-focus-within:block"
+                  >
+                    <div className="p-3 bg-white border border-gray-200 rounded-md shadow-lg text-xs text-gray-700">
+                      <CollectionsHelp />
+                    </div>
+                  </div>
+                </div>
               )}
               <button
                 onClick={() => setShowAmendSchedule(true)}
@@ -284,47 +344,79 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
             ) : scheduleInput ? (
               <div className="bg-white border border-gray-200 rounded-lg p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Collection Frequency</h3>
-                  <p className="mt-1 text-base text-gray-900">{scheduleInput.collectionFrequency}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Schedule Start Date</h3>
-                  <p className="mt-1 text-base text-gray-900">{scheduleInput.scheduleStartDate}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Effective Date</h3>
-                  <p className="mt-1 text-base text-gray-900">{scheduleInput.effectiveDate}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Due Date</h3>
-                  <p className="mt-1 text-base text-gray-900">{scheduleInput.dueDate || '-'}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Net Amount</h3>
-                  <p className="mt-1 text-base text-gray-900">€{scheduleInput.netAmount.toFixed(2)}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Taxes & Levies</h3>
+                  <h3 className="text-sm font-medium text-gray-500">
+                    Collection Frequency
+                  </h3>
                   <p className="mt-1 text-base text-gray-900">
-                    {Object.entries(scheduleInput.taxesAndLevies).length > 0
-                      ? Object.entries(scheduleInput.taxesAndLevies).flatMap(([key, dates]) =>
-                          Object.entries(dates).map(([date, value]) => (
-                            <span key={`${key}-${date}`} className="block">
-                              {key}{date !== '0001-01-01' && ` (effective ${date})`}: €{Number(value).toFixed(2)}
-                            </span>
-                          ))
-                        )
-                      : '-'}
+                    {scheduleInput.collectionFrequency}
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Admin Fees</h3>
+                  <h3 className="text-sm font-medium text-gray-500">
+                    Schedule Start Date
+                  </h3>
+                  <p className="mt-1 text-base text-gray-900">
+                    {scheduleInput.scheduleStartDate}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">
+                    Effective Date
+                  </h3>
+                  <p className="mt-1 text-base text-gray-900">
+                    {scheduleInput.effectiveDate}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">
+                    Due Date
+                  </h3>
+                  <p className="mt-1 text-base text-gray-900">
+                    {scheduleInput.dueDate || "-"}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">
+                    Net Amount
+                  </h3>
+                  <p className="mt-1 text-base text-gray-900">
+                    €{scheduleInput.netAmount.toFixed(2)}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">
+                    Taxes & Levies
+                  </h3>
+                  <p className="mt-1 text-base text-gray-900">
+                    {Object.entries(scheduleInput.taxesAndLevies).length > 0
+                      ? Object.entries(scheduleInput.taxesAndLevies).flatMap(
+                          ([key, dates]) =>
+                            Object.entries(dates).map(([date, value]) => (
+                              <span key={`${key}-${date}`} className="block">
+                                {key}
+                                {date !== "0001-01-01" &&
+                                  ` (effective ${date})`}
+                                : €{Number(value).toFixed(2)}
+                              </span>
+                            )),
+                        )
+                      : "-"}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">
+                    Admin Fees
+                  </h3>
                   <p className="mt-1 text-base text-gray-900">
                     {Object.entries(scheduleInput.adminFees).length > 0
-                      ? Object.entries(scheduleInput.adminFees).map(([key, value]) => (
-                          <span key={key} className="block">{key}: €{Number(value.amountDue).toFixed(2)}</span>
-                        ))
-                      : '-'}
+                      ? Object.entries(scheduleInput.adminFees).map(
+                          ([key, value]) => (
+                            <span key={key} className="block">
+                              {key}: €{Number(value.amountDue).toFixed(2)}
+                            </span>
+                          ),
+                        )
+                      : "-"}
                   </p>
                 </div>
               </div>
