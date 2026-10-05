@@ -90,6 +90,16 @@ describe('ViewSchedule', () => {
     expect(screen.getByLabelText('Load Example')).toBeInTheDocument();
   });
 
+  it('describes the Load Collections button with a tooltip explaining how to fetch collections', () => {
+    render(<ViewSchedule apiEndpoint="" />);
+    submitJson(JSON.stringify(SAMPLE_SCHEDULES.find((s) => s.format === 'response')!.json));
+
+    const button = screen.getByRole('button', { name: 'Load Collections' });
+    const tooltip = document.getElementById(button.getAttribute('aria-describedby')!)!;
+    expect(tooltip).toHaveAttribute('role', 'tooltip');
+    expect(tooltip).toHaveTextContent('Collections Service Swagger');
+  });
+
   it('does not show the Load Collections button until a schedule is displayed', () => {
     render(<ViewSchedule apiEndpoint="" />);
     expect(screen.queryByRole('button', { name: /Load Collections/ })).not.toBeInTheDocument();

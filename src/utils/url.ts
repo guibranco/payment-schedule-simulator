@@ -21,3 +21,28 @@ export function getRedirectUri(): string {
 export function getCurrentUrl(): string {
   return window.location.href;
 }
+
+/**
+ * Derives the Collections Service Swagger UI URL from the simulator's own URL. Each
+ * environment hosts the simulator under the Schedule API's host at `/simulator`
+ * (e.g. `https://ca-devp-ne-schedule-api.<env>.azurecontainerapps.io/simulator`), and the
+ * Collections API sits alongside it with `-schedule` swapped for `-collections`, serving
+ * Swagger at `/swagger`. Returns null when the current host doesn't follow that naming
+ * (e.g. running locally), since there's no environment to derive the URL from.
+ */
+export function getCollectionsSwaggerUrl(currentUrl: string = getCurrentUrl()): string | null {
+  let url: URL;
+  try {
+    url = new URL(currentUrl);
+  } catch {
+    return null;
+  }
+
+  if (!url.hostname.includes('-schedule')) return null;
+
+  url.hostname = url.hostname.replace('-schedule', '-collections');
+  url.pathname = '/swagger';
+  url.search = '';
+  url.hash = '';
+  return url.toString();
+}

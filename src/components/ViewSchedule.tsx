@@ -6,6 +6,7 @@ import { SAMPLE_SCHEDULES, PLACEHOLDER_SAMPLE_JSON } from '../constants/sampleSc
 import ScheduleDisplay from './ScheduleDisplay';
 import NewSchedule from './NewSchedule';
 import CollectionsLoader from './CollectionsLoader';
+import CollectionsHelp from './CollectionsHelp';
 
 interface Props {
   apiEndpoint: string;
@@ -237,33 +238,50 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
 
         {hasResult && (
           <div className="space-y-6">
-            <div className="bg-primary/10 p-4 rounded-lg">
-              <h2 className="text-lg font-semibold text-primary mb-2">
-                Detected format: {format ? FORMAT_LABELS[format] : ''}
-              </h2>
-              <p className="text-gray-700">
-                {schedule
-                  ? 'Click on the status icons to toggle between succeeded states (null → true → false).'
-                  : 'This request does not include an embedded currentSchedule, so only the input parameters are shown below.'}
-              </p>
-            </div>
-
-            <div className="flex justify-end flex-wrap gap-2">
+            <div className="bg-primary/10 p-4 rounded-lg flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-primary mb-2">
+                  Detected format: {format ? FORMAT_LABELS[format] : ''}
+                </h2>
+                <p className="text-gray-700">
+                  {schedule
+                    ? 'Click on the status icons to toggle between succeeded states (null → true → false).'
+                    : 'This request does not include an embedded currentSchedule, so only the input parameters are shown below.'}
+                </p>
+              </div>
               <button
                 onClick={handleReset}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                className="flex items-center gap-2 px-5 py-3 font-semibold text-white bg-secondary rounded-md shadow-md hover:bg-secondary-dark focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 transition-colors"
               >
                 <RotateCcw className="w-5 h-5" />
                 Parse New Schedule
               </button>
+            </div>
+
+            <div className="flex justify-end flex-wrap gap-2">
               {schedule && (
-                <button
-                  onClick={() => setIsCollectionsLoaderOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-                >
-                  <ListChecks className="w-5 h-5" />
-                  {collections ? 'Reload Collections' : 'Load Collections'}
-                </button>
+                <div className="relative group">
+                  <button
+                    onClick={() => setIsCollectionsLoaderOpen(true)}
+                    aria-describedby="load-collections-help"
+                    className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    <ListChecks className="w-5 h-5" />
+                    {collections ? 'Reload Collections' : 'Load Collections'}
+                    <Info className="w-4 h-4 text-gray-400" aria-hidden="true" />
+                  </button>
+                  {/* pt-2 (not mt-2) keeps the tooltip contiguous with the button, so the pointer can
+                      move onto it to follow the Swagger link without the hover state dropping. */}
+                  <div
+                    id="load-collections-help"
+                    role="tooltip"
+                    className="absolute right-0 top-full z-20 pt-2 w-80 hidden group-hover:block group-focus-within:block"
+                  >
+                    <div className="p-3 bg-white border border-gray-200 rounded-md shadow-lg text-xs text-gray-700">
+                      <CollectionsHelp />
+                    </div>
+                  </div>
+                </div>
               )}
               <button
                 onClick={() => setShowAmendSchedule(true)}

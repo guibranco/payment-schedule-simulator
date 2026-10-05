@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import type { PaymentScheduleResponse, ScheduleItem, CollectionTransaction, ReconciledStatus } from '../types';
 import { exportScheduleImage } from '../utils/scheduleImage';
+import { buildScheduleReportDocument } from '../utils/scheduleReport';
+import { renderSchedulePdf } from '../utils/schedulePdf';
 import { convertResponseToFormat, type ScheduleFormat } from '../utils/scheduleDetector';
 import { STORAGE_KEYS } from '../constants';
 import {
@@ -34,7 +36,7 @@ import {
   getEffectiveCreatedDate
 } from '../utils/reconcileCollections';
 import { detectFrequencyChange } from '../utils/detectFrequencyChange';
-import { isCollectionType } from '../utils/collectionType';
+import { isCollectionType, findProRataItemsWithoutOriginal } from '../utils/collectionType';
 import Modal from './Modal';
 
 interface Props {
@@ -167,6 +169,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
   const reconciliationDetail = reconciliationDetailItemId ? reconciliation?.get(reconciliationDetailItemId) : null;
 
   const frequencyChange = useMemo(() => (schedule ? detectFrequencyChange(schedule) : { detected: false }), [schedule]);
+  const orphanProRataIndexes = useMemo(() => findProRataItemsWithoutOriginal(scheduleItems), [scheduleItems]);
 
   const formatDate = (dateStr: string) => {
     if (!dateStr || dateStr === '0001-01-01T00:00:00+00:00') return '-';
@@ -332,88 +335,8 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
     URL.revokeObjectURL(url);
   };
 
-  const escapeHtml = (value: unknown): string =>
-    String(value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-
   const downloadHtml = () => {
-    const styles = `
-      <style>
-        body { font-family: system-ui, -apple-system, sans-serif; margin: 2rem; }
-        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
-        th, td { border: 1px solid #e5e7eb; padding: 0.75rem; text-align: left; }
-        th { background-color: #f9fafb; }
-        .header { margin-bottom: 2rem; }
-        .total { font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; }
-      </style>
-    `;
-
-    const content = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Payment Schedule ${escapeHtml(schedule.id)}</title>
-          ${styles}
-        </head>
-        <body>
-          <div class="header">
-            <h1>Payment Schedule Details</h1>
-            <p>Schedule ID: ${escapeHtml(schedule.id)}</p>
-            <p>Collection Frequency: ${escapeHtml(schedule.collectionFrequency)}</p>
-            <p>Cover Period: ${new Date(schedule.coverStartDate).toLocaleDateString()} - ${new Date(schedule.coverEndDate).toLocaleDateString()}</p>
-            <div class="total">Total Amount: €${totalAmount.toFixed(2)}</div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Period</th>
-                <th>Due Date</th>
-                <th>Net Amount</th>
-                <th>Taxes & Levies</th>
-                <th>Admin Fees</th>
-                <th>Total</th>
-                <th>Created</th>
-                <th>Status</th>
-                ${reconciliation ? '<th>Collections</th>' : ''}
-              </tr>
-            </thead>
-            <tbody>
-              ${scheduleItems.map(item => {
-                const { value: effectiveCreatedDate } = getEffectiveCreatedDateForItem(item);
-                const { value: effectiveSucceeded } = getEffectiveSucceededForItem(item);
-                const collectionsEntry = reconciliation?.get(item.id);
-                const statusText = effectiveSucceeded === null ? '—' : effectiveSucceeded ? '✓' : '✕';
-                const collectionsText = collectionsEntry
-                  ? `${collectionsEntry.status}${collectionsEntry.wasRetried ? ' (retried)' : ''}`
-                  : '';
-                return `
-                <tr>
-                  <td>${new Date(item.periodStartDate).toLocaleDateString()} - ${new Date(item.periodEndDate).toLocaleDateString()}</td>
-                  <td>${new Date(item.dueDate).toLocaleDateString()}</td>
-                  <td>€${item.netAmount.toFixed(2)}</td>
-                  <td>${Object.entries(item.taxesAndLevies || {}).map(([key, value]) =>
-                    `${escapeHtml(key)}: €${value.toFixed(2)}`).join('<br>')}</td>
-                  <td>${Object.entries(item.adminFees || {}).map(([key, value]) =>
-                    `${escapeHtml(key)}: €${value.amountDue.toFixed(2)}`).join('<br>')}</td>
-                  <td>€${item.amountDue.toFixed(2)}</td>
-                  <td>${effectiveCreatedDate ? new Date(effectiveCreatedDate).toLocaleDateString() : '-'}</td>
-                  <td>${statusText}</td>
-                  ${reconciliation ? `<td>${escapeHtml(collectionsText)}</td>` : ''}
-                </tr>
-              `;
-              }).join('')}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `;
-
-    const blob = new Blob([content], { type: 'text/html' });
+    const blob = new Blob([buildScheduleReportDocument(schedule, collections)], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -426,43 +349,8 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
 
   const downloadPdf = async () => {
     const jsPDFModule = await import('jspdf');
-    const doc = new jsPDFModule.default();
-
-    doc.setFontSize(16);
-    doc.text('Payment Schedule Details', 20, 20);
-
-    doc.setFontSize(12);
-    doc.text(`Schedule ID: ${schedule.id}`, 20, 30);
-    doc.text(`Collection Frequency: ${schedule.collectionFrequency}`, 20, 40);
-    doc.text(`Cover Period: ${new Date(schedule.coverStartDate).toLocaleDateString()} - ${new Date(schedule.coverEndDate).toLocaleDateString()}`, 20, 50);
-    doc.text(`Total Amount: €${totalAmount.toFixed(2)}`, 20, 60);
-
-    let y = 80;
-    const itemHeight = 15;
-    const pageHeight = doc.internal.pageSize.height;
-
-    scheduleItems.forEach((item, index) => {
-      if (y + itemHeight > pageHeight - 20) {
-        doc.addPage();
-        y = 20;
-      }
-
-      const { value: effectiveCreatedDate } = getEffectiveCreatedDateForItem(item);
-      const { value: effectiveSucceeded } = getEffectiveSucceededForItem(item);
-      const collectionsEntry = reconciliation?.get(item.id);
-      const statusText = effectiveSucceeded === null ? 'Unknown' : effectiveSucceeded ? 'Succeeded' : 'Failed';
-      const createdText = effectiveCreatedDate ? new Date(effectiveCreatedDate).toLocaleDateString() : '-';
-      const collectionsText = collectionsEntry
-        ? ` | Collections: ${collectionsEntry.status}${collectionsEntry.wasRetried ? ' (retried)' : ''}`
-        : '';
-
-      doc.text(`${index + 1}. Due Date: ${new Date(item.dueDate).toLocaleDateString()}`, 20, y);
-      doc.text(`Amount: €${item.amountDue.toFixed(2)}`, 20, y + 5);
-      doc.text(`Status: ${statusText} | Created: ${createdText}${collectionsText}`, 20, y + 10);
-
-      y += itemHeight;
-    });
-
+    const doc = new jsPDFModule.default({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    renderSchedulePdf(doc, schedule, collections);
     doc.save(`schedule-${schedule.id}.pdf`);
   };
 
@@ -662,6 +550,18 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
           </div>
         )}
 
+        {orphanProRataIndexes.length > 0 && (
+          <div role="alert" className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-700 mt-0.5" />
+            <span className="text-sm font-medium text-red-900">
+              This schedule is possibly wrong: {orphanProRataIndexes.length === 1 ? 'pro-rata item' : 'pro-rata items'}{' '}
+              #{orphanProRataIndexes.join(', #')} {orphanProRataIndexes.length === 1 ? 'has' : 'have'} no original item.
+              A pro-rata adjustment is always calculated against the Full item it replaces, so without it the
+              amount and period can't be verified.
+            </span>
+          </div>
+        )}
+
         {reconciliationSummary && (
           <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2 text-indigo-900">
@@ -746,6 +646,12 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                         <ArrowRightLeft
                           className="w-3.5 h-3.5 text-amber-700"
                           aria-label="Frequency changed here"
+                        />
+                      )}
+                      {orphanProRataIndexes.includes(index) && (
+                        <AlertTriangle
+                          className="w-3.5 h-3.5 text-red-700"
+                          aria-label="Pro-rata item without original item"
                         />
                       )}
                     </span>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ListChecks, FileUp, X } from 'lucide-react';
 import type { CollectionTransaction } from '../types';
 import { parseCollectionsJson } from '../utils/reconcileCollections';
+import CollectionsHelp from './CollectionsHelp';
 
 interface Props {
   onLoad: (collections: CollectionTransaction[]) => void;
@@ -68,10 +69,9 @@ export default function CollectionsLoader({ onLoad, onClose }: Props) {
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 p-4">
           <div className="flex-1 space-y-4">
-            <p className="text-sm text-gray-600">
-              Paste or upload the Collections Service response for this schedule (a JSON array of
-              transactions) to reconcile it against the schedule items below.
-            </p>
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-md text-sm text-gray-700">
+              <CollectionsHelp />
+            </div>
 
             <div className="flex gap-4 justify-center">
               <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors cursor-pointer">

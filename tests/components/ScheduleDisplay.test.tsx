@@ -15,11 +15,17 @@ vi.mock('jspdf', () => ({
   // A real `function` (not an arrow function) so `new jsPDFModule.default()` — as the
   // component actually calls it — legitimately constructs an instance instead of throwing.
   default: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    this.setFontSize = vi.fn();
-    this.text = vi.fn();
-    this.addPage = vi.fn();
-    this.save = vi.fn();
-    this.internal = { pageSize: { height: 800 } };
+    let pages = 1;
+    for (const method of ['setFontSize', 'setFont', 'setTextColor', 'setFillColor', 'setDrawColor', 'rect', 'roundedRect', 'line', 'setPage', 'text', 'save']) {
+      this[method] = vi.fn();
+    }
+    this.addPage = vi.fn(() => {
+      pages++;
+    });
+    this.getNumberOfPages = vi.fn(() => pages);
+    this.getTextWidth = vi.fn((text: string) => text.length * 1.5);
+    this.splitTextToSize = vi.fn((text: string) => [text]);
+    this.internal = { pageSize: { getWidth: () => 297, getHeight: () => 210 } };
   })
 }));
 
@@ -750,10 +756,10 @@ describe('ScheduleDisplay', () => {
         selectFormat('html');
         clickExportButton();
 
-        expect(capturedHtml).toContain('<th>Created</th>');
-        expect(capturedHtml).toContain('<th>Status</th>');
-        expect(capturedHtml).toContain('<th>Collections</th>');
-        expect(capturedHtml).toContain('collected (retried)');
+        expect(capturedHtml).toMatch(/<th[^>]*>Created<\/th>/);
+        expect(capturedHtml).toMatch(/<th[^>]*>Status<\/th>/);
+        expect(capturedHtml).toMatch(/<th[^>]*>Collections<\/th>/);
+        expect(capturedHtml).toContain('Collected (retried)');
       });
     });
 
@@ -766,7 +772,9 @@ describe('ScheduleDisplay', () => {
       await waitFor(() => {
         const instance = vi.mocked(jsPDFModule.default).mock.results.at(-1)!.value;
         const calls = instance.text.mock.calls.map((call: unknown[]) => call[0]);
-        expect(calls.some((text: string) => text.includes('Status: Succeeded') && text.includes('Collections: collected (retried)'))).toBe(true);
+        expect(calls).toContain('COLLECTIONS');
+        expect(calls).toContain('Succeeded');
+        expect(calls).toContain('Collected (retried)');
       });
     });
   });
@@ -885,6 +893,30 @@ describe('ScheduleDisplay', () => {
       const indexCells = container.querySelectorAll('tbody tr > td:first-child');
       expect(indexCells[0].className).toContain('bg-green-100');
       expect(indexCells[1].className).toContain('bg-yellow-100');
+    });
+  });
+
+  describe('Pro-rata item without original item', () => {
+    const fullItem = { ...schedule!.scheduleItems[0], id: 'full', collectionType: 'Full', originalItem: null };
+    const proRataItem = { ...schedule!.scheduleItems[0], id: 'pro-rata', collectionType: 'ProRata' };
+
+    it('shows a warning banner and flags the row when a pro-rata item has no original item', () => {
+      render(
+        <ScheduleDisplay schedule={{ ...schedule!, scheduleItems: [fullItem, { ...proRataItem, originalItem: null }] }} />
+      );
+
+      expect(screen.getByRole('alert')).toHaveTextContent('This schedule is possibly wrong: pro-rata item #1 has no original item.');
+      const flag = screen.getByLabelText('Pro-rata item without original item');
+      expect(flag.closest('tr')!.querySelector('td')!.textContent).toBe('1');
+    });
+
+    it('shows no warning when every pro-rata item has its original item', () => {
+      render(
+        <ScheduleDisplay schedule={{ ...schedule!, scheduleItems: [fullItem, { ...proRataItem, originalItem: fullItem }] }} />
+      );
+
+      expect(screen.queryByText(/This schedule is possibly wrong/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Pro-rata item without original item')).not.toBeInTheDocument();
     });
   });
 });
