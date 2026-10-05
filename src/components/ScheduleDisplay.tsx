@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Euro,
   FileJson,
@@ -20,24 +20,35 @@ import {
   RefreshCw,
   History,
   Info,
-  ArrowRightLeft
-} from 'lucide-react';
-import type { PaymentScheduleResponse, ScheduleItem, CollectionTransaction, ReconciledStatus } from '../types';
-import { exportScheduleImage } from '../utils/scheduleImage';
-import { buildScheduleReportDocument } from '../utils/scheduleReport';
-import { renderSchedulePdf } from '../utils/schedulePdf';
-import { convertResponseToFormat, type ScheduleFormat } from '../utils/scheduleDetector';
-import { STORAGE_KEYS } from '../constants';
+  ArrowRightLeft,
+} from "lucide-react";
+import type {
+  PaymentScheduleResponse,
+  ScheduleItem,
+  CollectionTransaction,
+  ReconciledStatus,
+} from "../types";
+import { exportScheduleImage } from "../utils/scheduleImage";
+import { buildScheduleReportDocument } from "../utils/scheduleReport";
+import { renderSchedulePdf } from "../utils/schedulePdf";
+import {
+  convertResponseToFormat,
+  type ScheduleFormat,
+} from "../utils/scheduleDetector";
+import { STORAGE_KEYS } from "../constants";
 import {
   reconcileScheduleItems,
   summarizeReconciliation,
   getTransactionDate,
   getEffectiveSucceeded,
-  getEffectiveCreatedDate
-} from '../utils/reconcileCollections';
-import { detectFrequencyChange } from '../utils/detectFrequencyChange';
-import { isCollectionType, findProRataItemsWithoutOriginal } from '../utils/collectionType';
-import Modal from './Modal';
+  getEffectiveCreatedDate,
+} from "../utils/reconcileCollections";
+import { detectFrequencyChange } from "../utils/detectFrequencyChange";
+import {
+  isCollectionType,
+  findProRataItemsWithoutOriginal,
+} from "../utils/collectionType";
+import Modal from "./Modal";
 
 interface Props {
   schedule: PaymentScheduleResponse;
@@ -46,23 +57,42 @@ interface Props {
   onClearCollections?: () => void;
 }
 
-type ExportFormat = 'json' | 'csv' | 'pdf' | 'html' | 'png' | 'svg';
+type ExportFormat = "json" | "csv" | "pdf" | "html" | "png" | "svg";
 type IconComponent = React.ComponentType<{ className?: string }>;
 
-const RECONCILIATION_BADGES: Record<ReconciledStatus, { label: string; className: string; Icon: IconComponent }> = {
-  collected: { label: 'Collected', className: 'bg-green-100 text-green-800', Icon: CheckCircle2 },
-  rejected: { label: 'Rejected', className: 'bg-red-100 text-red-800', Icon: XCircle },
-  refunded: { label: 'Refunded', className: 'bg-blue-100 text-blue-800', Icon: Undo2 },
-  pending: { label: 'Pending', className: 'bg-gray-100 text-gray-600', Icon: Clock }
+const RECONCILIATION_BADGES: Record<
+  ReconciledStatus,
+  { label: string; className: string; Icon: IconComponent }
+> = {
+  collected: {
+    label: "Collected",
+    className: "bg-green-100 text-green-800",
+    Icon: CheckCircle2,
+  },
+  rejected: {
+    label: "Rejected",
+    className: "bg-red-100 text-red-800",
+    Icon: XCircle,
+  },
+  refunded: {
+    label: "Refunded",
+    className: "bg-blue-100 text-blue-800",
+    Icon: Undo2,
+  },
+  pending: {
+    label: "Pending",
+    className: "bg-gray-100 text-gray-600",
+    Icon: Clock,
+  },
 };
 
 const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
-  json: 'JSON',
-  csv: 'CSV',
-  pdf: 'PDF',
-  html: 'HTML',
-  png: 'PNG',
-  svg: 'SVG'
+  json: "JSON",
+  csv: "CSV",
+  pdf: "PDF",
+  html: "HTML",
+  png: "PNG",
+  svg: "SVG",
 };
 
 const EXPORT_FORMAT_ICONS: Record<ExportFormat, IconComponent> = {
@@ -71,7 +101,7 @@ const EXPORT_FORMAT_ICONS: Record<ExportFormat, IconComponent> = {
   pdf: FileText,
   html: FileCode,
   png: Image,
-  svg: Shapes
+  svg: Shapes,
 };
 
 const EXPORT_FORMATS = Object.keys(EXPORT_FORMAT_LABELS) as ExportFormat[];
@@ -82,21 +112,30 @@ function isExportFormat(value: string | null): value is ExportFormat {
 
 // 'seq' is an input-only format (a SEQ log of Policy Admin's raw request) — it's never
 // a valid "View JSON as..." target, so it's excluded from the type rather than just the data.
-type ViewJsonFormat = Exclude<ScheduleFormat, 'seq'>;
+type ViewJsonFormat = Exclude<ScheduleFormat, "seq">;
 
 const VIEW_JSON_FORMAT_LABELS: Record<ViewJsonFormat, string> = {
-  policyAdmin: 'Policy Admin CosmosDB Document',
-  rerates: 'Rerates CosmosDB Document',
-  request: 'Payment Schedule Request (Amendment)',
-  response: 'Payment Schedule Response'
+  policyAdmin: "Policy Admin CosmosDB Document",
+  rerates: "Rerates CosmosDB Document",
+  request: "Payment Schedule Request (Amendment)",
+  response: "Payment Schedule Response",
 };
 
-const VIEW_JSON_FORMATS: ViewJsonFormat[] = ['policyAdmin', 'rerates', 'request', 'response'];
+const VIEW_JSON_FORMATS: ViewJsonFormat[] = [
+  "policyAdmin",
+  "rerates",
+  "request",
+  "response",
+];
 
 /**
  * Closes an open dropdown when clicking outside of the given container ref.
  */
-function useCloseOnOutsideClick(ref: React.RefObject<HTMLElement | null>, isOpen: boolean, onClose: () => void) {
+function useCloseOnOutsideClick(
+  ref: React.RefObject<HTMLElement | null>,
+  isOpen: boolean,
+  onClose: () => void,
+) {
   useEffect(() => {
     if (!isOpen) return;
 
@@ -106,8 +145,8 @@ function useCloseOnOutsideClick(ref: React.RefObject<HTMLElement | null>, isOpen
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, ref, onClose]);
 }
 
@@ -123,14 +162,25 @@ function useCloseOnOutsideClick(ref: React.RefObject<HTMLElement | null>, isOpen
  * @param schedule - An object containing the schedule details including items, period dates, and amounts.
  * @param onStatusChange - A callback function that triggers when a status icon is clicked, allowing for status changes.
  */
-export default function ScheduleDisplay({ schedule, onStatusChange, collections, onClearCollections }: Props) {
+export default function ScheduleDisplay({
+  schedule,
+  onStatusChange,
+  collections,
+  onClearCollections,
+}: Props) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
-  const [reconciliationDetailItemId, setReconciliationDetailItemId] = useState<string | null>(null);
-  const [originalItemDetail, setOriginalItemDetail] = useState<ScheduleItem | null>(null);
+  const [reconciliationDetailItemId, setReconciliationDetailItemId] = useState<
+    string | null
+  >(null);
+  const [originalItemDetail, setOriginalItemDetail] =
+    useState<ScheduleItem | null>(null);
   const [isViewJsonMenuOpen, setIsViewJsonMenuOpen] = useState(false);
-  const [viewJsonFormat, setViewJsonFormat] = useState<ViewJsonFormat>('response');
+  const [viewJsonFormat, setViewJsonFormat] =
+    useState<ViewJsonFormat>("response");
   const viewJsonMenuRef = useRef<HTMLDivElement>(null);
-  useCloseOnOutsideClick(viewJsonMenuRef, isViewJsonMenuOpen, () => setIsViewJsonMenuOpen(false));
+  useCloseOnOutsideClick(viewJsonMenuRef, isViewJsonMenuOpen, () =>
+    setIsViewJsonMenuOpen(false),
+  );
 
   const selectViewJsonFormat = (format: ViewJsonFormat) => {
     setViewJsonFormat(format);
@@ -141,10 +191,12 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT);
-    return isExportFormat(saved) ? saved : 'json';
+    return isExportFormat(saved) ? saved : "json";
   });
   const exportMenuRef = useRef<HTMLDivElement>(null);
-  useCloseOnOutsideClick(exportMenuRef, isExportMenuOpen, () => setIsExportMenuOpen(false));
+  useCloseOnOutsideClick(exportMenuRef, isExportMenuOpen, () =>
+    setIsExportMenuOpen(false),
+  );
 
   const selectExportFormat = (format: ExportFormat) => {
     setExportFormat(format);
@@ -152,50 +204,71 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
     setIsExportMenuOpen(false);
   };
 
-  const scheduleItems = useMemo(() => schedule?.scheduleItems || [], [schedule]);
+  const scheduleItems = useMemo(
+    () => schedule?.scheduleItems || [],
+    [schedule],
+  );
 
-  const totalAmount = scheduleItems.length > 0
-    ? scheduleItems.reduce((sum, item) => sum + Number(item?.amountDue ?? 0), 0)
-    : 0;
+  const totalAmount =
+    scheduleItems.length > 0
+      ? scheduleItems.reduce(
+          (sum, item) => sum + Number(item?.amountDue ?? 0),
+          0,
+        )
+      : 0;
 
   const reconciliation = useMemo(
-    () => (collections && collections.length > 0 ? reconcileScheduleItems(scheduleItems, collections) : null),
-    [scheduleItems, collections]
+    () =>
+      collections && collections.length > 0
+        ? reconcileScheduleItems(scheduleItems, collections)
+        : null,
+    [scheduleItems, collections],
   );
   const reconciliationSummary = useMemo(
     () => (reconciliation ? summarizeReconciliation(reconciliation) : null),
-    [reconciliation]
+    [reconciliation],
   );
-  const reconciliationDetail = reconciliationDetailItemId ? reconciliation?.get(reconciliationDetailItemId) : null;
+  const reconciliationDetail = reconciliationDetailItemId
+    ? reconciliation?.get(reconciliationDetailItemId)
+    : null;
 
-  const frequencyChange = useMemo(() => (schedule ? detectFrequencyChange(schedule) : { detected: false }), [schedule]);
-  const orphanProRataIndexes = useMemo(() => findProRataItemsWithoutOriginal(scheduleItems), [scheduleItems]);
+  const frequencyChange = useMemo(
+    () => (schedule ? detectFrequencyChange(schedule) : { detected: false }),
+    [schedule],
+  );
+  const orphanProRataIndexes = useMemo(
+    () => findProRataItemsWithoutOriginal(scheduleItems),
+    [scheduleItems],
+  );
 
   const formatDate = (dateStr: string) => {
-    if (!dateStr || dateStr === '0001-01-01T00:00:00+00:00') return '-';
+    if (!dateStr || dateStr === "0001-01-01T00:00:00+00:00") return "-";
     const date = new Date(dateStr);
-    if (isNaN(date.getTime()) || date.getFullYear() <= 1) return '-';
-    return date.toLocaleDateString('en-GB');
+    if (isNaN(date.getTime()) || date.getFullYear() <= 1) return "-";
+    return date.toLocaleDateString("en-GB");
   };
 
   const getIndexBackgroundColor = (item: any) => {
-    if (Number(item.amountDue) < 0) return 'bg-blue-100';
-    if (item.adminFees && Object.keys(item.adminFees).length > 0) return 'bg-orange-100';
-    if (isCollectionType(item, 'proRata')) return 'bg-yellow-100';
-    return 'bg-green-100';
+    if (Number(item.amountDue) < 0) return "bg-blue-100";
+    if (item.adminFees && Object.keys(item.adminFees).length > 0)
+      return "bg-orange-100";
+    if (isCollectionType(item, "proRata")) return "bg-yellow-100";
+    return "bg-green-100";
   };
 
-  const getEffectiveSucceededForItem = (item: ScheduleItem) => getEffectiveSucceeded(item, reconciliation);
-  const getEffectiveCreatedDateForItem = (item: ScheduleItem) => getEffectiveCreatedDate(item, reconciliation);
+  const getEffectiveSucceededForItem = (item: ScheduleItem) =>
+    getEffectiveSucceeded(item, reconciliation);
+  const getEffectiveCreatedDateForItem = (item: ScheduleItem) =>
+    getEffectiveCreatedDate(item, reconciliation);
 
   /**
    * The channel a transaction was submitted through — used to explain, in the detail
    * modal, which attempts were retries (resubmission or real-time) versus the original.
    */
   const getChannelLabel = (txn: CollectionTransaction): string => {
-    if (txn.isResubmission) return 'Resubmission';
-    if (txn.isRealtime) return 'Real-time';
-    return 'Standard';
+    if (txn.isResubmission) return "Resubmission";
+    if (txn.isRealtime) return "Real-time";
+    return "Standard";
   };
 
   /**
@@ -209,55 +282,68 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
    */
   const downloadCsv = () => {
     const headers = [
-      'Index',
-      'PeriodStartDate',
-      'PeriodEndDate',
-      'DaysDueDateBeforePeriodStart',
-      'DaysInPeriod',
-      'DaysRemainingInPeriod',
-      'DueDate',
-      'AmountDue',
-      'AdminFeesTotal',
-      'AdminFees',
-      'NetPremium',
-      'TaxesAndLeviesTotal',
-      'TaxesAndLevies',
-      'CollectionItemCreatedDate',
-      'Succeeded',
-      'AdjustmentDate',
-      'HasOriginalItem',
-      'Type',
-      'CollectionsStatus',
-      'CollectionsRetried'
+      "Index",
+      "PeriodStartDate",
+      "PeriodEndDate",
+      "DaysDueDateBeforePeriodStart",
+      "DaysInPeriod",
+      "DaysRemainingInPeriod",
+      "DueDate",
+      "AmountDue",
+      "AdminFeesTotal",
+      "AdminFees",
+      "NetPremium",
+      "TaxesAndLeviesTotal",
+      "TaxesAndLevies",
+      "CollectionItemCreatedDate",
+      "Succeeded",
+      "AdjustmentDate",
+      "HasOriginalItem",
+      "Type",
+      "CollectionsStatus",
+      "CollectionsRetried",
     ];
 
     const rows = scheduleItems.map((item, index) => {
       const periodStart = new Date(item.periodStartDate);
       const periodEnd = new Date(item.periodEndDate);
       const dueDate = new Date(item.dueDate);
-      
+
       // Calculate days between due date and period start
-      const daysDueDateBeforePeriodStart = Math.floor((periodStart.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
-      
+      const daysDueDateBeforePeriodStart = Math.floor(
+        (periodStart.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
+
       // Calculate days in period
-      const daysInPeriod = Math.floor((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      
+      const daysInPeriod =
+        Math.floor(
+          (periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24),
+        ) + 1;
+
       // Calculate days remaining in period (from current date)
       const now = new Date();
-      const daysRemainingInPeriod = Math.floor((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      const daysRemainingInPeriod = Math.floor(
+        (periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+      );
 
-      const adminFeesTotal = Object.values(item.adminFees || {}).reduce((sum, fee) => sum + (fee.amountDue || 0), 0);
-      const taxesAndLeviesTotal = Object.values(item.taxesAndLevies || {}).reduce((sum, value) => sum + (value || 0), 0);
+      const adminFeesTotal = Object.values(item.adminFees || {}).reduce(
+        (sum, fee) => sum + (fee.amountDue || 0),
+        0,
+      );
+      const taxesAndLeviesTotal = Object.values(
+        item.taxesAndLevies || {},
+      ).reduce((sum, value) => sum + (value || 0), 0);
 
       const adminFeesStr = Object.entries(item.adminFees || {})
         .map(([key, value]) => `${key}|${value.amountDue}|${value.taxAmount}`)
-        .join(':');
+        .join(":");
 
       const taxesAndLeviesStr = Object.entries(item.taxesAndLevies || {})
         .map(([key, value]) => `${key}|${value}`)
-        .join(':');
+        .join(":");
 
-      const { value: effectiveCreatedDate } = getEffectiveCreatedDateForItem(item);
+      const { value: effectiveCreatedDate } =
+        getEffectiveCreatedDateForItem(item);
       const { value: effectiveSucceeded } = getEffectiveSucceededForItem(item);
       const collectionsEntry = reconciliation?.get(item.id);
 
@@ -271,30 +357,34 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
         formatDate(item.dueDate),
         item.amountDue,
         adminFeesTotal,
-        adminFeesStr || '',
+        adminFeesStr || "",
         item.netAmount,
         taxesAndLeviesTotal,
-        taxesAndLeviesStr || '',
-        effectiveCreatedDate ? formatDate(effectiveCreatedDate) : '',
-        effectiveSucceeded?.toString() || '',
-        item.adjustmentDate ? formatDate(item.adjustmentDate) : '',
-        (item.originalItem !== undefined && item.originalItem !== null).toString(),
+        taxesAndLeviesStr || "",
+        effectiveCreatedDate ? formatDate(effectiveCreatedDate) : "",
+        effectiveSucceeded?.toString() || "",
+        item.adjustmentDate ? formatDate(item.adjustmentDate) : "",
+        (
+          item.originalItem !== undefined && item.originalItem !== null
+        ).toString(),
         item.collectionType,
-        collectionsEntry ? collectionsEntry.status : '',
-        collectionsEntry ? collectionsEntry.wasRetried.toString() : ''
+        collectionsEntry ? collectionsEntry.status : "",
+        collectionsEntry ? collectionsEntry.wasRetried.toString() : "",
       ];
     });
 
     const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
+      headers.join(","),
+      ...rows.map((row) => row.join(",")),
+    ].join("\n");
 
-    const dataBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const dataBlob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `schedule-${schedule?.id || 'export'}.csv`;
+    link.download = `schedule-${schedule?.id || "export"}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -303,32 +393,40 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
 
   const downloadJson = () => {
     const exportedItems = scheduleItems.map((item) => {
-      const { value: effectiveCreatedDate } = getEffectiveCreatedDateForItem(item);
+      const { value: effectiveCreatedDate } =
+        getEffectiveCreatedDateForItem(item);
       const { value: effectiveSucceeded } = getEffectiveSucceededForItem(item);
-      return { ...item, collectionItemCreatedDate: effectiveCreatedDate, succeeded: effectiveSucceeded };
+      return {
+        ...item,
+        collectionItemCreatedDate: effectiveCreatedDate,
+        succeeded: effectiveSucceeded,
+      };
     });
 
-    const exportedSchedule: Record<string, unknown> = { ...schedule, scheduleItems: exportedItems };
+    const exportedSchedule: Record<string, unknown> = {
+      ...schedule,
+      scheduleItems: exportedItems,
+    };
     if (reconciliation) {
       exportedSchedule.collectionsReconciliation = scheduleItems.map((item) => {
         const entry = reconciliation.get(item.id);
         return {
           scheduleItemId: item.id,
-          status: entry?.status ?? 'pending',
+          status: entry?.status ?? "pending",
           wasRetried: entry?.wasRetried ?? false,
           amountMismatch: entry?.amountMismatch ?? false,
           statusMismatch: entry?.statusMismatch ?? false,
-          transactionCount: entry?.transactions.length ?? 0
+          transactionCount: entry?.transactions.length ?? 0,
         };
       });
     }
 
     const dataStr = JSON.stringify(exportedSchedule, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const dataBlob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `schedule-${schedule?.id || 'export'}.json`;
+    link.download = `schedule-${schedule?.id || "export"}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -336,9 +434,12 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
   };
 
   const downloadHtml = () => {
-    const blob = new Blob([buildScheduleReportDocument(schedule, collections)], { type: 'text/html' });
+    const blob = new Blob(
+      [buildScheduleReportDocument(schedule, collections)],
+      { type: "text/html" },
+    );
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
     link.download = `schedule-${schedule.id}.html`;
     document.body.appendChild(link);
@@ -348,8 +449,12 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
   };
 
   const downloadPdf = async () => {
-    const jsPDFModule = await import('jspdf');
-    const doc = new jsPDFModule.default({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const jsPDFModule = await import("jspdf");
+    const doc = new jsPDFModule.default({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
     renderSchedulePdf(doc, schedule, collections);
     doc.save(`schedule-${schedule.id}.pdf`);
   };
@@ -358,46 +463,59 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
     setExportError(null);
     try {
       switch (exportFormat) {
-        case 'json':
+        case "json":
           downloadJson();
           break;
-        case 'csv':
+        case "csv":
           downloadCsv();
           break;
-        case 'html':
+        case "html":
           downloadHtml();
           break;
-        case 'pdf':
+        case "pdf":
           await downloadPdf();
           break;
-        case 'png':
-        case 'svg':
+        case "png":
+        case "svg":
           await exportScheduleImage(schedule, exportFormat, collections);
           break;
       }
     } catch (err) {
-      console.error('Error exporting schedule:', err);
-      setExportError(`Failed to export schedule as ${EXPORT_FORMAT_LABELS[exportFormat]}. Please try again.`);
+      console.error("Error exporting schedule:", err);
+      setExportError(
+        `Failed to export schedule as ${EXPORT_FORMAT_LABELS[exportFormat]}. Please try again.`,
+      );
     }
   };
 
-  const getStatusIcon = (succeeded: boolean | null, index: number, derived: boolean = false) => {
-    const icon = succeeded === null ?
-      <MinusCircle className="w-5 h-5 text-gray-400" /> :
-      succeeded ?
-        <Check className="w-5 h-5 text-green-500" /> :
-        <X className="w-5 h-5 text-red-500" />;
+  const getStatusIcon = (
+    succeeded: boolean | null,
+    index: number,
+    derived: boolean = false,
+  ) => {
+    const icon =
+      succeeded === null ? (
+        <MinusCircle className="w-5 h-5 text-gray-400" />
+      ) : succeeded ? (
+        <Check className="w-5 h-5 text-green-500" />
+      ) : (
+        <X className="w-5 h-5 text-red-500" />
+      );
 
     const content = derived ? (
       <span className="inline-flex items-center gap-1">
         {icon}
-        <span className="text-[10px] font-medium text-indigo-600 uppercase">auto</span>
+        <span className="text-[10px] font-medium text-indigo-600 uppercase">
+          auto
+        </span>
       </span>
-    ) : icon;
+    ) : (
+      icon
+    );
 
     const title = derived
-      ? 'Derived from Collections reconciliation — this schedule item has no recorded status'
-      : 'Click to change status';
+      ? "Derived from Collections reconciliation — this schedule item has no recorded status"
+      : "Click to change status";
 
     return onStatusChange ? (
       <button
@@ -450,7 +568,9 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                     role="menuitem"
                     onClick={() => selectViewJsonFormat(format)}
                     className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                      format === viewJsonFormat ? 'font-semibold text-primary' : 'text-gray-700'
+                      format === viewJsonFormat
+                        ? "font-semibold text-primary"
+                        : "text-gray-700"
                     }`}
                   >
                     {VIEW_JSON_FORMAT_LABELS[format]}
@@ -495,7 +615,9 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
                       role="menuitem"
                       onClick={() => selectExportFormat(format)}
                       className={`w-full flex items-center gap-2 text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                        format === exportFormat ? 'font-semibold text-primary' : 'text-gray-700'
+                        format === exportFormat
+                          ? "font-semibold text-primary"
+                          : "text-gray-700"
                       }`}
                     >
                       <Icon className="w-4 h-4" />
@@ -515,7 +637,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
         )}
 
         <div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="p-4 bg-primary/10 rounded-lg">
               <h3 className="text-sm font-medium text-primary">Total Amount</h3>
               <p className="mt-2 flex items-center text-2xl font-semibold text-primary">
@@ -524,15 +646,22 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
               </p>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-900">Collection Day</h3>
+              <h3 className="text-sm font-medium text-gray-900">
+                Collection Day
+              </h3>
               <p className="mt-2 text-2xl font-semibold text-gray-900">
-                {schedule.collectionFrequency === 'annual' ? '-' : schedule.collectionDay}
+                {schedule.collectionFrequency === "annual"
+                  ? "-"
+                  : schedule.collectionDay}
               </p>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-900">Cover Period</h3>
+              <h3 className="text-sm font-medium text-gray-900">
+                Cover Period
+              </h3>
               <p className="mt-2 text-sm font-medium text-gray-900">
-                {formatDate(schedule.coverStartDate)} - {formatDate(schedule.coverEndDate)}
+                {formatDate(schedule.coverStartDate)} -{" "}
+                {formatDate(schedule.coverEndDate)}
               </p>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
@@ -543,229 +672,301 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
             </div>
           </div>
 
-        {frequencyChange.detected && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-            <ArrowRightLeft className="w-5 h-5 flex-shrink-0 text-amber-700 mt-0.5" />
-            <span className="text-sm font-medium text-amber-900">{frequencyChange.message}</span>
-          </div>
-        )}
-
-        {orphanProRataIndexes.length > 0 && (
-          <div role="alert" className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-            <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-700 mt-0.5" />
-            <span className="text-sm font-medium text-red-900">
-              This schedule is possibly wrong: {orphanProRataIndexes.length === 1 ? 'pro-rata item' : 'pro-rata items'}{' '}
-              #{orphanProRataIndexes.join(', #')} {orphanProRataIndexes.length === 1 ? 'has' : 'have'} no original item.
-              A pro-rata adjustment is always calculated against the Full item it replaces, so without it the
-              amount and period can't be verified.
-            </span>
-          </div>
-        )}
-
-        {reconciliationSummary && (
-          <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-2 text-indigo-900">
-              <ListChecks className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm font-medium">
-                Collections reconciliation: {reconciliationSummary.collected} collected,{' '}
-                {reconciliationSummary.rejected} rejected, {reconciliationSummary.refunded} refunded,{' '}
-                {reconciliationSummary.pending} pending
-                {reconciliationSummary.mismatches > 0 && (
-                  <span className="text-amber-700"> — {reconciliationSummary.mismatches} flagged for review</span>
-                )}
+          {frequencyChange.detected && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+              <ArrowRightLeft className="w-5 h-5 flex-shrink-0 text-amber-700 mt-0.5" />
+              <span className="text-sm font-medium text-amber-900">
+                {frequencyChange.message}
               </span>
             </div>
-            {onClearCollections && (
-              <button
-                type="button"
-                onClick={onClearCollections}
-                className="flex items-center gap-1 text-sm text-indigo-700 hover:text-indigo-900 transition-colors"
-                title="Clear loaded collections"
-              >
-                <X className="w-4 h-4" />
-                Clear
-              </button>
-            )}
-          </div>
-        )}
+          )}
 
-        <div className="mb-6">
-          <h3 className="text-sm font-medium text-gray-900 mb-2">Legend</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-100 rounded"></div>
-              <span className="text-sm text-gray-600">Full Collection</span>
+          {orphanProRataIndexes.length > 0 && (
+            <div
+              role="alert"
+              className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2"
+            >
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-700 mt-0.5" />
+              <span className="text-sm font-medium text-red-900">
+                This schedule is possibly wrong:{" "}
+                {orphanProRataIndexes.length === 1
+                  ? "pro-rata item"
+                  : "pro-rata items"}{" "}
+                #{orphanProRataIndexes.join(", #")}{" "}
+                {orphanProRataIndexes.length === 1 ? "has" : "have"} no original
+                item. A pro-rata adjustment is always calculated against the
+                Full item it replaces, so without it the amount and period can't
+                be verified.
+              </span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-yellow-100 rounded"></div>
-              <span className="text-sm text-gray-600">Pro Rata Collection</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-orange-100 rounded"></div>
-              <span className="text-sm text-gray-600">Admin Fee</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-100 rounded"></div>
-              <span className="text-sm text-gray-600">Refund</span>
-            </div>
-          </div>
-        </div>
+          )}
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Index</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Amount</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taxes & Levies</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin Fees</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collection Item Created Date</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adjustment Date</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Has Original Item</th>
-                {reconciliation && (
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collections</th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {scheduleItems.map((item, index) => {
-                const isFrequencyChangePivot = frequencyChange.detected && item.id === frequencyChange.pivotItemId;
-                return (
-                <tr
-                  key={item.id}
-                  className={`hover:bg-gray-50 ${isFrequencyChangePivot ? 'ring-2 ring-inset ring-amber-400' : ''}`}
-                >
-                  <td className={`px-3 py-3 whitespace-nowrap text-sm text-gray-900 ${getIndexBackgroundColor(item)}`}>
-                    <span className="inline-flex items-center gap-1">
-                      {index}
-                      {isFrequencyChangePivot && (
-                        <ArrowRightLeft
-                          className="w-3.5 h-3.5 text-amber-700"
-                          aria-label="Frequency changed here"
-                        />
-                      )}
-                      {orphanProRataIndexes.includes(index) && (
-                        <AlertTriangle
-                          className="w-3.5 h-3.5 text-red-700"
-                          aria-label="Pro-rata item without original item"
-                        />
-                      )}
+          {reconciliationSummary && (
+            <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2 text-indigo-900">
+                <ListChecks className="w-5 h-5 flex-shrink-0" />
+                <span className="text-sm font-medium">
+                  Collections reconciliation: {reconciliationSummary.collected}{" "}
+                  collected, {reconciliationSummary.rejected} rejected,{" "}
+                  {reconciliationSummary.refunded} refunded,{" "}
+                  {reconciliationSummary.pending} pending
+                  {reconciliationSummary.mismatches > 0 && (
+                    <span className="text-amber-700">
+                      {" "}
+                      — {reconciliationSummary.mismatches} flagged for review
                     </span>
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                    {formatDate(item.periodStartDate)} - {formatDate(item.periodEndDate)}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                    {formatDate(item.dueDate)}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                    €{Number(item?.netAmount ?? 0).toFixed(2)}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                    {item.taxesAndLevies && Object.entries(item.taxesAndLevies).length > 0 ? (
-                      Object.entries(item.taxesAndLevies).map(([key, value]) => (
-                        <div key={key}>
-                          {key}: €{Number(value || 0).toFixed(2)}
-                        </div>
-                      ))
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                    {item.adminFees && Object.entries(item.adminFees).length > 0 ? (
-                      Object.entries(item.adminFees).map(([key, value]) => (
-                        <div key={key}>
-                          {key}: €{Number(value.amountDue || 0).toFixed(2)}
-                          {Number(value.taxAmount || 0) > 0 && ` + €${Number(value.taxAmount || 0).toFixed(2)} tax`}
-                        </div>
-                      ))
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                    €{Number(item?.amountDue ?? 0).toFixed(2)}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                    {(() => {
-                      const { value, derived } = getEffectiveCreatedDateForItem(item);
-                      if (!value) return '-';
-                      return (
-                        <span
-                          className={derived ? 'italic text-gray-500' : undefined}
-                          title={derived ? 'Derived from Collections reconciliation — not recorded on the schedule item' : undefined}
-                        >
-                          {formatDate(value)}
-                        </span>
-                      );
-                    })()}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                    {(() => {
-                      const { value, derived } = getEffectiveSucceededForItem(item);
-                      return getStatusIcon(value, index, derived);
-                    })()}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                    {formatDate(item.adjustmentDate)}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                    {item.originalItem ? (
-                      <button
-                        type="button"
-                        onClick={() => setOriginalItemDetail(item.originalItem!)}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:opacity-80 transition-opacity"
-                        title="View original item details"
-                      >
-                        <History className="w-3.5 h-3.5" />
-                        Yes
-                      </button>
-                    ) : (
-                      'No'
-                    )}
-                  </td>
+                  )}
+                </span>
+              </div>
+              {onClearCollections && (
+                <button
+                  type="button"
+                  onClick={onClearCollections}
+                  className="flex items-center gap-1 text-sm text-indigo-700 hover:text-indigo-900 transition-colors"
+                  title="Clear loaded collections"
+                >
+                  <X className="w-4 h-4" />
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-900 mb-2">Legend</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-100 rounded"></div>
+                <span className="text-sm text-gray-600">Full Collection</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-yellow-100 rounded"></div>
+                <span className="text-sm text-gray-600">
+                  Pro Rata Collection
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-orange-100 rounded"></div>
+                <span className="text-sm text-gray-600">Admin Fee</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-100 rounded"></div>
+                <span className="text-sm text-gray-600">Refund</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Index
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Period
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Due Date
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Net Amount
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Taxes & Levies
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Admin Fees
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Collection Item Created Date
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Adjustment Date
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Has Original Item
+                  </th>
                   {reconciliation && (
-                    <td className="px-3 py-3 whitespace-nowrap text-sm">
-                      {(() => {
-                        const entry = reconciliation.get(item.id);
-                        if (!entry) return '-';
-                        const { label, className, Icon } = RECONCILIATION_BADGES[entry.status];
-                        const hasIssue = entry.amountMismatch || entry.statusMismatch;
-                        const titleParts = [
-                          entry.transactions.length > 0
-                            ? `${entry.transactions.length} matching transaction(s) — click for details`
-                            : 'No matching Collections transaction found — click for details'
-                        ];
-                        if (entry.wasRetried) {
-                          titleParts.push('Retried via resubmission/real-time after an earlier rejection or refund');
-                        }
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => setReconciliationDetailItemId(item.id)}
-                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-opacity hover:opacity-80 ${className}`}
-                            title={titleParts.join(' · ')}
-                          >
-                            <Icon className="w-3.5 h-3.5" />
-                            {label}
-                            {entry.wasRetried && <RefreshCw className="w-3.5 h-3.5" aria-label="Retried" />}
-                            {hasIssue && <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />}
-                          </button>
-                        );
-                      })()}
-                    </td>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Collections
+                    </th>
                   )}
                 </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {scheduleItems.map((item, index) => {
+                  const isFrequencyChangePivot =
+                    frequencyChange.detected &&
+                    item.id === frequencyChange.pivotItemId;
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`hover:bg-gray-50 ${isFrequencyChangePivot ? "ring-2 ring-inset ring-amber-400" : ""}`}
+                    >
+                      <td
+                        className={`px-3 py-3 whitespace-nowrap text-sm text-gray-900 ${getIndexBackgroundColor(item)}`}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {index}
+                          {isFrequencyChangePivot && (
+                            <ArrowRightLeft
+                              className="w-3.5 h-3.5 text-amber-700"
+                              aria-label="Frequency changed here"
+                            />
+                          )}
+                          {orphanProRataIndexes.includes(index) && (
+                            <AlertTriangle
+                              className="w-3.5 h-3.5 text-red-700"
+                              aria-label="Pro-rata item without original item"
+                            />
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {formatDate(item.periodStartDate)} -{" "}
+                        {formatDate(item.periodEndDate)}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {formatDate(item.dueDate)}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                        €{Number(item?.netAmount ?? 0).toFixed(2)}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {item.taxesAndLevies &&
+                        Object.entries(item.taxesAndLevies).length > 0
+                          ? Object.entries(item.taxesAndLevies).map(
+                              ([key, value]) => (
+                                <div key={key}>
+                                  {key}: €{Number(value || 0).toFixed(2)}
+                                </div>
+                              ),
+                            )
+                          : "-"}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {item.adminFees &&
+                        Object.entries(item.adminFees).length > 0
+                          ? Object.entries(item.adminFees).map(
+                              ([key, value]) => (
+                                <div key={key}>
+                                  {key}: €
+                                  {Number(value.amountDue || 0).toFixed(2)}
+                                  {Number(value.taxAmount || 0) > 0 &&
+                                    ` + €${Number(value.taxAmount || 0).toFixed(2)} tax`}
+                                </div>
+                              ),
+                            )
+                          : "-"}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                        €{Number(item?.amountDue ?? 0).toFixed(2)}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {(() => {
+                          const { value, derived } =
+                            getEffectiveCreatedDateForItem(item);
+                          if (!value) return "-";
+                          return (
+                            <span
+                              className={
+                                derived ? "italic text-gray-500" : undefined
+                              }
+                              title={
+                                derived
+                                  ? "Derived from Collections reconciliation — not recorded on the schedule item"
+                                  : undefined
+                              }
+                            >
+                              {formatDate(value)}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {(() => {
+                          const { value, derived } =
+                            getEffectiveSucceededForItem(item);
+                          return getStatusIcon(value, index, derived);
+                        })()}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {formatDate(item.adjustmentDate)}
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {item.originalItem ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOriginalItemDetail(item.originalItem!)
+                            }
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:opacity-80 transition-opacity"
+                            title="View original item details"
+                          >
+                            <History className="w-3.5 h-3.5" />
+                            Yes
+                          </button>
+                        ) : (
+                          "No"
+                        )}
+                      </td>
+                      {reconciliation && (
+                        <td className="px-3 py-3 whitespace-nowrap text-sm">
+                          {(() => {
+                            const entry = reconciliation.get(item.id);
+                            if (!entry) return "-";
+                            const { label, className, Icon } =
+                              RECONCILIATION_BADGES[entry.status];
+                            const hasIssue =
+                              entry.amountMismatch || entry.statusMismatch;
+                            const titleParts = [
+                              entry.transactions.length > 0
+                                ? `${entry.transactions.length} matching transaction(s) — click for details`
+                                : "No matching Collections transaction found — click for details",
+                            ];
+                            if (entry.wasRetried) {
+                              titleParts.push(
+                                "Retried via resubmission/real-time after an earlier rejection or refund",
+                              );
+                            }
+                            return (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setReconciliationDetailItemId(item.id)
+                                }
+                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-opacity hover:opacity-80 ${className}`}
+                                title={titleParts.join(" · ")}
+                              >
+                                <Icon className="w-3.5 h-3.5" />
+                                {label}
+                                {entry.wasRetried && (
+                                  <RefreshCw
+                                    className="w-3.5 h-3.5"
+                                    aria-label="Retried"
+                                  />
+                                )}
+                                {hasIssue && (
+                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                                )}
+                              </button>
+                            );
+                          })()}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -775,28 +976,44 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
         title={`Schedule JSON — ${VIEW_JSON_FORMAT_LABELS[viewJsonFormat]}`}
       >
         <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
-          <code>{JSON.stringify(convertResponseToFormat(schedule, viewJsonFormat), null, 2)}</code>
+          <code>
+            {JSON.stringify(
+              convertResponseToFormat(schedule, viewJsonFormat),
+              null,
+              2,
+            )}
+          </code>
         </pre>
       </Modal>
 
       <Modal
         isOpen={reconciliationDetailItemId !== null}
         onClose={() => setReconciliationDetailItemId(null)}
-        title={`Collections history — item ${reconciliationDetailItemId ?? ''}`}
+        title={`Collections history — item ${reconciliationDetailItemId ?? ""}`}
       >
-        {!reconciliationDetail || reconciliationDetail.transactions.length === 0 ? (
-          <p className="text-gray-600">No matching Collections Service transactions found for this schedule item.</p>
+        {!reconciliationDetail ||
+        reconciliationDetail.transactions.length === 0 ? (
+          <p className="text-gray-600">
+            No matching Collections Service transactions found for this schedule
+            item.
+          </p>
         ) : (
           <div className="space-y-3">
-            {(reconciliationDetail.amountMismatch || reconciliationDetail.statusMismatch) && (
+            {(reconciliationDetail.amountMismatch ||
+              reconciliationDetail.statusMismatch) && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <div>
                   {reconciliationDetail.statusMismatch && (
-                    <p>The schedule item's recorded status doesn't match the latest Collections outcome.</p>
+                    <p>
+                      The schedule item's recorded status doesn't match the
+                      latest Collections outcome.
+                    </p>
                   )}
                   {reconciliationDetail.amountMismatch && (
-                    <p>The collected amount differs from this item's amount due.</p>
+                    <p>
+                      The collected amount differs from this item's amount due.
+                    </p>
                   )}
                 </div>
               </div>
@@ -805,25 +1022,47 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead>
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">Processed</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">Status</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">Channel</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">Amount</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">Reference</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">Error</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">
+                      Processed
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">
+                      Status
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">
+                      Channel
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">
+                      Amount
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">
+                      Reference
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-500">
+                      Error
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {reconciliationDetail.transactions.map((txn, i) => (
                     <tr key={txn.transactionReference || i}>
                       <td className="px-3 py-2 whitespace-nowrap">
-                        {formatDate(getTransactionDate(txn) || '')}
+                        {formatDate(getTransactionDate(txn) || "")}
                       </td>
-                      <td className="px-3 py-2 capitalize">{txn.collectionStatus}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{getChannelLabel(txn)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">€{Number(txn.amountDue ?? 0).toFixed(2)}</td>
-                      <td className="px-3 py-2 break-all">{txn.transactionReference || '-'}</td>
-                      <td className="px-3 py-2">{txn.providerDetails?.errorMessage || '-'}</td>
+                      <td className="px-3 py-2 capitalize">
+                        {txn.collectionStatus}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {getChannelLabel(txn)}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        €{Number(txn.amountDue ?? 0).toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2 break-all">
+                        {txn.transactionReference || "-"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {txn.providerDetails?.errorMessage || "-"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -838,82 +1077,121 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
         onClose={() => setOriginalItemDetail(null)}
         title="Original Item"
       >
-        {originalItemDetail && (() => {
-          const matchIndex = scheduleItems.findIndex((si) => si.id === originalItemDetail.id);
-          return (
-            <div className="space-y-4">
-              {matchIndex >= 0 ? (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 text-sm flex items-start gap-2">
-                  <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <p>This matches schedule item <strong>#{matchIndex}</strong> in the table above.</p>
-                </div>
-              ) : (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <p>
-                    This item isn't part of the current schedule's items — it was likely generated on the fly by
-                    the Payment Schedule service to compute this adjustment, rather than being a persisted schedule
-                    item.
-                  </p>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <h3 className="font-medium text-gray-500">Id</h3>
-                  <p className="break-all">{originalItemDetail.id}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-500">Collection Type</h3>
-                  <p>{originalItemDetail.collectionType}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-500">Period</h3>
-                  <p>{formatDate(originalItemDetail.periodStartDate)} - {formatDate(originalItemDetail.periodEndDate)}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-500">Due Date</h3>
-                  <p>{formatDate(originalItemDetail.dueDate)}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-500">Net Amount</h3>
-                  <p>€{Number(originalItemDetail.netAmount ?? 0).toFixed(2)}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-500">Amount Due</h3>
-                  <p>€{Number(originalItemDetail.amountDue ?? 0).toFixed(2)}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-500">Taxes & Levies</h3>
-                  <p>
-                    {Object.entries(originalItemDetail.taxesAndLevies || {}).length > 0
-                      ? Object.entries(originalItemDetail.taxesAndLevies).map(([key, value]) => (
-                          <span key={key} className="block">{key}: €{Number(value || 0).toFixed(2)}</span>
-                        ))
-                      : '-'}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-500">Admin Fees</h3>
-                  <p>
-                    {Object.entries(originalItemDetail.adminFees || {}).length > 0
-                      ? Object.entries(originalItemDetail.adminFees).map(([key, value]) => (
-                          <span key={key} className="block">{key}: €{Number(value.amountDue || 0).toFixed(2)}</span>
-                        ))
-                      : '-'}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-500">Collection Item Created Date</h3>
-                  <p>{originalItemDetail.collectionItemCreatedDate ? formatDate(originalItemDetail.collectionItemCreatedDate) : '-'}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-500">Has Its Own Original Item</h3>
-                  <p>{originalItemDetail.originalItem ? 'Yes' : 'No'}</p>
+        {originalItemDetail &&
+          (() => {
+            const matchIndex = scheduleItems.findIndex(
+              (si) => si.id === originalItemDetail.id,
+            );
+            return (
+              <div className="space-y-4">
+                {matchIndex >= 0 ? (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 text-sm flex items-start gap-2">
+                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <p>
+                      This matches schedule item <strong>#{matchIndex}</strong>{" "}
+                      in the table above.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <p>
+                      This item isn't part of the current schedule's items — it
+                      was likely generated on the fly by the Payment Schedule
+                      service to compute this adjustment, rather than being a
+                      persisted schedule item.
+                    </p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <h3 className="font-medium text-gray-500">Id</h3>
+                    <p className="break-all">{originalItemDetail.id}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-500">
+                      Collection Type
+                    </h3>
+                    <p>{originalItemDetail.collectionType}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-500">Period</h3>
+                    <p>
+                      {formatDate(originalItemDetail.periodStartDate)} -{" "}
+                      {formatDate(originalItemDetail.periodEndDate)}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-500">Due Date</h3>
+                    <p>{formatDate(originalItemDetail.dueDate)}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-500">Net Amount</h3>
+                    <p>
+                      €{Number(originalItemDetail.netAmount ?? 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-500">Amount Due</h3>
+                    <p>
+                      €{Number(originalItemDetail.amountDue ?? 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-500">
+                      Taxes & Levies
+                    </h3>
+                    <p>
+                      {Object.entries(originalItemDetail.taxesAndLevies || {})
+                        .length > 0
+                        ? Object.entries(originalItemDetail.taxesAndLevies).map(
+                            ([key, value]) => (
+                              <span key={key} className="block">
+                                {key}: €{Number(value || 0).toFixed(2)}
+                              </span>
+                            ),
+                          )
+                        : "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-500">Admin Fees</h3>
+                    <p>
+                      {Object.entries(originalItemDetail.adminFees || {})
+                        .length > 0
+                        ? Object.entries(originalItemDetail.adminFees).map(
+                            ([key, value]) => (
+                              <span key={key} className="block">
+                                {key}: €
+                                {Number(value.amountDue || 0).toFixed(2)}
+                              </span>
+                            ),
+                          )
+                        : "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-500">
+                      Collection Item Created Date
+                    </h3>
+                    <p>
+                      {originalItemDetail.collectionItemCreatedDate
+                        ? formatDate(
+                            originalItemDetail.collectionItemCreatedDate,
+                          )
+                        : "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-500">
+                      Has Its Own Original Item
+                    </h3>
+                    <p>{originalItemDetail.originalItem ? "Yes" : "No"}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
       </Modal>
     </>
   );

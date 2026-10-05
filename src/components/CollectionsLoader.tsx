@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { ListChecks, FileUp, X } from 'lucide-react';
-import type { CollectionTransaction } from '../types';
-import { parseCollectionsJson } from '../utils/reconcileCollections';
-import CollectionsHelp from './CollectionsHelp';
+import React, { useState } from "react";
+import { ListChecks, FileUp, X } from "lucide-react";
+import type { CollectionTransaction } from "../types";
+import { parseCollectionsJson } from "../utils/reconcileCollections";
+import CollectionsHelp from "./CollectionsHelp";
 
 interface Props {
   onLoad: (collections: CollectionTransaction[]) => void;
@@ -15,7 +15,7 @@ interface Props {
  * currently shown on the View Schedule screen.
  */
 export default function CollectionsLoader({ onLoad, onClose }: Props) {
-  const [jsonInput, setJsonInput] = useState('');
+  const [jsonInput, setJsonInput] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -28,9 +28,15 @@ export default function CollectionsLoader({ onLoad, onClose }: Props) {
       onClose();
     } catch (err) {
       if (err instanceof SyntaxError) {
-        setError('Invalid JSON syntax. Please check for missing commas, quotes, or brackets.');
+        setError(
+          "Invalid JSON syntax. Please check for missing commas, quotes, or brackets.",
+        );
       } else {
-        setError(err instanceof Error ? err.message : 'Invalid collections JSON format');
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Invalid collections JSON format",
+        );
       }
     }
   };
@@ -46,7 +52,9 @@ export default function CollectionsLoader({ onLoad, onClose }: Props) {
       setError(null);
     };
     reader.onerror = () => {
-      setError('Failed to read the file. Please try again or paste the JSON directly.');
+      setError(
+        "Failed to read the file. Please try again or paste the JSON directly.",
+      );
     };
     reader.readAsText(file);
   };
@@ -77,12 +85,19 @@ export default function CollectionsLoader({ onLoad, onClose }: Props) {
               <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors cursor-pointer">
                 <FileUp className="w-5 h-5" />
                 Upload JSON File
-                <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
               </label>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Collections JSON</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Collections JSON
+              </label>
               <textarea
                 value={jsonInput}
                 onChange={(e) => setJsonInput(e.target.value)}

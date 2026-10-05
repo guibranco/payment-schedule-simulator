@@ -7,11 +7,12 @@
  */
 export function getRedirectUri(): string {
   const origin = window.location.origin;
-  const basePath = import.meta.env.BASE_URL || '/';
-  
+  const basePath = import.meta.env.BASE_URL || "/";
+
   // Ensure base path starts with / and doesn't end with / (unless it's just /)
-  const normalizedBasePath = basePath === '/' ? '' : basePath.replace(/\/$/, '');
-  
+  const normalizedBasePath =
+    basePath === "/" ? "" : basePath.replace(/\/$/, "");
+
   return `${origin}${normalizedBasePath}`;
 }
 
@@ -30,7 +31,9 @@ export function getCurrentUrl(): string {
  * Swagger at `/swagger`. Returns null when the current host doesn't follow that naming
  * (e.g. running locally), since there's no environment to derive the URL from.
  */
-export function getCollectionsSwaggerUrl(currentUrl: string = getCurrentUrl()): string | null {
+export function getCollectionsSwaggerUrl(
+  currentUrl: string = getCurrentUrl(),
+): string | null {
   let url: URL;
   try {
     url = new URL(currentUrl);
@@ -38,11 +41,11 @@ export function getCollectionsSwaggerUrl(currentUrl: string = getCurrentUrl()): 
     return null;
   }
 
-  if (!url.hostname.includes('-schedule')) return null;
+  if (!url.hostname.includes("-schedule")) return null;
 
-  url.hostname = url.hostname.replace('-schedule', '-collections');
-  url.pathname = '/swagger';
-  url.search = '';
-  url.hash = '';
+  url.hostname = url.hostname.replace("-schedule", "-collections");
+  url.pathname = "/swagger";
+  url.search = "";
+  url.hash = "";
   return url.toString();
 }

@@ -1,22 +1,40 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import ScheduleDisplay from '../../src/components/ScheduleDisplay';
-import { detectAndNormalizeSchedule } from '../../src/utils/scheduleDetector';
-import { SAMPLE_SCHEDULES } from '../../src/constants/sampleSchedules';
-import { STORAGE_KEYS } from '../../src/constants';
-import type { CollectionTransaction } from '../../src/types';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import ScheduleDisplay from "../../src/components/ScheduleDisplay";
+import { detectAndNormalizeSchedule } from "../../src/utils/scheduleDetector";
+import { SAMPLE_SCHEDULES } from "../../src/constants/sampleSchedules";
+import { STORAGE_KEYS } from "../../src/constants";
+import type { CollectionTransaction } from "../../src/types";
 
-vi.mock('../../src/utils/scheduleImage', () => ({
-  exportScheduleImage: vi.fn()
+vi.mock("../../src/utils/scheduleImage", () => ({
+  exportScheduleImage: vi.fn(),
 }));
-import { exportScheduleImage } from '../../src/utils/scheduleImage';
+import { exportScheduleImage } from "../../src/utils/scheduleImage";
 
-vi.mock('jspdf', () => ({
+vi.mock("jspdf", () => ({
   // A real `function` (not an arrow function) so `new jsPDFModule.default()` — as the
   // component actually calls it — legitimately constructs an instance instead of throwing.
   default: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
     let pages = 1;
-    for (const method of ['setFontSize', 'setFont', 'setTextColor', 'setFillColor', 'setDrawColor', 'rect', 'roundedRect', 'line', 'setPage', 'text', 'save']) {
+    for (const method of [
+      "setFontSize",
+      "setFont",
+      "setTextColor",
+      "setFillColor",
+      "setDrawColor",
+      "rect",
+      "roundedRect",
+      "line",
+      "setPage",
+      "text",
+      "save",
+    ]) {
       this[method] = vi.fn();
     }
     this.addPage = vi.fn(() => {
@@ -26,56 +44,64 @@ vi.mock('jspdf', () => ({
     this.getTextWidth = vi.fn((text: string) => text.length * 1.5);
     this.splitTextToSize = vi.fn((text: string) => [text]);
     this.internal = { pageSize: { getWidth: () => 297, getHeight: () => 210 } };
-  })
+  }),
 }));
 
-const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!.json;
+const responseSample = SAMPLE_SCHEDULES.find(
+  (s) => s.format === "response",
+)!.json;
 const { schedule } = detectAndNormalizeSchedule(responseSample);
-const [firstItemId, secondItemId] = schedule!.scheduleItems.map((item) => item.id);
+const [firstItemId, secondItemId] = schedule!.scheduleItems.map(
+  (item) => item.id,
+);
 
 const EXPORT_FORMAT_LABELS: Record<string, string> = {
-  json: 'JSON',
-  csv: 'CSV',
-  pdf: 'PDF',
-  html: 'HTML',
-  png: 'PNG',
-  svg: 'SVG'
+  json: "JSON",
+  csv: "CSV",
+  pdf: "PDF",
+  html: "HTML",
+  png: "PNG",
+  svg: "SVG",
 };
 
 const VIEW_JSON_FORMAT_LABELS: Record<string, string> = {
-  policyAdmin: 'Policy Admin CosmosDB Document',
-  rerates: 'Rerates CosmosDB Document',
-  request: 'Payment Schedule Request (Amendment)',
-  response: 'Payment Schedule Response'
+  policyAdmin: "Policy Admin CosmosDB Document",
+  rerates: "Rerates CosmosDB Document",
+  request: "Payment Schedule Request (Amendment)",
+  response: "Payment Schedule Response",
 };
 
 function openExportMenu() {
-  fireEvent.click(screen.getByLabelText('Choose export format'));
+  fireEvent.click(screen.getByLabelText("Choose export format"));
 }
 
 function selectFormat(format: string) {
   openExportMenu();
-  fireEvent.click(screen.getByRole('menuitem', { name: EXPORT_FORMAT_LABELS[format] }));
+  fireEvent.click(
+    screen.getByRole("menuitem", { name: EXPORT_FORMAT_LABELS[format] }),
+  );
 }
 
 function clickExportButton() {
-  fireEvent.click(screen.getByRole('button', { name: /^Export as/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Export as/ }));
 }
 
 function openViewJsonMenu() {
-  fireEvent.click(screen.getByLabelText('Choose JSON view format'));
+  fireEvent.click(screen.getByLabelText("Choose JSON view format"));
 }
 
 function selectViewJsonFormat(format: string) {
   openViewJsonMenu();
-  fireEvent.click(screen.getByRole('menuitem', { name: VIEW_JSON_FORMAT_LABELS[format] }));
+  fireEvent.click(
+    screen.getByRole("menuitem", { name: VIEW_JSON_FORMAT_LABELS[format] }),
+  );
 }
 
 function clickViewJsonButton() {
-  fireEvent.click(screen.getByRole('button', { name: /^View JSON as/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^View JSON as/ }));
 }
 
-describe('ScheduleDisplay', () => {
+describe("ScheduleDisplay", () => {
   let clickSpy: ReturnType<typeof vi.spyOn>;
   let createObjectURL: ReturnType<typeof vi.fn>;
   let revokeObjectURL: ReturnType<typeof vi.fn>;
@@ -83,48 +109,73 @@ describe('ScheduleDisplay', () => {
   beforeEach(() => {
     vi.mocked(exportScheduleImage).mockReset();
     localStorage.clear();
-    createObjectURL = vi.fn(() => 'blob:fake-url');
+    createObjectURL = vi.fn(() => "blob:fake-url");
     revokeObjectURL = vi.fn();
     (globalThis.URL as any).createObjectURL = createObjectURL;
     (globalThis.URL as any).revokeObjectURL = revokeObjectURL;
-    clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('shows the fully visible schedule id (not truncated)', () => {
+  it("shows the fully visible schedule id (not truncated)", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
     const idEl = screen.getByText(schedule!.id);
-    expect(idEl.className).not.toContain('truncate');
+    expect(idEl.className).not.toContain("truncate");
     expect(idEl).toHaveTextContent(schedule!.id);
   });
 
   it('shows "-" for Collection Day on an annual schedule instead of the raw sentinel 0/null', () => {
-    render(<ScheduleDisplay schedule={{ ...schedule!, collectionFrequency: 'annual', collectionDay: 0 }} />);
-    const heading = screen.getByText('Collection Day');
-    expect(heading.parentElement).toHaveTextContent('-');
+    render(
+      <ScheduleDisplay
+        schedule={{
+          ...schedule!,
+          collectionFrequency: "annual",
+          collectionDay: 0,
+        }}
+      />,
+    );
+    const heading = screen.getByText("Collection Day");
+    expect(heading.parentElement).toHaveTextContent("-");
   });
 
-  it('shows the actual Collection Day for a monthly schedule', () => {
-    render(<ScheduleDisplay schedule={{ ...schedule!, collectionFrequency: 'monthly', collectionDay: 15 }} />);
-    const heading = screen.getByText('Collection Day');
-    expect(heading.parentElement).toHaveTextContent('15');
+  it("shows the actual Collection Day for a monthly schedule", () => {
+    render(
+      <ScheduleDisplay
+        schedule={{
+          ...schedule!,
+          collectionFrequency: "monthly",
+          collectionDay: 15,
+        }}
+      />,
+    );
+    const heading = screen.getByText("Collection Day");
+    expect(heading.parentElement).toHaveTextContent("15");
   });
 
-  it('renders the total amount and one row per schedule item', () => {
+  it("renders the total amount and one row per schedule item", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    const totalAmount = schedule!.scheduleItems.reduce((sum, item) => sum + item.amountDue, 0);
+    const totalAmount = schedule!.scheduleItems.reduce(
+      (sum, item) => sum + item.amountDue,
+      0,
+    );
     expect(screen.getByText(totalAmount.toFixed(2))).toBeInTheDocument();
-    expect(screen.getAllByRole('row')).toHaveLength(schedule!.scheduleItems.length + 1); // + header row
+    expect(screen.getAllByRole("row")).toHaveLength(
+      schedule!.scheduleItems.length + 1,
+    ); // + header row
   });
 
-  it('calls onStatusChange with the row index when a status icon is clicked', () => {
+  it("calls onStatusChange with the row index when a status icon is clicked", () => {
     const onStatusChange = vi.fn();
-    render(<ScheduleDisplay schedule={schedule!} onStatusChange={onStatusChange} />);
+    render(
+      <ScheduleDisplay schedule={schedule!} onStatusChange={onStatusChange} />,
+    );
 
-    const statusButtons = screen.getAllByTitle('Click to change status');
+    const statusButtons = screen.getAllByTitle("Click to change status");
     fireEvent.click(statusButtons[0]);
 
     expect(onStatusChange).toHaveBeenCalledWith(0);
@@ -132,166 +183,204 @@ describe('ScheduleDisplay', () => {
 
   it('defaults to "View JSON as Payment Schedule Response" and opens the modal showing the canonical response', () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    expect(screen.getByRole('button', { name: 'View JSON as Payment Schedule Response' })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "View JSON as Payment Schedule Response",
+      }),
+    ).toBeInTheDocument();
 
     clickViewJsonButton();
 
-    const modal = screen.getByText(/Schedule JSON/).closest('div')!.parentElement!;
-    expect(within(modal).getByText(new RegExp(schedule!.id))).toBeInTheDocument();
+    const modal = screen
+      .getByText(/Schedule JSON/)
+      .closest("div")!.parentElement!;
+    expect(
+      within(modal).getByText(new RegExp(schedule!.id)),
+    ).toBeInTheDocument();
     expect(within(modal).getByText(/"scheduleItems"/)).toBeInTheDocument();
   });
 
-  it('opens a dropdown menu listing all 4 JSON view formats', () => {
+  it("opens a dropdown menu listing all 4 JSON view formats", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
     openViewJsonMenu();
 
     Object.values(VIEW_JSON_FORMAT_LABELS).forEach((label) => {
-      expect(screen.getByRole('menuitem', { name: label })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: label })).toBeInTheDocument();
     });
   });
 
-  it('changes the View JSON button label when a different format is chosen', () => {
+  it("changes the View JSON button label when a different format is chosen", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    selectViewJsonFormat('policyAdmin');
+    selectViewJsonFormat("policyAdmin");
 
-    expect(screen.getByRole('button', { name: 'View JSON as Policy Admin CosmosDB Document' })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "View JSON as Policy Admin CosmosDB Document",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
   });
 
-  it('shows the schedule re-serialized as a Policy Admin CosmosDB document (PascalCase, ScheduleItems)', () => {
+  it("shows the schedule re-serialized as a Policy Admin CosmosDB document (PascalCase, ScheduleItems)", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    selectViewJsonFormat('policyAdmin');
+    selectViewJsonFormat("policyAdmin");
     clickViewJsonButton();
 
-    const modal = screen.getByText(/Schedule JSON/).closest('div')!.parentElement!;
+    const modal = screen
+      .getByText(/Schedule JSON/)
+      .closest("div")!.parentElement!;
     expect(within(modal).getByText(/"PaymentScheduleId"/)).toBeInTheDocument();
     expect(within(modal).getByText(/"ScheduleItems"/)).toBeInTheDocument();
   });
 
-  it('shows the schedule re-serialized as a Rerates CosmosDB document (PascalCase, Items)', () => {
+  it("shows the schedule re-serialized as a Rerates CosmosDB document (PascalCase, Items)", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    selectViewJsonFormat('rerates');
+    selectViewJsonFormat("rerates");
     clickViewJsonButton();
 
-    const modal = screen.getByText(/Schedule JSON/).closest('div')!.parentElement!;
+    const modal = screen
+      .getByText(/Schedule JSON/)
+      .closest("div")!.parentElement!;
     expect(within(modal).getByText(/"PaymentScheduleId"/)).toBeInTheDocument();
     expect(within(modal).getByText(/"Items"/)).toBeInTheDocument();
   });
 
-  it('shows the schedule re-serialized as a Payment Schedule Request (amendment)', () => {
+  it("shows the schedule re-serialized as a Payment Schedule Request (amendment)", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    selectViewJsonFormat('request');
+    selectViewJsonFormat("request");
     clickViewJsonButton();
 
-    const modal = screen.getByText(/Schedule JSON/).closest('div')!.parentElement!;
+    const modal = screen
+      .getByText(/Schedule JSON/)
+      .closest("div")!.parentElement!;
     expect(within(modal).getByText(/"scheduleStartDate"/)).toBeInTheDocument();
     expect(within(modal).getByText(/"netAmount"/)).toBeInTheDocument();
   });
 
   it('defaults to a single "Export as JSON" button when nothing is saved', () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    expect(screen.getByRole('button', { name: 'Export as JSON' })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Export as JSON" }),
+    ).toBeInTheDocument();
   });
 
-  it('restores the previously selected export format from localStorage into the button label', () => {
-    localStorage.setItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT, 'svg');
+  it("restores the previously selected export format from localStorage into the button label", () => {
+    localStorage.setItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT, "svg");
     render(<ScheduleDisplay schedule={schedule!} />);
-    expect(screen.getByRole('button', { name: 'Export as SVG' })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Export as SVG" }),
+    ).toBeInTheDocument();
   });
 
-  it('ignores an invalid saved export format and falls back to JSON', () => {
-    localStorage.setItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT, 'not-a-format');
+  it("ignores an invalid saved export format and falls back to JSON", () => {
+    localStorage.setItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT, "not-a-format");
     render(<ScheduleDisplay schedule={schedule!} />);
-    expect(screen.getByRole('button', { name: 'Export as JSON' })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Export as JSON" }),
+    ).toBeInTheDocument();
   });
 
-  it('opens a dropdown menu listing all 6 export formats', () => {
+  it("opens a dropdown menu listing all 6 export formats", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
     openExportMenu();
 
     Object.values(EXPORT_FORMAT_LABELS).forEach((label) => {
-      expect(screen.getByRole('menuitem', { name: label })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: label })).toBeInTheDocument();
     });
   });
 
-  it('changes the export button\'s label and closes the menu when a format is chosen', () => {
+  it("changes the export button's label and closes the menu when a format is chosen", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    selectFormat('csv');
+    selectFormat("csv");
 
-    expect(screen.getByRole('button', { name: 'Export as CSV' })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: 'JSON' })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Export as CSV" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: "JSON" }),
+    ).not.toBeInTheDocument();
   });
 
-  it('saves the selected export format to localStorage when changed', () => {
+  it("saves the selected export format to localStorage when changed", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    selectFormat('csv');
-    expect(localStorage.getItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT)).toBe('csv');
+    selectFormat("csv");
+    expect(localStorage.getItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT)).toBe(
+      "csv",
+    );
   });
 
-  it('closes the dropdown menu when clicking outside of it', () => {
+  it("closes the dropdown menu when clicking outside of it", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
     openExportMenu();
-    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole("menu")).toBeInTheDocument();
 
     fireEvent.mouseDown(document.body);
 
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it('exports JSON via the single Export button', () => {
+  it("exports JSON via the single Export button", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
     clickExportButton();
 
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     const blobArg = createObjectURL.mock.calls[0][0] as Blob;
-    expect(blobArg.type).toBe('application/json');
+    expect(blobArg.type).toBe("application/json");
   });
 
-  it('exports CSV via the single Export button after choosing it from the menu', () => {
+  it("exports CSV via the single Export button after choosing it from the menu", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    selectFormat('csv');
+    selectFormat("csv");
     clickExportButton();
 
     const blobArg = createObjectURL.mock.calls[0][0] as Blob;
-    expect(blobArg.type).toContain('text/csv');
+    expect(blobArg.type).toContain("text/csv");
   });
 
-  it('exports HTML via the single Export button after choosing it from the menu', () => {
+  it("exports HTML via the single Export button after choosing it from the menu", () => {
     render(<ScheduleDisplay schedule={schedule!} />);
-    selectFormat('html');
+    selectFormat("html");
     clickExportButton();
 
     const blobArg = createObjectURL.mock.calls[0][0] as Blob;
-    expect(blobArg.type).toBe('text/html');
+    expect(blobArg.type).toBe("text/html");
   });
 
-  it('exports a PNG via the scheduleImage util after choosing it from the menu', async () => {
+  it("exports a PNG via the scheduleImage util after choosing it from the menu", async () => {
     vi.mocked(exportScheduleImage).mockResolvedValueOnce(undefined);
     render(<ScheduleDisplay schedule={schedule!} />);
-    selectFormat('png');
+    selectFormat("png");
     clickExportButton();
 
     await waitFor(() => {
-      expect(exportScheduleImage).toHaveBeenCalledWith(schedule, 'png', undefined);
+      expect(exportScheduleImage).toHaveBeenCalledWith(
+        schedule,
+        "png",
+        undefined,
+      );
     });
   });
 
-  it('exports an SVG via the scheduleImage util after choosing it from the menu', async () => {
+  it("exports an SVG via the scheduleImage util after choosing it from the menu", async () => {
     vi.mocked(exportScheduleImage).mockResolvedValueOnce(undefined);
     render(<ScheduleDisplay schedule={schedule!} />);
-    selectFormat('svg');
+    selectFormat("svg");
     clickExportButton();
 
     await waitFor(() => {
-      expect(exportScheduleImage).toHaveBeenCalledWith(schedule, 'svg', undefined);
+      expect(exportScheduleImage).toHaveBeenCalledWith(
+        schedule,
+        "svg",
+        undefined,
+      );
     });
   });
 
-  it('exports a PDF via jsPDF after choosing it from the menu', async () => {
-    const jsPDFModule = await import('jspdf');
+  it("exports a PDF via jsPDF after choosing it from the menu", async () => {
+    const jsPDFModule = await import("jspdf");
     render(<ScheduleDisplay schedule={schedule!} />);
-    selectFormat('pdf');
+    selectFormat("pdf");
     clickExportButton();
 
     await waitFor(() => {
@@ -299,624 +388,821 @@ describe('ScheduleDisplay', () => {
     });
   });
 
-  it('adds a new PDF page once enough items overflow the current one', async () => {
-    const jsPDFModule = await import('jspdf');
+  it("adds a new PDF page once enough items overflow the current one", async () => {
+    const jsPDFModule = await import("jspdf");
     const manyItemsSchedule = {
       ...schedule!,
-      scheduleItems: Array.from({ length: 50 }, (_, i) => ({ ...schedule!.scheduleItems[0], id: `item-${i}` }))
+      scheduleItems: Array.from({ length: 50 }, (_, i) => ({
+        ...schedule!.scheduleItems[0],
+        id: `item-${i}`,
+      })),
     };
 
     render(<ScheduleDisplay schedule={manyItemsSchedule} />);
-    selectFormat('pdf');
+    selectFormat("pdf");
     clickExportButton();
 
     await waitFor(() => {
-      const instance = vi.mocked(jsPDFModule.default).mock.results.at(-1)!.value;
+      const instance = vi
+        .mocked(jsPDFModule.default)
+        .mock.results.at(-1)!.value;
       expect(instance.addPage).toHaveBeenCalled();
     });
   });
 
-  it('shows a format-specific error message when an export fails', async () => {
-    vi.mocked(exportScheduleImage).mockRejectedValueOnce(new Error('boom'));
+  it("shows a format-specific error message when an export fails", async () => {
+    vi.mocked(exportScheduleImage).mockRejectedValueOnce(new Error("boom"));
     render(<ScheduleDisplay schedule={schedule!} />);
-    selectFormat('png');
+    selectFormat("png");
     clickExportButton();
 
-    expect(await screen.findByText('Failed to export schedule as PNG. Please try again.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Failed to export schedule as PNG. Please try again.",
+      ),
+    ).toBeInTheDocument();
   });
 
-  it('escapes HTML special characters in the HTML export to prevent injection', () => {
+  it("escapes HTML special characters in the HTML export to prevent injection", () => {
     const maliciousSchedule = {
       ...schedule!,
-      id: '<script>alert(1)</script>',
+      id: "<script>alert(1)</script>",
       scheduleItems: [
         {
           ...schedule!.scheduleItems[0],
-          taxesAndLevies: { '<img src=x onerror=alert(1)>': 1 }
-        }
-      ]
+          taxesAndLevies: { "<img src=x onerror=alert(1)>": 1 },
+        },
+      ],
     };
 
-    let capturedHtml = '';
+    let capturedHtml = "";
     class CapturingBlob extends Blob {
       constructor(parts: BlobPart[] = [], options?: BlobPropertyBag) {
         super(parts, options);
         capturedHtml = String(parts[0]);
       }
     }
-    vi.stubGlobal('Blob', CapturingBlob);
+    vi.stubGlobal("Blob", CapturingBlob);
 
     render(<ScheduleDisplay schedule={maliciousSchedule as any} />);
-    selectFormat('html');
+    selectFormat("html");
     clickExportButton();
 
-    expect(capturedHtml).not.toContain('<script>alert(1)</script>');
-    expect(capturedHtml).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
-    expect(capturedHtml).not.toContain('<img src=x onerror=alert(1)>');
-    expect(capturedHtml).toContain('&lt;img src=x onerror=alert(1)&gt;');
+    expect(capturedHtml).not.toContain("<script>alert(1)</script>");
+    expect(capturedHtml).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(capturedHtml).not.toContain("<img src=x onerror=alert(1)>");
+    expect(capturedHtml).toContain("&lt;img src=x onerror=alert(1)&gt;");
 
     vi.unstubAllGlobals();
   });
 
-  it('renders a fallback message when no schedule is provided', () => {
+  it("renders a fallback message when no schedule is provided", () => {
     render(<ScheduleDisplay schedule={null as any} />);
-    expect(screen.getByText('No schedule data available.')).toBeInTheDocument();
+    expect(screen.getByText("No schedule data available.")).toBeInTheDocument();
   });
 
-  describe('Collections reconciliation', () => {
+  describe("Collections reconciliation", () => {
     const collections: CollectionTransaction[] = [
       {
         paymentScheduleItemIds: [firstItemId],
         amountDue: 620.93,
-        collectionStatus: 'collected',
-        transactionReference: 'REF-1',
-        providerDetails: { processingDate: '2026-06-30T11:00:41+00:00' }
+        collectionStatus: "collected",
+        transactionReference: "REF-1",
+        providerDetails: { processingDate: "2026-06-30T11:00:41+00:00" },
       },
       {
         paymentScheduleItemIds: [secondItemId],
         amountDue: 1,
-        collectionStatus: 'rejected',
-        transactionReference: 'REF-2',
-        providerDetails: { processingDate: '2026-06-30T11:00:41+00:00', errorMessage: 'Not sufficient funds' }
-      }
+        collectionStatus: "rejected",
+        transactionReference: "REF-2",
+        providerDetails: {
+          processingDate: "2026-06-30T11:00:41+00:00",
+          errorMessage: "Not sufficient funds",
+        },
+      },
     ];
 
-    it('does not show a Collections column or summary banner without a collections prop', () => {
+    it("does not show a Collections column or summary banner without a collections prop", () => {
       render(<ScheduleDisplay schedule={schedule!} />);
-      expect(screen.queryByText('Collections', { selector: 'th' })).not.toBeInTheDocument();
-      expect(screen.queryByText(/Collections reconciliation:/)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Collections", { selector: "th" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/Collections reconciliation:/),
+      ).not.toBeInTheDocument();
     });
 
-    it('shows a summary banner and per-item status badges once collections are provided', () => {
-      render(<ScheduleDisplay schedule={schedule!} collections={collections} />);
+    it("shows a summary banner and per-item status badges once collections are provided", () => {
+      render(
+        <ScheduleDisplay schedule={schedule!} collections={collections} />,
+      );
 
       expect(screen.getByText(/Collections reconciliation:/)).toHaveTextContent(
-        '1 collected, 1 rejected, 0 refunded, 0 pending'
+        "1 collected, 1 rejected, 0 refunded, 0 pending",
       );
-      expect(screen.getByRole('button', { name: /Collected/ })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Rejected/ })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Collected/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Rejected/ }),
+      ).toBeInTheDocument();
     });
 
-    it('opens a transaction detail modal when a status badge is clicked', () => {
-      render(<ScheduleDisplay schedule={schedule!} collections={collections} />);
+    it("opens a transaction detail modal when a status badge is clicked", () => {
+      render(
+        <ScheduleDisplay schedule={schedule!} collections={collections} />,
+      );
 
-      fireEvent.click(screen.getByRole('button', { name: /Rejected/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Rejected/ }));
 
       expect(screen.getByText(/Collections history/)).toBeInTheDocument();
-      expect(screen.getByText('REF-2')).toBeInTheDocument();
-      expect(screen.getByText('Not sufficient funds')).toBeInTheDocument();
+      expect(screen.getByText("REF-2")).toBeInTheDocument();
+      expect(screen.getByText("Not sufficient funds")).toBeInTheDocument();
     });
 
-    it('closes the transaction detail modal via its close button', () => {
-      render(<ScheduleDisplay schedule={schedule!} collections={collections} />);
-      fireEvent.click(screen.getByRole('button', { name: /Rejected/ }));
+    it("closes the transaction detail modal via its close button", () => {
+      render(
+        <ScheduleDisplay schedule={schedule!} collections={collections} />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: /Rejected/ }));
 
-      const modal = screen.getByText(/Collections history/).closest('div')!.parentElement!;
-      fireEvent.click(within(modal).getByRole('button', { name: '' }));
+      const modal = screen
+        .getByText(/Collections history/)
+        .closest("div")!.parentElement!;
+      fireEvent.click(within(modal).getByRole("button", { name: "" }));
 
       expect(screen.queryByText(/Collections history/)).not.toBeInTheDocument();
     });
 
-    it('shows the amount-mismatch warning in the detail modal for a single-item transaction with a different amount', () => {
+    it("shows the amount-mismatch warning in the detail modal for a single-item transaction with a different amount", () => {
       const mismatchedAmountCollections: CollectionTransaction[] = [
         {
           paymentScheduleItemIds: [firstItemId],
           amountDue: schedule!.scheduleItems[0].amountDue + 100,
-          collectionStatus: 'collected',
-          providerDetails: { processingDate: '2026-01-01T00:00:00Z' }
-        }
+          collectionStatus: "collected",
+          providerDetails: { processingDate: "2026-01-01T00:00:00Z" },
+        },
       ];
 
-      render(<ScheduleDisplay schedule={schedule!} collections={mismatchedAmountCollections} />);
-      fireEvent.click(screen.getByRole('button', { name: /Collected/ }));
+      render(
+        <ScheduleDisplay
+          schedule={schedule!}
+          collections={mismatchedAmountCollections}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: /Collected/ }));
 
-      expect(screen.getByText("The collected amount differs from this item's amount due.")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "The collected amount differs from this item's amount due.",
+        ),
+      ).toBeInTheDocument();
     });
 
-    it('shows a Processed date in the detail modal derived from modifiedDate when processingDate/valueDate are absent', () => {
+    it("shows a Processed date in the detail modal derived from modifiedDate when processingDate/valueDate are absent", () => {
       const modifiedDateOnlyCollections: CollectionTransaction[] = [
         {
           paymentScheduleItemIds: [firstItemId],
           amountDue: schedule!.scheduleItems[0].amountDue,
-          collectionStatus: 'collected',
-          transactionReference: 'REF-MODIFIED-ONLY',
-          modifiedDate: '2026-04-05T00:00:00+00:00',
-          dueDate: '2026-01-01'
-        }
+          collectionStatus: "collected",
+          transactionReference: "REF-MODIFIED-ONLY",
+          modifiedDate: "2026-04-05T00:00:00+00:00",
+          dueDate: "2026-01-01",
+        },
       ];
 
-      render(<ScheduleDisplay schedule={schedule!} collections={modifiedDateOnlyCollections} />);
-      fireEvent.click(screen.getByRole('button', { name: /Collected/ }));
+      render(
+        <ScheduleDisplay
+          schedule={schedule!}
+          collections={modifiedDateOnlyCollections}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: /Collected/ }));
 
-      const row = screen.getByText('REF-MODIFIED-ONLY').closest('tr')!;
-      expect(within(row).getByText('05/04/2026')).toBeInTheDocument();
+      const row = screen.getByText("REF-MODIFIED-ONLY").closest("tr")!;
+      expect(within(row).getByText("05/04/2026")).toBeInTheDocument();
     });
 
-    it('backfills the Status and Collection Item Created Date columns when the schedule item has no recorded values', () => {
+    it("backfills the Status and Collection Item Created Date columns when the schedule item has no recorded values", () => {
       const scheduleWithMissingInfo = {
         ...schedule!,
         scheduleItems: [
-          { ...schedule!.scheduleItems[0], id: 'derive-item', succeeded: null, collectionItemCreatedDate: undefined }
-        ]
+          {
+            ...schedule!.scheduleItems[0],
+            id: "derive-item",
+            succeeded: null,
+            collectionItemCreatedDate: undefined,
+          },
+        ],
       };
       const derivedCollections: CollectionTransaction[] = [
         {
-          paymentScheduleItemIds: ['derive-item'],
+          paymentScheduleItemIds: ["derive-item"],
           amountDue: schedule!.scheduleItems[0].amountDue,
-          collectionStatus: 'collected',
-          providerDetails: { processingDate: '2026-03-01T10:00:00+00:00' }
-        }
+          collectionStatus: "collected",
+          providerDetails: { processingDate: "2026-03-01T10:00:00+00:00" },
+        },
       ];
 
-      render(<ScheduleDisplay schedule={scheduleWithMissingInfo} collections={derivedCollections} />);
+      render(
+        <ScheduleDisplay
+          schedule={scheduleWithMissingInfo}
+          collections={derivedCollections}
+        />,
+      );
 
-      expect(screen.getByText('auto')).toBeInTheDocument();
+      expect(screen.getByText("auto")).toBeInTheDocument();
       expect(
-        screen.getByTitle('Derived from Collections reconciliation — this schedule item has no recorded status')
+        screen.getByTitle(
+          "Derived from Collections reconciliation — this schedule item has no recorded status",
+        ),
       ).toBeInTheDocument();
       expect(
-        screen.getByTitle('Derived from Collections reconciliation — not recorded on the schedule item')
-      ).toHaveTextContent('01/03/2026');
+        screen.getByTitle(
+          "Derived from Collections reconciliation — not recorded on the schedule item",
+        ),
+      ).toHaveTextContent("01/03/2026");
     });
 
-    it('falls back through modifiedDate/createdDate/valueDate before dueDate when deriving the created date', () => {
+    it("falls back through modifiedDate/createdDate/valueDate before dueDate when deriving the created date", () => {
       const scheduleWithMissingDate = {
         ...schedule!,
         scheduleItems: [
-          { ...schedule!.scheduleItems[0], id: 'derive-item-2', succeeded: true, collectionItemCreatedDate: undefined }
-        ]
+          {
+            ...schedule!.scheduleItems[0],
+            id: "derive-item-2",
+            succeeded: true,
+            collectionItemCreatedDate: undefined,
+          },
+        ],
       };
       const collectionsWithoutProcessingDate: CollectionTransaction[] = [
         {
-          paymentScheduleItemIds: ['derive-item-2'],
+          paymentScheduleItemIds: ["derive-item-2"],
           amountDue: schedule!.scheduleItems[0].amountDue,
-          collectionStatus: 'collected',
-          modifiedDate: '2026-04-05T00:00:00+00:00',
-          dueDate: '2026-01-01'
-        }
+          collectionStatus: "collected",
+          modifiedDate: "2026-04-05T00:00:00+00:00",
+          dueDate: "2026-01-01",
+        },
       ];
 
-      render(<ScheduleDisplay schedule={scheduleWithMissingDate} collections={collectionsWithoutProcessingDate} />);
+      render(
+        <ScheduleDisplay
+          schedule={scheduleWithMissingDate}
+          collections={collectionsWithoutProcessingDate}
+        />,
+      );
 
       expect(
-        screen.getByTitle('Derived from Collections reconciliation — not recorded on the schedule item')
-      ).toHaveTextContent('05/04/2026');
+        screen.getByTitle(
+          "Derived from Collections reconciliation — not recorded on the schedule item",
+        ),
+      ).toHaveTextContent("05/04/2026");
     });
 
-    it('backfills the Status column as successful when the latest reconciled outcome is a refund', () => {
+    it("backfills the Status column as successful when the latest reconciled outcome is a refund", () => {
       const scheduleWithMissingStatus = {
         ...schedule!,
         scheduleItems: [
-          { ...schedule!.scheduleItems[0], id: 'refund-item', succeeded: null }
-        ]
+          { ...schedule!.scheduleItems[0], id: "refund-item", succeeded: null },
+        ],
       };
       const refundCollections: CollectionTransaction[] = [
         {
-          paymentScheduleItemIds: ['refund-item'],
+          paymentScheduleItemIds: ["refund-item"],
           amountDue: schedule!.scheduleItems[0].amountDue,
-          collectionStatus: 'refunded',
-          providerDetails: { processingDate: '2026-03-01T10:00:00+00:00' }
-        }
+          collectionStatus: "refunded",
+          providerDetails: { processingDate: "2026-03-01T10:00:00+00:00" },
+        },
       ];
 
-      render(<ScheduleDisplay schedule={scheduleWithMissingStatus} collections={refundCollections} />);
+      render(
+        <ScheduleDisplay
+          schedule={scheduleWithMissingStatus}
+          collections={refundCollections}
+        />,
+      );
 
       // A refund is a successfully completed collection event, so it renders the "succeeded" (green Check) icon.
       const statusCell = screen.getByTitle(
-        'Derived from Collections reconciliation — this schedule item has no recorded status'
+        "Derived from Collections reconciliation — this schedule item has no recorded status",
       );
-      expect(within(statusCell).getByText('auto')).toBeInTheDocument();
-      expect(statusCell.querySelector('.text-green-500')).toBeInTheDocument();
-      expect(statusCell.querySelector('.text-red-500')).not.toBeInTheDocument();
+      expect(within(statusCell).getByText("auto")).toBeInTheDocument();
+      expect(statusCell.querySelector(".text-green-500")).toBeInTheDocument();
+      expect(statusCell.querySelector(".text-red-500")).not.toBeInTheDocument();
     });
 
-    it('does not override a schedule item that already has a recorded status', () => {
-      render(<ScheduleDisplay schedule={schedule!} collections={collections} />);
-      expect(screen.queryByText('auto')).not.toBeInTheDocument();
+    it("does not override a schedule item that already has a recorded status", () => {
+      render(
+        <ScheduleDisplay schedule={schedule!} collections={collections} />,
+      );
+      expect(screen.queryByText("auto")).not.toBeInTheDocument();
     });
 
-    it('calls onClearCollections when the Clear button is clicked', () => {
+    it("calls onClearCollections when the Clear button is clicked", () => {
       const onClearCollections = vi.fn();
-      render(<ScheduleDisplay schedule={schedule!} collections={collections} onClearCollections={onClearCollections} />);
+      render(
+        <ScheduleDisplay
+          schedule={schedule!}
+          collections={collections}
+          onClearCollections={onClearCollections}
+        />,
+      );
 
-      fireEvent.click(screen.getByTitle('Clear loaded collections'));
+      fireEvent.click(screen.getByTitle("Clear loaded collections"));
 
       expect(onClearCollections).toHaveBeenCalledTimes(1);
     });
 
-    it('highlights a status badge as retried when a rejection was followed by a resubmission/real-time attempt', () => {
+    it("highlights a status badge as retried when a rejection was followed by a resubmission/real-time attempt", () => {
       const retriedCollections: CollectionTransaction[] = [
         {
           paymentScheduleItemIds: [firstItemId],
           amountDue: schedule!.scheduleItems[0].amountDue,
-          collectionStatus: 'rejected',
-          providerDetails: { processingDate: '2026-01-25T22:04:10+00:00', errorMessage: 'Not sufficient funds' }
+          collectionStatus: "rejected",
+          providerDetails: {
+            processingDate: "2026-01-25T22:04:10+00:00",
+            errorMessage: "Not sufficient funds",
+          },
         },
         {
           paymentScheduleItemIds: [firstItemId],
           amountDue: schedule!.scheduleItems[0].amountDue,
-          collectionStatus: 'collected',
+          collectionStatus: "collected",
           isResubmission: true,
-          transactionReference: 'REF-RETRY',
-          providerDetails: { processingDate: '2026-02-01T22:04:47+00:00' }
-        }
+          transactionReference: "REF-RETRY",
+          providerDetails: { processingDate: "2026-02-01T22:04:47+00:00" },
+        },
       ];
 
-      render(<ScheduleDisplay schedule={schedule!} collections={retriedCollections} />);
+      render(
+        <ScheduleDisplay
+          schedule={schedule!}
+          collections={retriedCollections}
+        />,
+      );
 
-      const badge = screen.getByRole('button', { name: /Collected/ });
-      expect(badge).toHaveAttribute('title', expect.stringContaining('Retried via resubmission/real-time'));
+      const badge = screen.getByRole("button", { name: /Collected/ });
+      expect(badge).toHaveAttribute(
+        "title",
+        expect.stringContaining("Retried via resubmission/real-time"),
+      );
 
       fireEvent.click(badge);
-      const channelHeader = screen.getByText('Channel');
-      const row = screen.getByText('REF-RETRY').closest('tr')!;
-      expect(within(row).getByText('Resubmission')).toBeInTheDocument();
+      const channelHeader = screen.getByText("Channel");
+      const row = screen.getByText("REF-RETRY").closest("tr")!;
+      expect(within(row).getByText("Resubmission")).toBeInTheDocument();
       expect(channelHeader).toBeInTheDocument();
     });
 
-    it('does not mark a badge as retried when a rejection has no follow-up attempt yet', () => {
+    it("does not mark a badge as retried when a rejection has no follow-up attempt yet", () => {
       const notYetRetried: CollectionTransaction[] = [
         {
           paymentScheduleItemIds: [firstItemId],
           amountDue: schedule!.scheduleItems[0].amountDue,
-          collectionStatus: 'rejected',
-          providerDetails: { processingDate: '2026-01-25T22:04:10+00:00' }
-        }
+          collectionStatus: "rejected",
+          providerDetails: { processingDate: "2026-01-25T22:04:10+00:00" },
+        },
       ];
 
-      render(<ScheduleDisplay schedule={schedule!} collections={notYetRetried} />);
+      render(
+        <ScheduleDisplay schedule={schedule!} collections={notYetRetried} />,
+      );
 
-      const badge = screen.getByRole('button', { name: /Rejected/ });
-      expect(badge).not.toHaveAttribute('title', expect.stringContaining('Retried'));
+      const badge = screen.getByRole("button", { name: /Rejected/ });
+      expect(badge).not.toHaveAttribute(
+        "title",
+        expect.stringContaining("Retried"),
+      );
     });
   });
 
-  describe('Original Item breakdown', () => {
-    it('does not show an original-item button when the item has none', () => {
+  describe("Original Item breakdown", () => {
+    it("does not show an original-item button when the item has none", () => {
       render(<ScheduleDisplay schedule={schedule!} />);
-      expect(screen.queryByTitle('View original item details')).not.toBeInTheDocument();
+      expect(
+        screen.queryByTitle("View original item details"),
+      ).not.toBeInTheDocument();
     });
 
-    it('shows a breakdown referencing the matching row when the original item exists in the current schedule', () => {
+    it("shows a breakdown referencing the matching row when the original item exists in the current schedule", () => {
       const scheduleWithMatch = {
         ...schedule!,
         scheduleItems: [
-          { ...schedule!.scheduleItems[1], originalItem: { ...schedule!.scheduleItems[0] } },
-          schedule!.scheduleItems[0]
-        ]
+          {
+            ...schedule!.scheduleItems[1],
+            originalItem: { ...schedule!.scheduleItems[0] },
+          },
+          schedule!.scheduleItems[0],
+        ],
       };
 
       render(<ScheduleDisplay schedule={scheduleWithMatch} />);
-      fireEvent.click(screen.getByTitle('View original item details'));
+      fireEvent.click(screen.getByTitle("View original item details"));
 
-      expect(screen.getByText('Original Item')).toBeInTheDocument();
-      expect(screen.getByText('#1')).toBeInTheDocument();
-      expect(screen.getByText(schedule!.scheduleItems[0].id)).toBeInTheDocument();
+      expect(screen.getByText("Original Item")).toBeInTheDocument();
+      expect(screen.getByText("#1")).toBeInTheDocument();
+      expect(
+        screen.getByText(schedule!.scheduleItems[0].id),
+      ).toBeInTheDocument();
     });
 
-    it('flags the original item as synthetic when it is not found among the current schedule items', () => {
+    it("flags the original item as synthetic when it is not found among the current schedule items", () => {
       const syntheticOriginal = {
         ...schedule!.scheduleItems[0],
-        id: 'not-in-the-schedule',
-        collectionItemCreatedDate: undefined
+        id: "not-in-the-schedule",
+        collectionItemCreatedDate: undefined,
       };
       const scheduleWithSynthetic = {
         ...schedule!,
-        scheduleItems: [{ ...schedule!.scheduleItems[1], originalItem: syntheticOriginal }]
+        scheduleItems: [
+          { ...schedule!.scheduleItems[1], originalItem: syntheticOriginal },
+        ],
       };
 
       render(<ScheduleDisplay schedule={scheduleWithSynthetic} />);
-      fireEvent.click(screen.getByTitle('View original item details'));
+      fireEvent.click(screen.getByTitle("View original item details"));
 
-      expect(screen.getByText(/generated on the fly by the Payment Schedule service/)).toBeInTheDocument();
-      expect(screen.getByText('not-in-the-schedule')).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /generated on the fly by the Payment Schedule service/,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByText("not-in-the-schedule")).toBeInTheDocument();
     });
 
-    it('closes the original item modal via its close button', () => {
+    it("closes the original item modal via its close button", () => {
       const scheduleWithMatch = {
         ...schedule!,
         scheduleItems: [
-          { ...schedule!.scheduleItems[1], originalItem: { ...schedule!.scheduleItems[0] } },
-          schedule!.scheduleItems[0]
-        ]
+          {
+            ...schedule!.scheduleItems[1],
+            originalItem: { ...schedule!.scheduleItems[0] },
+          },
+          schedule!.scheduleItems[0],
+        ],
       };
 
       render(<ScheduleDisplay schedule={scheduleWithMatch} />);
-      fireEvent.click(screen.getByTitle('View original item details'));
+      fireEvent.click(screen.getByTitle("View original item details"));
 
-      const modal = screen.getByText('Original Item').closest('div')!.parentElement!;
-      fireEvent.click(within(modal).getByRole('button', { name: '' }));
+      const modal = screen
+        .getByText("Original Item")
+        .closest("div")!.parentElement!;
+      fireEvent.click(within(modal).getByRole("button", { name: "" }));
 
-      expect(screen.queryByText('Original Item')).not.toBeInTheDocument();
+      expect(screen.queryByText("Original Item")).not.toBeInTheDocument();
     });
 
-    it('shows non-empty admin fees and flags a nested original item on its own original item', () => {
+    it("shows non-empty admin fees and flags a nested original item on its own original item", () => {
       const nestedOriginal = {
         ...schedule!.scheduleItems[1], // has non-empty adminFees (SMD) in the sample fixture
-        originalItem: { ...schedule!.scheduleItems[0] }
+        originalItem: { ...schedule!.scheduleItems[0] },
       };
       const scheduleWithNestedOriginal = {
         ...schedule!,
-        scheduleItems: [{ ...schedule!.scheduleItems[0], id: 'holder-item', originalItem: nestedOriginal }]
+        scheduleItems: [
+          {
+            ...schedule!.scheduleItems[0],
+            id: "holder-item",
+            originalItem: nestedOriginal,
+          },
+        ],
       };
 
       render(<ScheduleDisplay schedule={scheduleWithNestedOriginal} />);
-      fireEvent.click(screen.getByTitle('View original item details'));
+      fireEvent.click(screen.getByTitle("View original item details"));
 
-      const [feeKey, feeValue] = Object.entries(schedule!.scheduleItems[1].adminFees)[0];
-      expect(screen.getByText(`${feeKey}: €${Number(feeValue.amountDue).toFixed(2)}`)).toBeInTheDocument();
-      expect(screen.getByText('Has Its Own Original Item')).toBeInTheDocument();
-      const header = screen.getByText('Has Its Own Original Item');
-      expect(header.nextElementSibling?.textContent).toBe('Yes');
+      const [feeKey, feeValue] = Object.entries(
+        schedule!.scheduleItems[1].adminFees,
+      )[0];
+      expect(
+        screen.getByText(
+          `${feeKey}: €${Number(feeValue.amountDue).toFixed(2)}`,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Has Its Own Original Item")).toBeInTheDocument();
+      const header = screen.getByText("Has Its Own Original Item");
+      expect(header.nextElementSibling?.textContent).toBe("Yes");
     });
   });
 
-  describe('Export content reflects Collections reconciliation', () => {
+  describe("Export content reflects Collections reconciliation", () => {
     const scheduleWithNullStatus = {
       ...schedule!,
-      scheduleItems: [{ ...schedule!.scheduleItems[0], id: 'export-item', succeeded: null, collectionItemCreatedDate: undefined }]
+      scheduleItems: [
+        {
+          ...schedule!.scheduleItems[0],
+          id: "export-item",
+          succeeded: null,
+          collectionItemCreatedDate: undefined,
+        },
+      ],
     };
     const collections: CollectionTransaction[] = [
       {
-        paymentScheduleItemIds: ['export-item'],
+        paymentScheduleItemIds: ["export-item"],
         amountDue: schedule!.scheduleItems[0].amountDue,
-        collectionStatus: 'rejected',
-        providerDetails: { processingDate: '2026-01-01T00:00:00Z' }
+        collectionStatus: "rejected",
+        providerDetails: { processingDate: "2026-01-01T00:00:00Z" },
       },
       {
-        paymentScheduleItemIds: ['export-item'],
+        paymentScheduleItemIds: ["export-item"],
         amountDue: schedule!.scheduleItems[0].amountDue,
-        collectionStatus: 'collected',
+        collectionStatus: "collected",
         isResubmission: true,
-        transactionReference: 'REF-EXPORT',
-        providerDetails: { processingDate: '2026-02-01T00:00:00Z' }
-      }
+        transactionReference: "REF-EXPORT",
+        providerDetails: { processingDate: "2026-02-01T00:00:00Z" },
+      },
     ];
 
-    describe('text-based formats', () => {
-      let capturedCsv = '';
-      let capturedHtml = '';
-      let capturedJson = '';
+    describe("text-based formats", () => {
+      let capturedCsv = "";
+      let capturedHtml = "";
+      let capturedJson = "";
 
       class CapturingBlob extends Blob {
         constructor(parts: BlobPart[] = [], options?: BlobPropertyBag) {
           super(parts, options);
           const text = String(parts[0]);
-          if (options?.type?.includes('csv')) capturedCsv = text;
-          else if (options?.type === 'text/html') capturedHtml = text;
-          else if (options?.type === 'application/json') capturedJson = text;
+          if (options?.type?.includes("csv")) capturedCsv = text;
+          else if (options?.type === "text/html") capturedHtml = text;
+          else if (options?.type === "application/json") capturedJson = text;
         }
       }
 
       beforeEach(() => {
-        capturedCsv = '';
-        capturedHtml = '';
-        capturedJson = '';
-        vi.stubGlobal('Blob', CapturingBlob);
+        capturedCsv = "";
+        capturedHtml = "";
+        capturedJson = "";
+        vi.stubGlobal("Blob", CapturingBlob);
       });
 
       afterEach(() => {
         vi.unstubAllGlobals();
       });
 
-      it('includes the derived status/created date and Collections columns in the CSV export', () => {
-        render(<ScheduleDisplay schedule={scheduleWithNullStatus} collections={collections} />);
-        selectFormat('csv');
+      it("includes the derived status/created date and Collections columns in the CSV export", () => {
+        render(
+          <ScheduleDisplay
+            schedule={scheduleWithNullStatus}
+            collections={collections}
+          />,
+        );
+        selectFormat("csv");
         clickExportButton();
 
-        expect(capturedCsv).toContain('CollectionsStatus');
-        expect(capturedCsv).toContain('CollectionsRetried');
-        const dataRow = capturedCsv.split('\n')[1];
-        expect(dataRow).toContain('collected');
-        expect(dataRow).toContain('true');
+        expect(capturedCsv).toContain("CollectionsStatus");
+        expect(capturedCsv).toContain("CollectionsRetried");
+        const dataRow = capturedCsv.split("\n")[1];
+        expect(dataRow).toContain("collected");
+        expect(dataRow).toContain("true");
       });
 
-      it('includes the derived status/created date and a collectionsReconciliation block in the JSON export', () => {
-        render(<ScheduleDisplay schedule={scheduleWithNullStatus} collections={collections} />);
-        selectFormat('json');
+      it("includes the derived status/created date and a collectionsReconciliation block in the JSON export", () => {
+        render(
+          <ScheduleDisplay
+            schedule={scheduleWithNullStatus}
+            collections={collections}
+          />,
+        );
+        selectFormat("json");
         clickExportButton();
 
         const parsed = JSON.parse(capturedJson);
         expect(parsed.scheduleItems[0].succeeded).toBe(true);
-        expect(parsed.scheduleItems[0].collectionItemCreatedDate).toBe('2026-02-01T00:00:00Z');
+        expect(parsed.scheduleItems[0].collectionItemCreatedDate).toBe(
+          "2026-02-01T00:00:00Z",
+        );
         expect(parsed.collectionsReconciliation).toEqual([
           {
-            scheduleItemId: 'export-item',
-            status: 'collected',
+            scheduleItemId: "export-item",
+            status: "collected",
             wasRetried: true,
             amountMismatch: false,
             statusMismatch: false,
-            transactionCount: 2
-          }
+            transactionCount: 2,
+          },
         ]);
       });
 
-      it('includes Created/Status/Collections columns in the HTML export', () => {
-        render(<ScheduleDisplay schedule={scheduleWithNullStatus} collections={collections} />);
-        selectFormat('html');
+      it("includes Created/Status/Collections columns in the HTML export", () => {
+        render(
+          <ScheduleDisplay
+            schedule={scheduleWithNullStatus}
+            collections={collections}
+          />,
+        );
+        selectFormat("html");
         clickExportButton();
 
         expect(capturedHtml).toMatch(/<th[^>]*>Created<\/th>/);
         expect(capturedHtml).toMatch(/<th[^>]*>Status<\/th>/);
         expect(capturedHtml).toMatch(/<th[^>]*>Collections<\/th>/);
-        expect(capturedHtml).toContain('Collected (retried)');
+        expect(capturedHtml).toContain("Collected (retried)");
       });
     });
 
-    it('includes status/created/collections info per item in the PDF export', async () => {
-      const jsPDFModule = await import('jspdf');
-      render(<ScheduleDisplay schedule={scheduleWithNullStatus} collections={collections} />);
-      selectFormat('pdf');
+    it("includes status/created/collections info per item in the PDF export", async () => {
+      const jsPDFModule = await import("jspdf");
+      render(
+        <ScheduleDisplay
+          schedule={scheduleWithNullStatus}
+          collections={collections}
+        />,
+      );
+      selectFormat("pdf");
       clickExportButton();
 
       await waitFor(() => {
-        const instance = vi.mocked(jsPDFModule.default).mock.results.at(-1)!.value;
-        const calls = instance.text.mock.calls.map((call: unknown[]) => call[0]);
-        expect(calls).toContain('COLLECTIONS');
-        expect(calls).toContain('Succeeded');
-        expect(calls).toContain('Collected (retried)');
+        const instance = vi
+          .mocked(jsPDFModule.default)
+          .mock.results.at(-1)!.value;
+        const calls = instance.text.mock.calls.map(
+          (call: unknown[]) => call[0],
+        );
+        expect(calls).toContain("COLLECTIONS");
+        expect(calls).toContain("Succeeded");
+        expect(calls).toContain("Collected (retried)");
       });
     });
   });
 
-  describe('Frequency change detection', () => {
+  describe("Frequency change detection", () => {
     function makeItem(overrides: Record<string, unknown> = {}) {
       return {
-        id: 'item',
-        collectionType: 'Full',
-        periodStartDate: '2026-01-10',
-        periodEndDate: '2026-02-09',
-        adjustmentDate: '0001-01-01T00:00:00-00:25',
-        dueDate: '2025-11-25',
+        id: "item",
+        collectionType: "Full",
+        periodStartDate: "2026-01-10",
+        periodEndDate: "2026-02-09",
+        adjustmentDate: "0001-01-01T00:00:00-00:25",
+        dueDate: "2025-11-25",
         amountDue: 34.09,
         netAmount: 32.46,
         taxesAndLevies: {},
         adminFees: {},
         succeeded: null,
-        ...overrides
+        ...overrides,
       };
     }
 
     const monthlyPeriods: Array<[string, string]> = [
-      ['2025-12-10', '2026-01-09'],
-      ['2026-01-10', '2026-02-09']
+      ["2025-12-10", "2026-01-09"],
+      ["2026-01-10", "2026-02-09"],
     ];
-    const monthlyItems = monthlyPeriods.map(([periodStartDate, periodEndDate], i) =>
-      makeItem({ id: `monthly-${i}`, periodStartDate, periodEndDate })
+    const monthlyItems = monthlyPeriods.map(
+      ([periodStartDate, periodEndDate], i) =>
+        makeItem({ id: `monthly-${i}`, periodStartDate, periodEndDate }),
     );
     const pivotItem = makeItem({
-      id: 'pivot-item',
-      collectionType: 'ProRata',
-      periodStartDate: '2026-09-10',
-      periodEndDate: '2026-10-09',
+      id: "pivot-item",
+      collectionType: "ProRata",
+      periodStartDate: "2026-09-10",
+      periodEndDate: "2026-10-09",
       originalItem: makeItem({
-        id: 'synthetic-annual-basis',
-        collectionType: 'Full',
-        periodStartDate: '2025-10-10',
-        periodEndDate: '2026-10-09'
-      })
+        id: "synthetic-annual-basis",
+        collectionType: "Full",
+        periodStartDate: "2025-10-10",
+        periodEndDate: "2026-10-09",
+      }),
     });
     const switchedSchedule = {
       ...schedule!,
-      inceptionDate: '2025-10-10',
-      coverStartDate: '2025-10-10',
-      coverEndDate: '2026-10-09',
-      scheduleItems: [...monthlyItems, pivotItem]
+      inceptionDate: "2025-10-10",
+      coverStartDate: "2025-10-10",
+      coverEndDate: "2026-10-09",
+      scheduleItems: [...monthlyItems, pivotItem],
     };
 
-    it('shows no frequency-change banner for a schedule that never switched', () => {
+    it("shows no frequency-change banner for a schedule that never switched", () => {
       render(<ScheduleDisplay schedule={schedule!} />);
-      expect(screen.queryByText(/switched from Monthly to Annual/)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/switched from Monthly to Annual/),
+      ).not.toBeInTheDocument();
     });
 
-    it('shows a banner and highlights the pivot row when a Monthly-to-Annual switch is detected', () => {
+    it("shows a banner and highlights the pivot row when a Monthly-to-Annual switch is detected", () => {
       render(<ScheduleDisplay schedule={switchedSchedule as any} />);
 
-      expect(screen.getByText(/switched from Monthly to Annual/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/switched from Monthly to Annual/),
+      ).toBeInTheDocument();
 
-      const pivotIcon = screen.getByLabelText('Frequency changed here');
-      const pivotRow = pivotIcon.closest('tr')!;
-      expect(pivotRow.className).toContain('ring-amber-400');
+      const pivotIcon = screen.getByLabelText("Frequency changed here");
+      const pivotRow = pivotIcon.closest("tr")!;
+      expect(pivotRow.className).toContain("ring-amber-400");
     });
   });
 
-  describe('Row index colours', () => {
-    it('colours a PascalCase ProRata item from a Policy Admin document yellow', () => {
+  describe("Row index colours", () => {
+    it("colours a PascalCase ProRata item from a Policy Admin document yellow", () => {
       const { schedule: policyAdminSchedule } = detectAndNormalizeSchedule({
-        PolicyNumber: 'OUT00255306',
-        PaymentScheduleId: 'schedule-1',
-        CollectionFrequency: 'Annual',
+        PolicyNumber: "OUT00255306",
+        PaymentScheduleId: "schedule-1",
+        CollectionFrequency: "Annual",
         CollectionDay: 1,
-        InceptionDate: '2026-10-03',
-        CoverStartDate: '2026-10-03',
-        CoverEndDate: '2027-10-02',
+        InceptionDate: "2026-10-03",
+        CoverStartDate: "2026-10-03",
+        CoverEndDate: "2027-10-02",
         ScheduleItems: [
           {
-            Id: 'full-item',
-            CollectionType: 'Full',
-            PeriodStartDate: '2026-10-03',
-            PeriodEndDate: '2026-12-02',
-            DueDate: '2026-10-01',
+            Id: "full-item",
+            CollectionType: "Full",
+            PeriodStartDate: "2026-10-03",
+            PeriodEndDate: "2026-12-02",
+            DueDate: "2026-10-01",
             AmountDue: 69.64,
             NetAmount: 66.97,
             TaxesAndLevies: {},
             AdminFees: {},
-            OriginalItem: null
+            OriginalItem: null,
           },
           {
-            Id: 'pro-rata-item',
-            CollectionType: 'ProRata',
-            PeriodStartDate: '2026-12-03',
-            PeriodEndDate: '2027-10-02',
-            DueDate: '2026-10-05',
+            Id: "pro-rata-item",
+            CollectionType: "ProRata",
+            PeriodStartDate: "2026-12-03",
+            PeriodEndDate: "2027-10-02",
+            DueDate: "2026-10-05",
             AmountDue: 299.94,
             NetAmount: 288.39,
             TaxesAndLevies: {},
             AdminFees: {},
             OriginalItem: {
-              Id: 'original-item',
-              CollectionType: 'Full',
-              PeriodStartDate: '2026-10-03',
-              PeriodEndDate: '2027-10-02',
-              DueDate: '2026-10-10',
+              Id: "original-item",
+              CollectionType: "Full",
+              PeriodStartDate: "2026-10-03",
+              PeriodEndDate: "2027-10-02",
+              DueDate: "2026-10-10",
               AmountDue: 369.58,
               NetAmount: 355.36,
               TaxesAndLevies: {},
               AdminFees: {},
-              OriginalItem: null
-            }
-          }
-        ]
+              OriginalItem: null,
+            },
+          },
+        ],
       });
-      const { container } = render(<ScheduleDisplay schedule={policyAdminSchedule!} />);
+      const { container } = render(
+        <ScheduleDisplay schedule={policyAdminSchedule!} />,
+      );
 
-      const indexCells = container.querySelectorAll('tbody tr > td:first-child');
-      expect(indexCells[0].className).toContain('bg-green-100');
-      expect(indexCells[1].className).toContain('bg-yellow-100');
+      const indexCells = container.querySelectorAll(
+        "tbody tr > td:first-child",
+      );
+      expect(indexCells[0].className).toContain("bg-green-100");
+      expect(indexCells[1].className).toContain("bg-yellow-100");
     });
   });
 
-  describe('Pro-rata item without original item', () => {
-    const fullItem = { ...schedule!.scheduleItems[0], id: 'full', collectionType: 'Full', originalItem: null };
-    const proRataItem = { ...schedule!.scheduleItems[0], id: 'pro-rata', collectionType: 'ProRata' };
+  describe("Pro-rata item without original item", () => {
+    const fullItem = {
+      ...schedule!.scheduleItems[0],
+      id: "full",
+      collectionType: "Full",
+      originalItem: null,
+    };
+    const proRataItem = {
+      ...schedule!.scheduleItems[0],
+      id: "pro-rata",
+      collectionType: "ProRata",
+    };
 
-    it('shows a warning banner and flags the row when a pro-rata item has no original item', () => {
+    it("shows a warning banner and flags the row when a pro-rata item has no original item", () => {
       render(
-        <ScheduleDisplay schedule={{ ...schedule!, scheduleItems: [fullItem, { ...proRataItem, originalItem: null }] }} />
+        <ScheduleDisplay
+          schedule={{
+            ...schedule!,
+            scheduleItems: [fullItem, { ...proRataItem, originalItem: null }],
+          }}
+        />,
       );
 
-      expect(screen.getByRole('alert')).toHaveTextContent('This schedule is possibly wrong: pro-rata item #1 has no original item.');
-      const flag = screen.getByLabelText('Pro-rata item without original item');
-      expect(flag.closest('tr')!.querySelector('td')!.textContent).toBe('1');
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "This schedule is possibly wrong: pro-rata item #1 has no original item.",
+      );
+      const flag = screen.getByLabelText("Pro-rata item without original item");
+      expect(flag.closest("tr")!.querySelector("td")!.textContent).toBe("1");
     });
 
-    it('shows no warning when every pro-rata item has its original item', () => {
+    it("shows no warning when every pro-rata item has its original item", () => {
       render(
-        <ScheduleDisplay schedule={{ ...schedule!, scheduleItems: [fullItem, { ...proRataItem, originalItem: fullItem }] }} />
+        <ScheduleDisplay
+          schedule={{
+            ...schedule!,
+            scheduleItems: [
+              fullItem,
+              { ...proRataItem, originalItem: fullItem },
+            ],
+          }}
+        />,
       );
 
-      expect(screen.queryByText(/This schedule is possibly wrong/)).not.toBeInTheDocument();
-      expect(screen.queryByLabelText('Pro-rata item without original item')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/This schedule is possibly wrong/),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByLabelText("Pro-rata item without original item"),
+      ).not.toBeInTheDocument();
     });
   });
 });

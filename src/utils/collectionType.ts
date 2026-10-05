@@ -1,12 +1,15 @@
-import type { ScheduleItem } from '../types';
+import type { ScheduleItem } from "../types";
 
 /**
  * CollectionType casing depends on the source: the Payment Schedule Service returns
  * camelCase ('full', 'proRata') while Policy Admin/Rerates/SEQ documents use PascalCase
  * ('Full', 'ProRata'), so comparisons must ignore case.
  */
-export function isCollectionType(item: Pick<ScheduleItem, 'collectionType'> | null | undefined, type: 'full' | 'proRata'): boolean {
-  return (item?.collectionType || '').toLowerCase() === type.toLowerCase();
+export function isCollectionType(
+  item: Pick<ScheduleItem, "collectionType"> | null | undefined,
+  type: "full" | "proRata",
+): boolean {
+  return (item?.collectionType || "").toLowerCase() === type.toLowerCase();
 }
 
 /**
@@ -14,6 +17,10 @@ export function isCollectionType(item: Pick<ScheduleItem, 'collectionType'> | nu
  * against the Full item it replaces, so a missing originalItem means the schedule lost that
  * basis and the item's amount/period can't be verified — the schedule is likely wrong.
  */
-export function findProRataItemsWithoutOriginal(items: ScheduleItem[]): number[] {
-  return items.flatMap((item, index) => (isCollectionType(item, 'proRata') && !item.originalItem ? [index] : []));
+export function findProRataItemsWithoutOriginal(
+  items: ScheduleItem[],
+): number[] {
+  return items.flatMap((item, index) =>
+    isCollectionType(item, "proRata") && !item.originalItem ? [index] : [],
+  );
 }

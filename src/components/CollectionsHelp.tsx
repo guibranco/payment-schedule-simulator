@@ -1,5 +1,5 @@
-import { ExternalLink } from 'lucide-react';
-import { getCollectionsSwaggerUrl } from '../utils/url';
+import { ExternalLink } from "lucide-react";
+import { getCollectionsSwaggerUrl } from "../utils/url";
 
 /**
  * Explains what "loading collections" means and how to fetch the data from the
@@ -12,13 +12,16 @@ export default function CollectionsHelp() {
   return (
     <div className="space-y-2 text-left">
       <p>
-        Collections are the payment transactions the Collections Service actually processed for this
-        schedule (collected, rejected, refunded or retried). Loading them reconciles each schedule item
-        against what really happened, adding a Collections column and correcting the Status/Created values.
+        Collections are the payment transactions the Collections Service
+        actually processed for this schedule (collected, rejected, refunded or
+        retried). Loading them reconciles each schedule item against what really
+        happened, adding a Collections column and correcting the Status/Created
+        values.
       </p>
       <p>
-        To get them, open the Collections Service Swagger, call the endpoint that lists the transactions
-        for this payment schedule ID, and paste or upload the JSON array it returns.
+        To get them, open the Collections Service Swagger, call the endpoint
+        that lists the transactions for this payment schedule ID, and paste or
+        upload the JSON array it returns.
       </p>
       {swaggerUrl ? (
         <a
@@ -32,8 +35,9 @@ export default function CollectionsHelp() {
         </a>
       ) : (
         <p className="italic">
-          The Swagger is at this environment's Collections API host (the Schedule API host with
-          "-schedule" replaced by "-collections"), under /swagger.
+          The Swagger is at this environment's Collections API host (the
+          Schedule API host with "-schedule" replaced by "-collections"), under
+          /swagger.
         </p>
       )}
     </div>
