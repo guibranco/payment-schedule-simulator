@@ -1,4 +1,4 @@
-export type CollectionFrequency = 'Monthly' | 'Annual';
+export type CollectionFrequency = "Monthly" | "Annual";
 
 export interface AdminFee {
   amountDue: number;
@@ -90,7 +90,11 @@ export interface CollectionTransaction {
   modifiedDate?: string;
 }
 
-export type ReconciledStatus = 'collected' | 'rejected' | 'refunded' | 'pending';
+export type ReconciledStatus =
+  | "collected"
+  | "rejected"
+  | "refunded"
+  | "pending";
 
 export interface ItemReconciliation {
   status: ReconciledStatus;
@@ -133,5 +137,5 @@ export interface ProblemDetailsError {
 export interface ApiErrorResponse {
   message: string;
   details: string[];
-  type: 'validation' | 'problem-details' | 'generic';
+  type: "validation" | "problem-details" | "generic";
 }

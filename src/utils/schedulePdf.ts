@@ -245,7 +245,13 @@ export function renderSchedulePdf(
   );
   const totalIndex = columns.findIndex((column) => column.label === "Total");
 
-  let y = drawAnomalies(doc, report.anomalies, legendY + 6, contentWidth, pageHeight);
+  let y = drawAnomalies(
+    doc,
+    report.anomalies,
+    legendY + 6,
+    contentWidth,
+    pageHeight,
+  );
   drawTableHeader(doc, columns, widths, y);
   y += TABLE_HEADER_HEIGHT;
 

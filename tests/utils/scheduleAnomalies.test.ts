@@ -77,7 +77,10 @@ const policyAdminDocument = {
 const baseSchedule = detectAndNormalizeSchedule(policyAdminDocument).schedule!;
 const [fullItem, stampDutyItem, proRataItem] = baseSchedule.scheduleItems;
 
-function withItems(scheduleItems: ScheduleItem[], overrides: Partial<PaymentScheduleResponse> = {}): PaymentScheduleResponse {
+function withItems(
+  scheduleItems: ScheduleItem[],
+  overrides: Partial<PaymentScheduleResponse> = {},
+): PaymentScheduleResponse {
   return { ...baseSchedule, scheduleItems, ...overrides };
 }
 
@@ -85,7 +88,11 @@ function kinds(schedule: PaymentScheduleResponse): string[] {
   return detectScheduleAnomalies(schedule).map((anomaly) => anomaly.kind);
 }
 
-function stampDuty(amount: number, adjustmentDate: string, id = `smd-${adjustmentDate}`): ScheduleItem {
+function stampDuty(
+  amount: number,
+  adjustmentDate: string,
+  id = `smd-${adjustmentDate}`,
+): ScheduleItem {
   return {
     ...stampDutyItem,
     id,
@@ -107,24 +114,46 @@ describe("detectScheduleAnomalies", () => {
 
   describe("Orphaned Pro-Rata Item", () => {
     it("flags a Pro-Rata Item without a Basis Item, recognising PascalCase collection types", () => {
-      const anomalies = detectScheduleAnomalies(withItems([fullItem, stampDutyItem, { ...proRataItem, originalItem: null }]));
+      const anomalies = detectScheduleAnomalies(
+        withItems([
+          fullItem,
+          stampDutyItem,
+          { ...proRataItem, originalItem: null },
+        ]),
+      );
 
       expect(anomalies.map((a) => a.kind)).toEqual(["orphanedProRataItem"]);
-      expect(anomalies[0]).toMatchObject({ severity: "warning", itemIndexes: [2] });
-      expect(anomalies[0].message).toContain("Pro-Rata Item #2 has no Basis Item");
+      expect(anomalies[0]).toMatchObject({
+        severity: "warning",
+        itemIndexes: [2],
+      });
+      expect(anomalies[0].message).toContain(
+        "Pro-Rata Item #2 has no Basis Item",
+      );
     });
   });
 
   describe("Nested Basis Item", () => {
     it("flags a Basis Item that has a Basis Item of its own", () => {
-      const nested = { ...proRataItem, originalItem: { ...proRataItem.originalItem!, originalItem: fullItem } };
-      expect(kinds(withItems([fullItem, stampDutyItem, nested]))).toContain("nestedBasisItem");
+      const nested = {
+        ...proRataItem,
+        originalItem: { ...proRataItem.originalItem!, originalItem: fullItem },
+      };
+      expect(kinds(withItems([fullItem, stampDutyItem, nested]))).toContain(
+        "nestedBasisItem",
+      );
     });
   });
 
   describe("Pro-Rata amount", () => {
     it("flags a Pro-Rata amount that differs from the Basis Item minus the Full Items already due", () => {
-      const anomalies = detectScheduleAnomalies(withItems([fullItem, stampDutyItem, { ...proRataItem, amountDue: 250 }]));
+      const anomalies = detectScheduleAnomalies(
+        withItems([
+          fullItem,
+          stampDutyItem,
+          { ...proRataItem, amountDue: 250 },
+        ]),
+      );
 
       expect(anomalies.map((a) => a.kind)).toEqual(["proRataAmountMismatch"]);
       expect(anomalies[0].message).toContain("€250.00");
@@ -132,26 +161,51 @@ describe("detectScheduleAnomalies", () => {
     });
 
     it("allows the Rounding Remainder when the first Full Item is involved", () => {
-      expect(kinds(withItems([fullItem, stampDutyItem, { ...proRataItem, amountDue: 299.94 + 0.11 }]))).toEqual([]);
+      expect(
+        kinds(
+          withItems([
+            fullItem,
+            stampDutyItem,
+            { ...proRataItem, amountDue: 299.94 + 0.11 },
+          ]),
+        ),
+      ).toEqual([]);
     });
 
     it("reports scenarios it can't check as one Unverified Pro-Rata Amount entry", () => {
       const unsupported = { ...proRataItem, periodEndDate: "2027-06-02" };
-      const anomalies = detectScheduleAnomalies(withItems([fullItem, stampDutyItem, unsupported, { ...unsupported, id: "second" }]));
+      const anomalies = detectScheduleAnomalies(
+        withItems([
+          fullItem,
+          stampDutyItem,
+          unsupported,
+          { ...unsupported, id: "second" },
+        ]),
+      );
 
       expect(anomalies.map((a) => a.kind)).toEqual(["unverifiedProRataAmount"]);
-      expect(anomalies[0]).toMatchObject({ severity: "info", itemIndexes: [2, 3] });
+      expect(anomalies[0]).toMatchObject({
+        severity: "info",
+        itemIndexes: [2, 3],
+      });
     });
   });
 
   describe("Stamp Duty", () => {
     it("flags a live schedule with no Stamp Duty", () => {
-      expect(kinds(withItems([fullItem, proRataItem]))).toEqual(["stampDutyImbalance"]);
+      expect(kinds(withItems([fullItem, proRataItem]))).toEqual([
+        "stampDutyImbalance",
+      ]);
     });
 
     it("flags a second Stamp Duty charge that wasn't preceded by a refund", () => {
       const anomalies = detectScheduleAnomalies(
-        withItems([fullItem, stampDutyItem, proRataItem, stampDuty(1, "2026-11-01T00:00:00+00:00")]),
+        withItems([
+          fullItem,
+          stampDutyItem,
+          proRataItem,
+          stampDuty(1, "2026-11-01T00:00:00+00:00"),
+        ]),
       );
       expect(anomalies.map((a) => a.kind)).toEqual(["stampDutyImbalance"]);
       expect(anomalies[0].itemIndexes).toEqual([3]);
@@ -172,35 +226,70 @@ describe("detectScheduleAnomalies", () => {
     });
 
     it("accepts a Void that nets everything, Stamp Duty included, to zero", () => {
-      const refund = { ...fullItem, id: "refund", amountDue: -fullItem.amountDue, adjustmentDate: "2026-10-02T09:00:00+00:00" };
+      const refund = {
+        ...fullItem,
+        id: "refund",
+        amountDue: -fullItem.amountDue,
+        adjustmentDate: "2026-10-02T09:00:00+00:00",
+      };
       expect(
         kinds(
-          withItems([fullItem, refund, stampDutyItem, stampDuty(-1, "2026-10-02T09:00:00+00:00")], {
-            riskStatus: "CX",
-            coverEndDate: "2026-10-03",
-          }),
+          withItems(
+            [
+              fullItem,
+              refund,
+              stampDutyItem,
+              stampDuty(-1, "2026-10-02T09:00:00+00:00"),
+            ],
+            {
+              riskStatus: "CX",
+              coverEndDate: "2026-10-03",
+            },
+          ),
         ),
       ).toEqual([]);
     });
 
     it("flags a live (AC) schedule whose Stamp Duty was refunded", () => {
-      expect(kinds(withItems([fullItem, stampDutyItem, proRataItem, stampDuty(-1, "2026-10-05T09:00:00+00:00")]))).toEqual([
-        "stampDutyImbalance",
-      ]);
+      expect(
+        kinds(
+          withItems([
+            fullItem,
+            stampDutyItem,
+            proRataItem,
+            stampDuty(-1, "2026-10-05T09:00:00+00:00"),
+          ]),
+        ),
+      ).toEqual(["stampDutyImbalance"]);
     });
 
     it("notes a Stamp Duty charge other than the fixed €1", () => {
-      const anomalies = detectScheduleAnomalies(withItems([fullItem, stampDuty(2, stampDutyItem.adjustmentDate), proRataItem]));
-      expect(anomalies.map((a) => a.kind)).toEqual(["unexpectedStampDutyAmount"]);
+      const anomalies = detectScheduleAnomalies(
+        withItems([
+          fullItem,
+          stampDuty(2, stampDutyItem.adjustmentDate),
+          proRataItem,
+        ]),
+      );
+      expect(anomalies.map((a) => a.kind)).toEqual([
+        "unexpectedStampDutyAmount",
+      ]);
       expect(anomalies[0].severity).toBe("info");
     });
   });
 
   describe("Annual Premium Mismatch", () => {
-    const annualFullItem = { ...fullItem, periodEndDate: "2027-10-02", netAmount: 355.36, amountDue: 369.58 };
+    const annualFullItem = {
+      ...fullItem,
+      periodEndDate: "2027-10-02",
+      netAmount: 355.36,
+      amountDue: 369.58,
+    };
 
     it("flags a full-period Full Item whose net amount isn't the Annualised Premium", () => {
-      const anomalies = detectScheduleAnomalies(withItems([{ ...annualFullItem, netAmount: 66.97 }, stampDutyItem]));
+      const anomalies = detectScheduleAnomalies(
+        withItems([{ ...annualFullItem, netAmount: 66.97 }, stampDutyItem]),
+      );
       expect(anomalies.map((a) => a.kind)).toEqual(["annualPremiumMismatch"]);
       expect(anomalies[0].message).toContain("€355.36");
     });
@@ -210,40 +299,76 @@ describe("detectScheduleAnomalies", () => {
     });
 
     it("skips schedules with Pro-Rata Items, whose Annualised Premium is already the post-MTA one", () => {
-      expect(kinds(withItems([{ ...annualFullItem, netAmount: 66.97 }, stampDutyItem, proRataItem]))).not.toContain(
-        "annualPremiumMismatch",
-      );
+      expect(
+        kinds(
+          withItems([
+            { ...annualFullItem, netAmount: 66.97 },
+            stampDutyItem,
+            proRataItem,
+          ]),
+        ),
+      ).not.toContain("annualPremiumMismatch");
     });
 
     it("skips formats without an Annualised Premium", () => {
-      expect(kinds(withItems([{ ...annualFullItem, netAmount: 66.97 }, stampDutyItem], { annualisedPremium: null }))).toEqual([]);
+      expect(
+        kinds(
+          withItems([{ ...annualFullItem, netAmount: 66.97 }, stampDutyItem], {
+            annualisedPremium: null,
+          }),
+        ),
+      ).toEqual([]);
     });
   });
 
   describe("admin fees", () => {
     function withFee(code: string, amount: number): ScheduleItem {
-      return { ...stampDutyItem, id: code, adminFees: { [code]: { amountDue: amount, taxAmount: 0 } } };
+      return {
+        ...stampDutyItem,
+        id: code,
+        adminFees: { [code]: { amountDue: amount, taxAmount: 0 } },
+      };
     }
 
     it("flags any Collection Fee, even at zero", () => {
-      expect(kinds(withItems([fullItem, stampDutyItem, proRataItem, withFee("CLF", 0)]))).toEqual(["collectionFeeCharged"]);
+      expect(
+        kinds(
+          withItems([fullItem, stampDutyItem, proRataItem, withFee("CLF", 0)]),
+        ),
+      ).toEqual(["collectionFeeCharged"]);
     });
 
     it("flags a non-zero Cancellation Fee when cover ends after 30/06/2026", () => {
-      expect(kinds(withItems([fullItem, stampDutyItem, proRataItem, withFee("CAN", 40)]))).toEqual(["prohibitedCancellationFee"]);
+      expect(
+        kinds(
+          withItems([fullItem, stampDutyItem, proRataItem, withFee("CAN", 40)]),
+        ),
+      ).toEqual(["prohibitedCancellationFee"]);
     });
 
     it("allows a zero Cancellation Fee, or one on cover ending by 30/06/2026", () => {
-      expect(kinds(withItems([fullItem, stampDutyItem, proRataItem, withFee("CAN", 0)]))).toEqual([]);
       expect(
-        kinds(withItems([fullItem, stampDutyItem, proRataItem, withFee("CAN", 40)], { coverEndDate: "2026-06-30" })),
+        kinds(
+          withItems([fullItem, stampDutyItem, proRataItem, withFee("CAN", 0)]),
+        ),
+      ).toEqual([]);
+      expect(
+        kinds(
+          withItems(
+            [fullItem, stampDutyItem, proRataItem, withFee("CAN", 40)],
+            { coverEndDate: "2026-06-30" },
+          ),
+        ),
       ).not.toContain("prohibitedCancellationFee");
     });
   });
 
   describe("Surgery Detected", () => {
     it("notes a schedule last modified by a person", () => {
-      const anomalies = detectScheduleAnomalies({ ...baseSchedule, modifiedBy: "someone@example.com" });
+      const anomalies = detectScheduleAnomalies({
+        ...baseSchedule,
+        modifiedBy: "someone@example.com",
+      });
       expect(anomalies.map((a) => a.kind)).toEqual(["surgeryDetected"]);
       expect(anomalies[0].message).toContain("someone@example.com");
     });

@@ -229,14 +229,18 @@ export default function ScheduleDisplay({
     ? reconciliation?.get(reconciliationDetailItemId)
     : null;
 
-  const anomalies = useMemo(() => detectScheduleAnomalies(schedule), [schedule]);
+  const anomalies = useMemo(
+    () => detectScheduleAnomalies(schedule),
+    [schedule],
+  );
   const frequencySwitchIndex = anomalies.find(
     (anomaly) => anomaly.kind === "frequencySwitch",
   )?.itemIndexes[0];
   const itemAnomalies = (index: number) =>
     anomalies.filter(
       (anomaly) =>
-        anomaly.kind !== "frequencySwitch" && anomaly.itemIndexes.includes(index),
+        anomaly.kind !== "frequencySwitch" &&
+        anomaly.itemIndexes.includes(index),
     );
 
   const formatDate = (dateStr: string) => {
@@ -697,7 +701,9 @@ export default function ScheduleDisplay({
                       <Icon
                         className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isWarning ? "text-red-700" : "text-blue-700"}`}
                       />
-                      <div className={`text-sm ${isWarning ? "text-red-900" : "text-blue-900"}`}>
+                      <div
+                        className={`text-sm ${isWarning ? "text-red-900" : "text-blue-900"}`}
+                      >
                         <p className="font-semibold">
                           {anomaly.title}
                           <span className="ml-2 text-xs font-medium uppercase opacity-70">
@@ -753,9 +759,7 @@ export default function ScheduleDisplay({
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-yellow-100 rounded"></div>
-                <span className="text-sm text-gray-600">
-                  Pro-Rata Item
-                </span>
+                <span className="text-sm text-gray-600">Pro-Rata Item</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-orange-100 rounded"></div>
@@ -1124,8 +1128,8 @@ export default function ScheduleDisplay({
                   </div>
                 )}
                 <p className="text-xs text-gray-500">
-                  The full-period item this Pro-Rata Item's amount is
-                  calculated from (<code>originalItem</code> in the JSON).
+                  The full-period item this Pro-Rata Item's amount is calculated
+                  from (<code>originalItem</code> in the JSON).
                 </p>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
