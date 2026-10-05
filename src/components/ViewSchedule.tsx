@@ -54,25 +54,45 @@ interface ParsedSchedule {
   error: string | null;
 }
 
-const EMPTY_PARSE: ParsedSchedule = { format: null, schedule: null, input: null, error: null };
+const EMPTY_PARSE: ParsedSchedule = {
+  format: null,
+  schedule: null,
+  input: null,
+  error: null,
+};
 
 /** Detects and normalizes schedule JSON, or describes why it can't be read. */
 function parseScheduleJson(raw: string): ParsedSchedule {
   try {
     const detected = detectAndNormalizeSchedule(JSON.parse(raw));
-    return { format: detected.format, schedule: detected.schedule, input: detected.input, error: null };
+    return {
+      format: detected.format,
+      schedule: detected.schedule,
+      input: detected.input,
+      error: null,
+    };
   } catch (err) {
     if (err instanceof SyntaxError) {
-      return { ...EMPTY_PARSE, error: "Invalid JSON syntax. Please check for missing commas, quotes, or brackets." };
+      return {
+        ...EMPTY_PARSE,
+        error:
+          "Invalid JSON syntax. Please check for missing commas, quotes, or brackets.",
+      };
     }
-    return { ...EMPTY_PARSE, error: err instanceof Error ? err.message : "Invalid schedule format" };
+    return {
+      ...EMPTY_PARSE,
+      error: err instanceof Error ? err.message : "Invalid schedule format",
+    };
   }
 }
 
 /** The view's starting point: a schedule restored after a sign-in redirect, or nothing. */
 function readInitialView(): { jsonInput: string; parsed: ParsedSchedule } {
   const jsonInput = readPendingScheduleJson();
-  return { jsonInput, parsed: jsonInput ? parseScheduleJson(jsonInput) : EMPTY_PARSE };
+  return {
+    jsonInput,
+    parsed: jsonInput ? parseScheduleJson(jsonInput) : EMPTY_PARSE,
+  };
 }
 
 /** Returns the next succeeded status in the cycle unknown → succeeded → failed → unknown. */
@@ -131,8 +151,8 @@ function ScheduleInputSummary({
                 Object.entries(dates).map(([date, value]) => (
                   <span key={`${key}-${date}`} className="block">
                     {key}
-                    {date !== "0001-01-01" && ` (effective ${date})`}
-                    : €{Number(value).toFixed(2)}
+                    {date !== "0001-01-01" && ` (effective ${date})`}: €
+                    {Number(value).toFixed(2)}
                   </span>
                 )),
               )
@@ -168,7 +188,9 @@ export default function ViewSchedule({ apiEndpoint }: Readonly<Props>) {
   const [showPasteInput, setShowPasteInput] = useState(true);
   const [selectedExample, setSelectedExample] = useState("");
   const [error, setError] = useState<string | null>(initialView.parsed.error);
-  const [format, setFormat] = useState<ScheduleFormat | null>(initialView.parsed.format);
+  const [format, setFormat] = useState<ScheduleFormat | null>(
+    initialView.parsed.format,
+  );
   const [schedule, setSchedule] = useState<PaymentScheduleResponse | null>(
     initialView.parsed.schedule,
   );
@@ -512,9 +534,7 @@ export default function ViewSchedule({ apiEndpoint }: Readonly<Props>) {
                 onClearCollections={handleClearCollections}
               />
             ) : (
-              scheduleInput && (
-                <ScheduleInputSummary input={scheduleInput} />
-              )
+              scheduleInput && <ScheduleInputSummary input={scheduleInput} />
             )}
           </div>
         )}

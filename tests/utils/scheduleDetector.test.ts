@@ -81,7 +81,9 @@ describe("detectAndNormalizeSchedule", () => {
   it.each(["policyAdmin", "rerates"])(
     "keeps the policy number and risk ID of a %s document, for fetching its collections",
     (format) => {
-      const schedule = must(detectAndNormalizeSchedule(sampleFor(format)).schedule);
+      const schedule = must(
+        detectAndNormalizeSchedule(sampleFor(format)).schedule,
+      );
       expect(schedule.policyNumber).toBe(sampleFor(format).PolicyNumber);
       expect(schedule.riskId).toBe(1);
     },

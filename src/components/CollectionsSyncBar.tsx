@@ -1,5 +1,11 @@
 import { useId } from "react";
-import { AlertTriangle, CheckCircle2, LogIn, PlugZap, RefreshCw } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  LogIn,
+  PlugZap,
+  RefreshCw,
+} from "lucide-react";
 import {
   REFRESH_INTERVAL_OPTIONS,
   type CollectionsConnection,
@@ -95,7 +101,11 @@ function ReadyBar({
   return (
     <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-md text-sm text-indigo-900 space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <SyncStatusText status={status} lastCheckedAt={lastCheckedAt} isPaused={isPaused} />
+        <SyncStatusText
+          status={status}
+          lastCheckedAt={lastCheckedAt}
+          isPaused={isPaused}
+        />
         <div className="flex items-center gap-2">
           <label htmlFor={intervalId} className="text-indigo-800">
             Auto-refresh
@@ -103,7 +113,9 @@ function ReadyBar({
           <select
             id={intervalId}
             value={refreshMinutes}
-            onChange={(e) => onRefreshMinutesChange(Number(e.target.value) as RefreshMinutes)}
+            onChange={(e) =>
+              onRefreshMinutesChange(Number(e.target.value) as RefreshMinutes)
+            }
             className="text-sm px-2 py-1 border border-indigo-200 rounded-md bg-white"
           >
             {REFRESH_INTERVAL_OPTIONS.map((minutes) => (
@@ -118,15 +130,22 @@ function ReadyBar({
             disabled={isLoading}
             className={`${BUTTON_CLASS} text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-100 disabled:opacity-60`}
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
+            />
             Refresh now
           </button>
         </div>
       </div>
       {error && status === "error" && (
-        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 p-2 bg-red-50 border border-red-200 rounded text-red-800">
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-2 p-2 bg-red-50 border border-red-200 rounded text-red-800"
+        >
           <span>{error.message}</span>
-          {error.kind === "unauthorized" && <SignInButton onSignIn={onSignIn} />}
+          {error.kind === "unauthorized" && (
+            <SignInButton onSignIn={onSignIn} />
+          )}
         </div>
       )}
     </div>
@@ -138,7 +157,11 @@ function SyncStatusText({
   status,
   lastCheckedAt,
   isPaused,
-}: Readonly<{ status: CollectionsSyncStatus; lastCheckedAt: number | null; isPaused: boolean }>) {
+}: Readonly<{
+  status: CollectionsSyncStatus;
+  lastCheckedAt: number | null;
+  isPaused: boolean;
+}>) {
   if (status === "loading") {
     return (
       <span className="flex items-center gap-2">
@@ -148,13 +171,22 @@ function SyncStatusText({
     );
   }
   if (isPaused) {
-    return <span>Automatic checks are paused because collections were loaded by hand. Refresh now to resume.</span>;
+    return (
+      <span>
+        Automatic checks are paused because collections were loaded by hand.
+        Refresh now to resume.
+      </span>
+    );
   }
-  const checkedAt = lastCheckedAt ? new Date(lastCheckedAt).toLocaleTimeString("en-GB") : null;
+  const checkedAt = lastCheckedAt
+    ? new Date(lastCheckedAt).toLocaleTimeString("en-GB")
+    : null;
   return (
     <span className="flex items-center gap-2">
       <CheckCircle2 className="w-4 h-4" />
-      {checkedAt ? `Collections checked at ${checkedAt}` : "Collections are checked automatically."}
+      {checkedAt
+        ? `Collections checked at ${checkedAt}`
+        : "Collections are checked automatically."}
     </span>
   );
 }

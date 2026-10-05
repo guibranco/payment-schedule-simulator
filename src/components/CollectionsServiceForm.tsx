@@ -1,15 +1,19 @@
-import React, { useId, useState } from 'react';
-import { DEFAULT_COLLECTIONS_SCOPE, STORAGE_KEYS } from '../constants';
-import { collectionsBaseUrl } from '../hooks/useCollectionsSync';
-import { buildAuthorizationUrl, resolveScope, savedEnvironment } from '../utils/oauthFlow';
-import { isHttpUrl, isSafeIdentifier } from '../utils/oauthValidation';
-import { getRedirectUri, navigateTo } from '../utils/url';
+import React, { useId, useState } from "react";
+import { DEFAULT_COLLECTIONS_SCOPE, STORAGE_KEYS } from "../constants";
+import { collectionsBaseUrl } from "../hooks/useCollectionsSync";
+import {
+  buildAuthorizationUrl,
+  resolveScope,
+  savedEnvironment,
+} from "../utils/oauthFlow";
+import { isHttpUrl, isSafeIdentifier } from "../utils/oauthValidation";
+import { getRedirectUri, navigateTo } from "../utils/url";
 
 /** One or more space-separated scopes made of URI-safe characters, allowing the `{environment-suffix}` placeholder. */
 const SCOPE_PATTERN = /^[\w:/.{}-]+(?: [\w:/.{}-]+)*$/;
 
 const INPUT_CLASS =
-  'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary';
+  "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary";
 
 interface Props {
   onCancel: () => void;
@@ -19,30 +23,41 @@ interface Props {
 /** The saved Collections Service settings, with sensible defaults for a first set-up. */
 function readSavedCollectionsConfig() {
   return {
-    baseUrl: collectionsBaseUrl() ?? '',
+    baseUrl: collectionsBaseUrl() ?? "",
     tenantId:
       localStorage.getItem(STORAGE_KEYS.COLLECTIONS_TENANT_ID) ||
       localStorage.getItem(STORAGE_KEYS.TENANT_ID) ||
-      '',
-    clientId: localStorage.getItem(STORAGE_KEYS.COLLECTIONS_CLIENT_ID) || '',
-    scope: localStorage.getItem(STORAGE_KEYS.COLLECTIONS_SCOPE) || DEFAULT_COLLECTIONS_SCOPE,
-    isSignedIn: Boolean(localStorage.getItem(STORAGE_KEYS.COLLECTIONS_ACCESS_TOKEN))
+      "",
+    clientId: localStorage.getItem(STORAGE_KEYS.COLLECTIONS_CLIENT_ID) || "",
+    scope:
+      localStorage.getItem(STORAGE_KEYS.COLLECTIONS_SCOPE) ||
+      DEFAULT_COLLECTIONS_SCOPE,
+    isSignedIn: Boolean(
+      localStorage.getItem(STORAGE_KEYS.COLLECTIONS_ACCESS_TOKEN),
+    ),
   };
 }
 
 /** Why the Collections settings can't be saved, or null when they're valid. */
-function validationError(baseUrl: string, tenantId: string, clientId: string, scope: string): string | null {
+function validationError(
+  baseUrl: string,
+  tenantId: string,
+  clientId: string,
+  scope: string,
+): string | null {
   let url: URL;
   try {
     url = new URL(baseUrl);
   } catch {
-    return 'Enter a valid Collections API base URL.';
+    return "Enter a valid Collections API base URL.";
   }
-  if (!isHttpUrl(url)) return 'The Collections API base URL must use http or https.';
+  if (!isHttpUrl(url))
+    return "The Collections API base URL must use http or https.";
   if (!isSafeIdentifier(tenantId) || !isSafeIdentifier(clientId)) {
-    return 'Tenant and client IDs may only contain letters, digits, dots and hyphens.';
+    return "Tenant and client IDs may only contain letters, digits, dots and hyphens.";
   }
-  if (!SCOPE_PATTERN.test(scope)) return 'Enter the scope as space-separated values, e.g. api://collections-api/user_impersonation.';
+  if (!SCOPE_PATTERN.test(scope))
+    return "Enter the scope as space-separated values, e.g. api://collections-api/user_impersonation.";
   return null;
 }
 
@@ -51,7 +66,10 @@ function validationError(baseUrl: string, tenantId: string, clientId: string, sc
  * client and scope). Connecting saves them and signs in, so View Schedule can load each
  * schedule's collections automatically.
  */
-export default function CollectionsServiceForm({ onCancel, onClose }: Readonly<Props>) {
+export default function CollectionsServiceForm({
+  onCancel,
+  onClose,
+}: Readonly<Props>) {
   const [saved] = useState(readSavedCollectionsConfig);
   const [baseUrl, setBaseUrl] = useState(saved.baseUrl);
   const [tenantId, setTenantId] = useState(saved.tenantId);
@@ -71,16 +89,26 @@ export default function CollectionsServiceForm({ onCancel, onClose }: Readonly<P
       return;
     }
 
-    localStorage.setItem(STORAGE_KEYS.COLLECTIONS_API_ENDPOINT, new URL(baseUrl).toString());
+    localStorage.setItem(
+      STORAGE_KEYS.COLLECTIONS_API_ENDPOINT,
+      new URL(baseUrl).toString(),
+    );
     localStorage.setItem(STORAGE_KEYS.COLLECTIONS_TENANT_ID, tenantId);
     localStorage.setItem(STORAGE_KEYS.COLLECTIONS_CLIENT_ID, clientId);
     localStorage.setItem(STORAGE_KEYS.COLLECTIONS_SCOPE, scope);
 
     try {
-      navigateTo(await buildAuthorizationUrl('collections', resolveScope(scope, environment)));
+      navigateTo(
+        await buildAuthorizationUrl(
+          "collections",
+          resolveScope(scope, environment),
+        ),
+      );
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start the sign-in.');
+      setError(
+        err instanceof Error ? err.message : "Could not start the sign-in.",
+      );
     }
   };
 
@@ -98,16 +126,20 @@ export default function CollectionsServiceForm({ onCancel, onClose }: Readonly<P
     <form onSubmit={handleSubmit} className="p-4">
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
-          Used by View Schedule to load each schedule&apos;s collections automatically. The Collections
-          Service has its own app registration, so it has its own sign-in.
+          Used by View Schedule to load each schedule&apos;s collections
+          automatically. The Collections Service has its own app registration,
+          so it has its own sign-in.
         </p>
         <div>
-          <label htmlFor={fieldId('baseUrl')} className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor={fieldId("baseUrl")}
+            className="block text-sm font-medium text-gray-700"
+          >
             Collections API Base URL
           </label>
           <input
             type="url"
-            id={fieldId('baseUrl')}
+            id={fieldId("baseUrl")}
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
             placeholder="https://ca-devp-ne-collections-api.example.io"
@@ -115,16 +147,20 @@ export default function CollectionsServiceForm({ onCancel, onClose }: Readonly<P
             required
           />
           <p className="mt-1 text-xs text-gray-500">
-            Defaults to the Payment Schedule API host with &quot;-schedule&quot; replaced by &quot;-collections&quot;.
+            Defaults to the Payment Schedule API host with &quot;-schedule&quot;
+            replaced by &quot;-collections&quot;.
           </p>
         </div>
         <div>
-          <label htmlFor={fieldId('tenantId')} className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor={fieldId("tenantId")}
+            className="block text-sm font-medium text-gray-700"
+          >
             Collections Tenant ID
           </label>
           <input
             type="text"
-            id={fieldId('tenantId')}
+            id={fieldId("tenantId")}
             value={tenantId}
             onChange={(e) => setTenantId(e.target.value)}
             placeholder="Enter the Collections app's tenant ID"
@@ -133,12 +169,15 @@ export default function CollectionsServiceForm({ onCancel, onClose }: Readonly<P
           />
         </div>
         <div>
-          <label htmlFor={fieldId('clientId')} className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor={fieldId("clientId")}
+            className="block text-sm font-medium text-gray-700"
+          >
             Collections Client ID
           </label>
           <input
             type="text"
-            id={fieldId('clientId')}
+            id={fieldId("clientId")}
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             placeholder="Enter the Collections app's client ID"
@@ -147,29 +186,41 @@ export default function CollectionsServiceForm({ onCancel, onClose }: Readonly<P
           />
         </div>
         <div>
-          <label htmlFor={fieldId('scope')} className="block text-sm font-medium text-gray-700">
+          <label
+            htmlFor={fieldId("scope")}
+            className="block text-sm font-medium text-gray-700"
+          >
             Collections Scope
           </label>
           <input
             type="text"
-            id={fieldId('scope')}
+            id={fieldId("scope")}
             value={scope}
             onChange={(e) => setScope(e.target.value)}
             className={`${INPUT_CLASS} font-mono text-xs`}
             required
           />
           <p className="mt-1 text-xs text-gray-500 break-all">
-            Requested as <code>{resolveScope(scope, environment)}</code> for the {environment} environment
-            (set on the Payment Schedule Service tab).
+            Requested as <code>{resolveScope(scope, environment)}</code> for the{" "}
+            {environment} environment (set on the Payment Schedule Service tab).
           </p>
         </div>
         <div>
-          <span className="block text-sm font-medium text-gray-700">Redirect URI</span>
-          <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-600 break-all">{getRedirectUri()}</div>
-          <p className="mt-1 text-xs text-gray-500">Add this URL to the Collections app registration.</p>
+          <span className="block text-sm font-medium text-gray-700">
+            Redirect URI
+          </span>
+          <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-600 break-all">
+            {getRedirectUri()}
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Add this URL to the Collections app registration.
+          </p>
         </div>
         {error && (
-          <p role="alert" className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+          <p
+            role="alert"
+            className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700"
+          >
             {error}
           </p>
         )}

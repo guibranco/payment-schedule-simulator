@@ -22,7 +22,11 @@ const DEFAULT_REFRESH_MINUTES: RefreshMinutes = 5;
  * - `expired`: the token has expired.
  * - `ready`: collections can be fetched automatically.
  */
-export type CollectionsConnection = "unconfigured" | "signedOut" | "expired" | "ready";
+export type CollectionsConnection =
+  | "unconfigured"
+  | "signedOut"
+  | "expired"
+  | "ready";
 export type CollectionsSyncStatus = "idle" | "loading" | "success" | "error";
 
 /** The saved refresh interval, defaulting to 5 minutes. */
@@ -50,15 +54,21 @@ export function collectionsBaseUrl(): string | null {
 function isCollectionsConfigured(): boolean {
   return Boolean(
     localStorage.getItem(STORAGE_KEYS.COLLECTIONS_CLIENT_ID) &&
-      localStorage.getItem(STORAGE_KEYS.COLLECTIONS_TENANT_ID) &&
-      collectionsBaseUrl(),
+    localStorage.getItem(STORAGE_KEYS.COLLECTIONS_TENANT_ID) &&
+    collectionsBaseUrl(),
   );
 }
 
 /** Wraps any thrown value as a CollectionsApiError (of `kind` when it isn't one already). */
-function toCollectionsError(err: unknown, kind: CollectionsApiErrorKind = "http"): CollectionsApiError {
+function toCollectionsError(
+  err: unknown,
+  kind: CollectionsApiErrorKind = "http",
+): CollectionsApiError {
   if (err instanceof CollectionsApiError) return err;
-  return new CollectionsApiError(kind, err instanceof Error ? err.message : String(err));
+  return new CollectionsApiError(
+    kind,
+    err instanceof Error ? err.message : String(err),
+  );
 }
 
 interface Options {
@@ -78,7 +88,8 @@ export function useCollectionsSync({ schedule, onCollections }: Options) {
   const [status, setStatus] = useState<CollectionsSyncStatus>("idle");
   const [error, setError] = useState<CollectionsApiError | null>(null);
   const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
-  const [refreshMinutes, setRefreshMinutes] = useState<RefreshMinutes>(readRefreshMinutes);
+  const [refreshMinutes, setRefreshMinutes] =
+    useState<RefreshMinutes>(readRefreshMinutes);
   const [pausedScheduleId, setPausedScheduleId] = useState<string | null>(null);
 
   // The latest schedule and callback, read at fetch time so editing the schedule on screen
@@ -133,7 +144,8 @@ export function useCollectionsSync({ schedule, onCollections }: Options) {
   }, [accessToken]);
 
   // Fetch as soon as a schedule is shown, when switching schedules, and when the sign-in changes.
-  const canAutoFetch = connection === "ready" && scheduleId !== null && !isPaused;
+  const canAutoFetch =
+    connection === "ready" && scheduleId !== null && !isPaused;
   useEffect(() => {
     if (!canAutoFetch) return undefined;
     const timeout = setTimeout(() => void fetchNow(), 0);
@@ -143,7 +155,10 @@ export function useCollectionsSync({ schedule, onCollections }: Options) {
   // Then keep checking on the chosen interval.
   useEffect(() => {
     if (!canAutoFetch || refreshMinutes === 0) return undefined;
-    const interval = setInterval(() => void fetchNow(), refreshMinutes * 60 * 1000);
+    const interval = setInterval(
+      () => void fetchNow(),
+      refreshMinutes * 60 * 1000,
+    );
     return () => clearInterval(interval);
   }, [canAutoFetch, refreshMinutes, fetchNow]);
 
@@ -164,14 +179,19 @@ export function useCollectionsSync({ schedule, onCollections }: Options) {
 
   /** Changes and remembers the auto-refresh interval. */
   const changeRefreshMinutes = useCallback((minutes: RefreshMinutes) => {
-    localStorage.setItem(STORAGE_KEYS.COLLECTIONS_REFRESH_MINUTES, String(minutes));
+    localStorage.setItem(
+      STORAGE_KEYS.COLLECTIONS_REFRESH_MINUTES,
+      String(minutes),
+    );
     setRefreshMinutes(minutes);
   }, []);
 
   /** Redirects to sign in to the Collections Service. */
   const signIn = useCallback(async () => {
     try {
-      navigateTo(await buildAuthorizationUrl("collections", collectionsScope()));
+      navigateTo(
+        await buildAuthorizationUrl("collections", collectionsScope()),
+      );
     } catch (err) {
       setError(toCollectionsError(err, "invalid"));
       setStatus("error");

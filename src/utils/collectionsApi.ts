@@ -28,7 +28,9 @@ export class CollectionsApiError extends Error {
  * swapped for `-collections` (each environment hosts both side by side). Null when the
  * host doesn't follow that naming, e.g. when running locally.
  */
-export function deriveCollectionsBaseUrl(scheduleApiUrl: string | null | undefined): string | null {
+export function deriveCollectionsBaseUrl(
+  scheduleApiUrl: string | null | undefined,
+): string | null {
   if (!scheduleApiUrl) return null;
   let url: URL;
   try {
@@ -47,7 +49,12 @@ function apiUrl(baseUrl: string, path: string): string {
 }
 
 /** GETs a Collections API path as JSON, classifying failures; 204/404 mean "nothing found". */
-async function getJson(baseUrl: string, path: string, token: string, signal?: AbortSignal): Promise<unknown> {
+async function getJson(
+  baseUrl: string,
+  path: string,
+  token: string,
+  signal?: AbortSignal,
+): Promise<unknown> {
   let response: Response;
   try {
     response = await fetch(apiUrl(baseUrl, path), {
@@ -66,13 +73,25 @@ async function getJson(baseUrl: string, path: string, token: string, signal?: Ab
 
   if (response.status === 204 || response.status === 404) return null;
   if (response.status === 401) {
-    throw new CollectionsApiError("unauthorized", "The Collections Service sign-in has expired or was rejected. Sign in again.", 401);
+    throw new CollectionsApiError(
+      "unauthorized",
+      "The Collections Service sign-in has expired or was rejected. Sign in again.",
+      401,
+    );
   }
   if (response.status === 403) {
-    throw new CollectionsApiError("forbidden", "Your account isn't allowed to read collections (403).", 403);
+    throw new CollectionsApiError(
+      "forbidden",
+      "Your account isn't allowed to read collections (403).",
+      403,
+    );
   }
   if (!response.ok) {
-    throw new CollectionsApiError("http", `The Collections API returned ${response.status}.`, response.status);
+    throw new CollectionsApiError(
+      "http",
+      `The Collections API returned ${response.status}.`,
+      response.status,
+    );
   }
   return response.json();
 }
@@ -82,7 +101,12 @@ function toTransactions(json: unknown): CollectionTransaction[] {
   if (json === null) return [];
   const entries = Array.isArray(json) ? json : [json];
   const linked = entries.filter(
-    (entry) => entry && typeof entry === "object" && Array.isArray((entry as { paymentScheduleItemIds?: unknown }).paymentScheduleItemIds),
+    (entry) =>
+      entry &&
+      typeof entry === "object" &&
+      Array.isArray(
+        (entry as { paymentScheduleItemIds?: unknown }).paymentScheduleItemIds,
+      ),
   );
   try {
     return validateCollections(linked);
@@ -127,24 +151,43 @@ export async function fetchScheduleCollections({
   try {
     base = new URL(baseUrl);
   } catch {
-    throw new CollectionsApiError("invalid", "The Collections API base URL is not a valid URL.");
+    throw new CollectionsApiError(
+      "invalid",
+      "The Collections API base URL is not a valid URL.",
+    );
   }
   if (!isHttpUrl(base)) {
-    throw new CollectionsApiError("invalid", "The Collections API base URL must use http or https.");
+    throw new CollectionsApiError(
+      "invalid",
+      "The Collections API base URL must use http or https.",
+    );
   }
 
   const itemIds = new Set(schedule.scheduleItems.map((item) => item.id));
   const belongsToSchedule = (txn: CollectionTransaction) =>
     txn.paymentScheduleItemIds.some((id) => itemIds.has(id));
 
-  if (schedule.policyNumber && schedule.riskId !== null && schedule.riskId !== undefined) {
+  if (
+    schedule.policyNumber &&
+    schedule.riskId !== null &&
+    schedule.riskId !== undefined
+  ) {
     const path = `/api/v1/collections/${encodeURIComponent(schedule.policyNumber)}/${encodeURIComponent(String(schedule.riskId))}`;
-    return toTransactions(await getJson(base.href, path, token, signal)).filter(belongsToSchedule);
+    return toTransactions(await getJson(base.href, path, token, signal)).filter(
+      belongsToSchedule,
+    );
   }
 
   const results = await Promise.all(
     [...itemIds].map(async (id) =>
-      toTransactions(await getJson(base.href, `/api/v1/collection/${encodeURIComponent(id)}`, token, signal)),
+      toTransactions(
+        await getJson(
+          base.href,
+          `/api/v1/collection/${encodeURIComponent(id)}`,
+          token,
+          signal,
+        ),
+      ),
     ),
   );
   const unique = new Map<string, CollectionTransaction>();
