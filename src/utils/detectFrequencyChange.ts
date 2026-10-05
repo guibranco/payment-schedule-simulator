@@ -1,4 +1,5 @@
 import type { PaymentScheduleResponse, ScheduleItem } from '../types';
+import { isCollectionType } from './collectionType';
 
 export interface FrequencyChangeDetection {
   detected: boolean;
@@ -62,7 +63,7 @@ export function detectFrequencyChange(schedule: PaymentScheduleResponse): Freque
   for (let i = 0; i < schedule.scheduleItems.length; i++) {
     const item = schedule.scheduleItems[i];
 
-    if (item.collectionType === 'Full') {
+    if (isCollectionType(item, 'full')) {
       const days = daysBetween(item.periodStartDate, item.periodEndDate);
       if (isRoughlyMonthly(days)) monthlyCount++;
     }
@@ -70,7 +71,7 @@ export function detectFrequencyChange(schedule: PaymentScheduleResponse): Freque
     if (monthlyCount < MIN_MONTHLY_OBSERVATIONS) continue;
 
     const candidate: ScheduleItem | null =
-      item.collectionType === 'Full' ? item : item.originalItem?.collectionType === 'Full' ? item.originalItem : null;
+      isCollectionType(item, 'full') ? item : isCollectionType(item.originalItem, 'full') ? item.originalItem! : null;
     if (!candidate) continue;
 
     const candidateDays = daysBetween(candidate.periodStartDate, candidate.periodEndDate);
@@ -86,7 +87,7 @@ export function detectFrequencyChange(schedule: PaymentScheduleResponse): Freque
 
   if (monthlyCount >= MIN_MONTHLY_OBSERVATIONS && isAnnualSchedule(schedule)) {
     const items = schedule.scheduleItems;
-    const isFull = (item: ScheduleItem) => item.collectionType === 'Full';
+    const isFull = (item: ScheduleItem) => isCollectionType(item, 'full');
     const remainderIndex = findLastIndex(items, (item) => isFull(item) && daysBetween(item.periodEndDate, schedule.coverEndDate) === 0);
     const pivotIndex = remainderIndex >= 0 ? remainderIndex : findLastIndex(items, isFull);
     const pivot = items[pivotIndex];

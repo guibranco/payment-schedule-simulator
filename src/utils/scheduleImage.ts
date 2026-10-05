@@ -1,4 +1,5 @@
 import type { PaymentScheduleResponse, ScheduleItem, CollectionTransaction, ItemReconciliation } from '../types';
+import { isCollectionType } from './collectionType';
 import {
   reconcileScheduleItems,
   getEffectiveSucceeded,
@@ -44,7 +45,7 @@ function formatImageDate(dateStr: string | null | undefined): string {
 function rowBackgroundColor(item: ScheduleItem): string {
   if (Number(item.amountDue) < 0) return COLORS.blue100;
   if (item.adminFees && Object.keys(item.adminFees).length > 0) return COLORS.orange100;
-  if (item.collectionType === 'proRata') return COLORS.yellow100;
+  if (isCollectionType(item, 'proRata')) return COLORS.yellow100;
   return COLORS.green100;
 }
 

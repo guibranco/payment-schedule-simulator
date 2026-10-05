@@ -34,6 +34,7 @@ import {
   getEffectiveCreatedDate
 } from '../utils/reconcileCollections';
 import { detectFrequencyChange } from '../utils/detectFrequencyChange';
+import { isCollectionType } from '../utils/collectionType';
 import Modal from './Modal';
 
 interface Props {
@@ -177,7 +178,7 @@ export default function ScheduleDisplay({ schedule, onStatusChange, collections,
   const getIndexBackgroundColor = (item: any) => {
     if (Number(item.amountDue) < 0) return 'bg-blue-100';
     if (item.adminFees && Object.keys(item.adminFees).length > 0) return 'bg-orange-100';
-    if (item.collectionType === 'proRata') return 'bg-yellow-100';
+    if (isCollectionType(item, 'proRata')) return 'bg-yellow-100';
     return 'bg-green-100';
   };
 

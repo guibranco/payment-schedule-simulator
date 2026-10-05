@@ -831,4 +831,60 @@ describe('ScheduleDisplay', () => {
       expect(pivotRow.className).toContain('ring-amber-400');
     });
   });
+
+  describe('Row index colours', () => {
+    it('colours a PascalCase ProRata item from a Policy Admin document yellow', () => {
+      const { schedule: policyAdminSchedule } = detectAndNormalizeSchedule({
+        PolicyNumber: 'OUT00255306',
+        PaymentScheduleId: 'schedule-1',
+        CollectionFrequency: 'Annual',
+        CollectionDay: 1,
+        InceptionDate: '2026-10-03',
+        CoverStartDate: '2026-10-03',
+        CoverEndDate: '2027-10-02',
+        ScheduleItems: [
+          {
+            Id: 'full-item',
+            CollectionType: 'Full',
+            PeriodStartDate: '2026-10-03',
+            PeriodEndDate: '2026-12-02',
+            DueDate: '2026-10-01',
+            AmountDue: 69.64,
+            NetAmount: 66.97,
+            TaxesAndLevies: {},
+            AdminFees: {},
+            OriginalItem: null
+          },
+          {
+            Id: 'pro-rata-item',
+            CollectionType: 'ProRata',
+            PeriodStartDate: '2026-12-03',
+            PeriodEndDate: '2027-10-02',
+            DueDate: '2026-10-05',
+            AmountDue: 299.94,
+            NetAmount: 288.39,
+            TaxesAndLevies: {},
+            AdminFees: {},
+            OriginalItem: {
+              Id: 'original-item',
+              CollectionType: 'Full',
+              PeriodStartDate: '2026-10-03',
+              PeriodEndDate: '2027-10-02',
+              DueDate: '2026-10-10',
+              AmountDue: 369.58,
+              NetAmount: 355.36,
+              TaxesAndLevies: {},
+              AdminFees: {},
+              OriginalItem: null
+            }
+          }
+        ]
+      });
+      const { container } = render(<ScheduleDisplay schedule={policyAdminSchedule!} />);
+
+      const indexCells = container.querySelectorAll('tbody tr > td:first-child');
+      expect(indexCells[0].className).toContain('bg-green-100');
+      expect(indexCells[1].className).toContain('bg-yellow-100');
+    });
+  });
 });
