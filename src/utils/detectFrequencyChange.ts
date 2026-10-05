@@ -13,6 +13,7 @@ const MONTHLY_MAX_DAYS = 35;
 const ANNUAL_COVERAGE_RATIO = 0.9;
 const MIN_MONTHLY_OBSERVATIONS = 2;
 
+/** Whole days from start to end, or NaN when either date is invalid. */
 function daysBetween(start: string, end: string): number {
   const startTime = new Date(start).getTime();
   const endTime = new Date(end).getTime();
@@ -20,18 +21,22 @@ function daysBetween(start: string, end: string): number {
   return Math.round((endTime - startTime) / (1000 * 60 * 60 * 24));
 }
 
+/** Whether a period length is about a month. */
 function isRoughlyMonthly(days: number): boolean {
   return days >= MONTHLY_MIN_DAYS && days <= MONTHLY_MAX_DAYS;
 }
 
+/** Whether a period length covers essentially the whole cover period. */
 function isRoughlyAnnual(days: number, coverDays: number): boolean {
   return coverDays > 0 && days >= coverDays * ANNUAL_COVERAGE_RATIO;
 }
 
+/** Whether the schedule is collected annually. */
 function isAnnualSchedule(schedule: PaymentScheduleResponse): boolean {
   return (schedule.collectionFrequency || '').toLowerCase() === 'annual';
 }
 
+/** Index of the last item matching the predicate, or -1. */
 function findLastIndex(items: ScheduleItem[], predicate: (item: ScheduleItem) => boolean): number {
   for (let i = items.length - 1; i >= 0; i--) {
     if (predicate(items[i])) return i;
@@ -71,7 +76,7 @@ export function detectFrequencyChange(schedule: PaymentScheduleResponse): Freque
     if (monthlyCount < MIN_MONTHLY_OBSERVATIONS) continue;
 
     const candidate: ScheduleItem | null =
-      isCollectionType(item, 'full') ? item : isCollectionType(item.originalItem, 'full') ? item.originalItem! : null;
+      isCollectionType(item, 'full') ? item : item.originalItem && isCollectionType(item.originalItem, 'full') ? item.originalItem : null;
     if (!candidate) continue;
 
     const candidateDays = daysBetween(candidate.periodStartDate, candidate.periodEndDate);
@@ -87,6 +92,7 @@ export function detectFrequencyChange(schedule: PaymentScheduleResponse): Freque
 
   if (monthlyCount >= MIN_MONTHLY_OBSERVATIONS && isAnnualSchedule(schedule)) {
     const items = schedule.scheduleItems;
+    /** Whether the item is a Full Item. */
     const isFull = (item: ScheduleItem) => isCollectionType(item, 'full');
     const remainderIndex = findLastIndex(items, (item) => isFull(item) && daysBetween(item.periodEndDate, schedule.coverEndDate) === 0);
     const pivotIndex = remainderIndex >= 0 ? remainderIndex : findLastIndex(items, isFull);

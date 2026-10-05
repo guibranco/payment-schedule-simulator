@@ -100,7 +100,7 @@ describe('App — OAuth callback handling', () => {
   });
 
   it('clears a generic OAuth error from the URL without redirecting', () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     window.history.pushState({}, '', '/?error=access_denied');
 
     render(<App />);
@@ -109,7 +109,7 @@ describe('App — OAuth callback handling', () => {
   });
 
   it('retries without prompt=none when a silent refresh requires interaction', () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     localStorage.setItem(STORAGE_KEYS.RETURN_URL, 'https://app.example.com/?prompt=none&foo=bar');
     window.history.pushState({}, '', '/?error=interaction_required');
 
@@ -119,7 +119,7 @@ describe('App — OAuth callback handling', () => {
   });
 
   it('opens the config dialog when the code verifier is missing on callback', () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     window.history.pushState({}, '', '/?code=abc123&state=xyz');
 
     render(<App />);
@@ -144,7 +144,7 @@ describe('App — OAuth callback handling', () => {
   });
 
   it('opens the config dialog and cleans up when the token exchange fails', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     localStorage.setItem(STORAGE_KEYS.CODE_VERIFIER, 'a-verifier');
     localStorage.setItem(STORAGE_KEYS.RETURN_URL, 'https://app.example.com/return');
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));

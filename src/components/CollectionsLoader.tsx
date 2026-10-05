@@ -18,6 +18,7 @@ export default function CollectionsLoader({ onLoad, onClose }: Props) {
   const [jsonInput, setJsonInput] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  /** Parses and validates the pasted JSON; on success hands the collections back and closes. */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -41,6 +42,7 @@ export default function CollectionsLoader({ onLoad, onClose }: Props) {
     }
   };
 
+  /** Loads an uploaded JSON file into the text area. */
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -76,43 +78,12 @@ export default function CollectionsLoader({ onLoad, onClose }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 p-4">
-          <div className="flex-1 space-y-4">
-            <div className="p-4 bg-primary/5 border border-primary/20 rounded-md text-sm text-gray-700">
-              <CollectionsHelp />
-            </div>
-
-            <div className="flex gap-4 justify-center">
-              <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors cursor-pointer">
-                <FileUp className="w-5 h-5" />
-                Upload JSON File
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Collections JSON
-              </label>
-              <textarea
-                value={jsonInput}
-                onChange={(e) => setJsonInput(e.target.value)}
-                placeholder="Paste the Collections Service JSON array here..."
-                className="w-full h-64 p-4 border border-gray-300 rounded-md focus:border-primary focus:ring focus:ring-primary/20 font-mono text-sm"
-                required
-              />
-            </div>
-
-            {error && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-red-700 text-sm">{error}</p>
-              </div>
-            )}
-          </div>
+          <CollectionsLoaderFields
+            jsonInput={jsonInput}
+            onJsonChange={setJsonInput}
+            onFileUpload={handleFileUpload}
+            error={error}
+          />
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <button
@@ -131,6 +102,59 @@ export default function CollectionsLoader({ onLoad, onClose }: Props) {
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/** The loader's body: how to get collections, a file upload, the JSON text area and any error. */
+function CollectionsLoaderFields({
+  jsonInput,
+  onJsonChange,
+  onFileUpload,
+  error,
+}: {
+  jsonInput: string;
+  onJsonChange: (value: string) => void;
+  onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  error: string | null;
+}) {
+  return (
+    <div className="flex-1 space-y-4">
+      <div className="p-4 bg-primary/5 border border-primary/20 rounded-md text-sm text-gray-700">
+        <CollectionsHelp />
+      </div>
+
+      <div className="flex gap-4 justify-center">
+        <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors cursor-pointer">
+          <FileUp className="w-5 h-5" />
+          Upload JSON File
+          <input
+            type="file"
+            accept=".json"
+            onChange={onFileUpload}
+            className="hidden"
+          />
+        </label>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Collections JSON
+        </label>
+        <textarea
+          value={jsonInput}
+          onChange={(e) => onJsonChange(e.target.value)}
+          placeholder="Paste the Collections Service JSON array here..."
+          className="w-full h-64 p-4 border border-gray-300 rounded-md focus:border-primary focus:ring focus:ring-primary/20 font-mono text-sm"
+          required
+        />
+      </div>
+
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-red-700 text-sm">{error}</p>
+        </div>
+      )}
     </div>
   );
 }

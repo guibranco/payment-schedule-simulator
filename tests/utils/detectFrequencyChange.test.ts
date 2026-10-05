@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { detectFrequencyChange } from '../../src/utils/detectFrequencyChange';
 import { detectAndNormalizeSchedule } from '../../src/utils/scheduleDetector';
 import type { PaymentScheduleResponse, ScheduleItem } from '../../src/types';
+import { must } from '../helpers';
 
 function loadFixture(name: string): unknown {
   return JSON.parse(readFileSync(join(__dirname, '..', 'fixtures', name), 'utf8'));
@@ -88,9 +89,9 @@ describe('detectFrequencyChange', () => {
     // Policy ran Monthly for 11 months, then was switched to Annual on 2026-09-15 with only the
     // final month (2026-10-11 to 2026-11-10) left to collect. The Annual "basis" is therefore a
     // one-month-long Full item, not a cover-period-long one, so period length alone cannot tell.
-    const { schedule } = detectAndNormalizeSchedule(loadFixture('policy-admin-late-switch-to-annual.json'));
+    const schedule = must(detectAndNormalizeSchedule(loadFixture('policy-admin-late-switch-to-annual.json')).schedule);
 
-    const result = detectFrequencyChange(schedule!);
+    const result = detectFrequencyChange(schedule);
 
     expect(result.detected).toBe(true);
     // The remainder collection appended by the switch: last Full item ending on the cover end date,

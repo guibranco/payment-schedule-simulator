@@ -3,6 +3,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import CompareSchedules from '../../src/components/CompareSchedules';
 import { SAMPLE_SCHEDULES } from '../../src/constants/sampleSchedules';
 import { FORMAT_LABELS } from '../../src/utils/scheduleDetector';
+import { must } from '../helpers';
 
 function slotContainer(scheduleNumber: 1 | 2) {
   const heading = screen.getByRole('heading', { name: `Schedule ${scheduleNumber}` });
@@ -25,7 +26,7 @@ describe('CompareSchedules', () => {
 
   it('detects and loads a Payment Schedule Response on side 1', () => {
     render(<CompareSchedules />);
-    const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!;
+    const responseSample = must(SAMPLE_SCHEDULES.find((s) => s.format === 'response'));
     loadSchedule(1, responseSample.json);
 
     expect(screen.getByText(`Detected format: ${responseSample.label}`)).toBeInTheDocument();
@@ -33,7 +34,7 @@ describe('CompareSchedules', () => {
 
   it('detects and loads a Policy Admin CosmosDB Document on side 2', () => {
     render(<CompareSchedules />);
-    const policyAdminSample = SAMPLE_SCHEDULES.find((s) => s.format === 'policyAdmin')!;
+    const policyAdminSample = must(SAMPLE_SCHEDULES.find((s) => s.format === 'policyAdmin'));
     loadSchedule(2, policyAdminSample.json);
 
     expect(screen.getByText(`Detected format: ${policyAdminSample.label}`)).toBeInTheDocument();
@@ -41,8 +42,8 @@ describe('CompareSchedules', () => {
 
   it('shows a comparison summary once both sides have a schedule loaded', () => {
     render(<CompareSchedules />);
-    const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!;
-    const reratesSample = SAMPLE_SCHEDULES.find((s) => s.format === 'rerates')!;
+    const responseSample = must(SAMPLE_SCHEDULES.find((s) => s.format === 'response'));
+    const reratesSample = must(SAMPLE_SCHEDULES.find((s) => s.format === 'rerates'));
 
     loadSchedule(1, responseSample.json);
     loadSchedule(2, reratesSample.json);
@@ -63,7 +64,7 @@ describe('CompareSchedules', () => {
 
   it('shows an explanatory error for a Request with no embedded currentSchedule', () => {
     render(<CompareSchedules />);
-    const requestSample = SAMPLE_SCHEDULES.find((s) => s.format === 'request')!.json as any;
+    const requestSample = must(SAMPLE_SCHEDULES.find((s) => s.format === 'request')).json as any;
     const { currentSchedule, ...withoutCurrentSchedule } = requestSample;
     loadSchedule(1, withoutCurrentSchedule);
 
@@ -72,7 +73,7 @@ describe('CompareSchedules', () => {
 
   it('clears a loaded schedule back to the input form', () => {
     render(<CompareSchedules />);
-    const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!;
+    const responseSample = must(SAMPLE_SCHEDULES.find((s) => s.format === 'response'));
     loadSchedule(1, responseSample.json);
     expect(screen.getByText(`Detected format: ${responseSample.label}`)).toBeInTheDocument();
 

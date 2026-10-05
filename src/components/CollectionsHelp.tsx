@@ -35,9 +35,9 @@ export default function CollectionsHelp() {
         </a>
       ) : (
         <p className="italic">
-          The Swagger is at this environment's Collections API host (the
-          Schedule API host with "-schedule" replaced by "-collections"), under
-          /swagger.
+          The Swagger is at this environment&apos;s Collections API host (the
+          Schedule API host with &quot;-schedule&quot; replaced by
+          &quot;-collections&quot;), under /swagger.
         </p>
       )}
     </div>

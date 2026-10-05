@@ -26,7 +26,8 @@ export interface ScheduleItem {
   collectionType: string;
   periodStartDate: string;
   periodEndDate: string;
-  adjustmentDate: string;
+  /** Empty (null, or the 0001-01-01 sentinel) for items from the schedule's original calculation. */
+  adjustmentDate: string | null;
   dueDate: string;
   amountDue: number;
   netAmount: number;
@@ -119,11 +120,11 @@ export interface ReconciliationSummary {
 export interface ValidationError {
   propertyName: string;
   errorMessage: string;
-  attemptedValue: any;
-  customState: any;
+  attemptedValue: unknown;
+  customState: unknown;
   severity: string;
   errorCode: string;
-  formattedMessagePlaceholderValues: Record<string, any>;
+  formattedMessagePlaceholderValues: Record<string, unknown>;
 }
 
 export interface ProblemDetailsError {

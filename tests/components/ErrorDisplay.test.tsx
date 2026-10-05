@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import ErrorDisplay from '../../src/components/ErrorDisplay';
 import type { ApiErrorResponse } from '../../src/types';
+import { must } from '../helpers';
 
 describe('ErrorDisplay', () => {
   it('renders a generic error with an alert icon and no correction hint', () => {
@@ -44,7 +45,7 @@ describe('ErrorDisplay', () => {
     const error: ApiErrorResponse = { message: 'Oops', details: [], type: 'generic' };
     render(<ErrorDisplay error={error} onDismiss={onDismiss} />);
 
-    screen.getByText('Dismiss').closest('button')!.click();
+    must(screen.getByText('Dismiss').closest('button')).click();
 
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });

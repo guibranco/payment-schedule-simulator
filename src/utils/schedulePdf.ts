@@ -24,16 +24,19 @@ interface Column {
   render: (row: ReportRow) => string[];
 }
 
+/** The item's succeeded status as a word. */
 function statusText(succeeded: boolean | null): string {
   if (succeeded === null) return "Unknown";
   return succeeded ? "Succeeded" : "Failed";
 }
 
+/** Text colour for the succeeded status: green, red, or grey when unknown. */
 function statusColor(succeeded: boolean | null): string {
   if (succeeded === null) return REPORT_COLORS.gray500;
   return succeeded ? REPORT_COLORS.green800 : REPORT_COLORS.red800;
 }
 
+/** Draws one summary card (title above value), accented for the headline total. */
 function drawSummaryCard(
   doc: jsPDF,
   x: number,
@@ -105,6 +108,7 @@ function drawAnomalies(
   return y + 3;
 }
 
+/** Draws the brand-coloured table header row; repeated at the top of every page. */
 function drawTableHeader(
   doc: jsPDF,
   columns: Column[],
@@ -304,7 +308,7 @@ export function renderSchedulePdf(
       }
 
       const isBold =
-        i === 0 || i === totalIndex || i === statusIndex || !!collectionsColor;
+        i === 0 || i === totalIndex || i === statusIndex || Boolean(collectionsColor);
       doc.setFont("helvetica", isBold ? "bold" : "normal");
       doc.setFontSize(8);
       if (i === statusIndex) doc.setTextColor(statusColor(row.succeeded));

@@ -3,9 +3,10 @@ import { buildPrintableScheduleNode, exportScheduleImage } from '../../src/utils
 import { detectAndNormalizeSchedule } from '../../src/utils/scheduleDetector';
 import { SAMPLE_SCHEDULES } from '../../src/constants/sampleSchedules';
 import type { CollectionTransaction } from '../../src/types';
+import { must } from '../helpers';
 
-const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!.json;
-const { schedule } = detectAndNormalizeSchedule(responseSample);
+const responseSample = must(SAMPLE_SCHEDULES.find((s) => s.format === 'response')).json;
+const schedule = must(detectAndNormalizeSchedule(responseSample).schedule);
 
 vi.mock('html2canvas', () => ({
   default: vi.fn(async () => ({
@@ -18,14 +19,14 @@ vi.mock('html2canvas', () => ({
 
 describe('buildPrintableScheduleNode', () => {
   it('renders the schedule id, total amount, and one row per schedule item', () => {
-    const node = buildPrintableScheduleNode(schedule!);
-    expect(node.textContent).toContain(schedule!.id);
+    const node = buildPrintableScheduleNode(schedule);
+    expect(node.textContent).toContain(schedule.id);
     expect(node.textContent).toContain('Total Amount');
-    expect(node.querySelectorAll('tbody tr')).toHaveLength(schedule!.scheduleItems.length);
+    expect(node.querySelectorAll('tbody tr')).toHaveLength(schedule.scheduleItems.length);
   });
 
   it('is positioned off-screen rather than display:none, so layout can be measured', () => {
-    const node = buildPrintableScheduleNode(schedule!);
+    const node = buildPrintableScheduleNode(schedule);
     expect(node.style.position).toBe('fixed');
     expect(node.style.left).toBe('-99999px');
     expect(node.style.display).not.toBe('none');
@@ -37,17 +38,17 @@ describe('buildPrintableScheduleNode', () => {
   }
 
   it('shows "-" for Collection Day on an annual schedule instead of the raw sentinel 0/null', () => {
-    const node = buildPrintableScheduleNode({ ...schedule!, collectionFrequency: 'annual', collectionDay: 0 });
+    const node = buildPrintableScheduleNode({ ...schedule, collectionFrequency: 'annual', collectionDay: 0 });
     expect(getCollectionDayValue(node)).toBe('-');
   });
 
   it('shows the actual Collection Day for a monthly schedule', () => {
-    const node = buildPrintableScheduleNode({ ...schedule!, collectionFrequency: 'monthly', collectionDay: 15 });
+    const node = buildPrintableScheduleNode({ ...schedule, collectionFrequency: 'monthly', collectionDay: 15 });
     expect(getCollectionDayValue(node)).toBe('15');
   });
 
   it('renders Cover Period and Schedule ID on their own row, separate from Total Amount/Collection Day', () => {
-    const node = buildPrintableScheduleNode(schedule!);
+    const node = buildPrintableScheduleNode(schedule);
     const rows = node.querySelectorAll(':scope > div[style*="display:flex"]');
     expect(rows.length).toBeGreaterThanOrEqual(2);
 
@@ -64,12 +65,12 @@ describe('buildPrintableScheduleNode', () => {
   });
 
   it('does not add a Collections column when no collections are provided', () => {
-    const node = buildPrintableScheduleNode(schedule!);
+    const node = buildPrintableScheduleNode(schedule);
     expect(node.textContent).not.toContain('Collections');
   });
 
   it('adds a Collections column reflecting the reconciled status when collections are provided', () => {
-    const firstItem = schedule!.scheduleItems[0];
+    const firstItem = schedule.scheduleItems[0];
     const collections: CollectionTransaction[] = [
       {
         paymentScheduleItemIds: [firstItem.id],
@@ -86,30 +87,30 @@ describe('buildPrintableScheduleNode', () => {
       }
     ];
 
-    const node = buildPrintableScheduleNode(schedule!, collections);
-    const headerRow = node.querySelector('thead tr')!;
+    const node = buildPrintableScheduleNode(schedule, collections);
+    const headerRow = must(node.querySelector('thead tr'));
     expect(headerRow.textContent).toContain('Collections');
 
-    const firstRow = node.querySelector('tbody tr')!;
+    const firstRow = must(node.querySelector('tbody tr'));
     expect(firstRow.textContent).toContain('Collected (retried)');
   });
 
   it('shows a "✕" status label for an item with succeeded: false', () => {
     const node = buildPrintableScheduleNode({
-      ...schedule!,
-      scheduleItems: [{ ...schedule!.scheduleItems[0], succeeded: false }]
+      ...schedule,
+      scheduleItems: [{ ...schedule.scheduleItems[0], succeeded: false }]
     });
-    const row = node.querySelector('tbody tr')!;
+    const row = must(node.querySelector('tbody tr'));
     const cells = row.querySelectorAll('td');
     expect(cells[cells.length - 1].textContent).toBe('✕');
   });
 
   it('shows "-" for taxes and admin fees when an item has none', () => {
     const node = buildPrintableScheduleNode({
-      ...schedule!,
-      scheduleItems: [{ ...schedule!.scheduleItems[0], taxesAndLevies: {}, adminFees: {} }]
+      ...schedule,
+      scheduleItems: [{ ...schedule.scheduleItems[0], taxesAndLevies: {}, adminFees: {} }]
     });
-    const row = node.querySelector('tbody tr')!;
+    const row = must(node.querySelector('tbody tr'));
     const cells = row.querySelectorAll('td');
     // Index, Period, Due Date, Net Amount, Taxes & Levies, Admin Fees, Total, Created, Status
     expect(cells[4].textContent).toBe('-');
@@ -127,7 +128,7 @@ describe('exportScheduleImage', () => {
     revokeObjectURL = vi.fn();
     (globalThis.URL as any).createObjectURL = createObjectURL;
     (globalThis.URL as any).revokeObjectURL = revokeObjectURL;
-    clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -137,7 +138,7 @@ describe('exportScheduleImage', () => {
   it('downloads a PNG and removes the off-screen node afterwards', async () => {
     const bodyChildrenBefore = document.body.children.length;
 
-    await exportScheduleImage(schedule!, 'png');
+    await exportScheduleImage(schedule, 'png');
 
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(createObjectURL).toHaveBeenCalledTimes(1);
@@ -163,10 +164,10 @@ describe('exportScheduleImage', () => {
       return 'blob:fake-url';
     });
 
-    await exportScheduleImage(schedule!, 'svg');
+    await exportScheduleImage(schedule, 'svg');
 
     expect(capturedBlob).not.toBeNull();
-    expect(capturedBlob!.type).toBe('image/svg+xml');
+    expect(must<Blob>(capturedBlob).type).toBe('image/svg+xml');
     const svgText = String(capturedParts[capturedParts.length - 1][0]);
     expect(svgText).toContain('<svg');
     expect(svgText).toContain('data:image/png;base64,FAKE');
@@ -181,7 +182,7 @@ describe('exportScheduleImage', () => {
     });
 
     const bodyChildrenBefore = document.body.children.length;
-    await expect(exportScheduleImage(schedule!, 'png')).rejects.toThrow('render failed');
+    await expect(exportScheduleImage(schedule, 'png')).rejects.toThrow('render failed');
     expect(document.body.children.length).toBe(bodyChildrenBefore);
   });
 });

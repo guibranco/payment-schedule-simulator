@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import NewSchedule from '../../src/components/NewSchedule';
 import { STORAGE_KEYS } from '../../src/constants';
 import type { PaymentScheduleResponse } from '../../src/types';
+import { must } from '../helpers';
 
 const VALID_TOKEN_EXPIRY = () => Date.now() + 60 * 60 * 1000;
 
@@ -136,7 +137,7 @@ describe('NewSchedule', () => {
         })
       }
     });
-    fireEvent.submit(textarea.closest('form')!);
+    fireEvent.submit(must(textarea.closest('form')));
 
     expect(screen.queryByText('API endpoint not configured')).not.toBeInTheDocument();
     expect(screen.getByDisplayValue('500')).toBeInTheDocument();

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ConfigDialog from '../../src/components/ConfigDialog';
 import { STORAGE_KEYS } from '../../src/constants';
+import { must } from '../helpers';
 
 afterEach(() => {
   localStorage.clear();
@@ -86,7 +87,7 @@ describe('ConfigDialog', () => {
   });
 
   it('logs an error and does not save or close when the base URL is invalid', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const onSave = vi.fn();
     const onClose = vi.fn();
     const { container } = render(<ConfigDialog isOpen={true} onClose={onClose} onSave={onSave} />);
@@ -97,7 +98,7 @@ describe('ConfigDialog', () => {
     fireEvent.change(screen.getByLabelText('API Base URL'), { target: { value: 'not a url' } });
     fireEvent.change(screen.getByLabelText('Tenant ID'), { target: { value: 'tenant-123' } });
     fireEvent.change(screen.getByLabelText('Client ID'), { target: { value: 'client-456' } });
-    fireEvent.submit(container.querySelector('form')!);
+    fireEvent.submit(must(container.querySelector('form')));
 
     await waitFor(() => expect(consoleError).toHaveBeenCalledWith('Invalid URL:', expect.anything()));
     expect(onSave).not.toHaveBeenCalled();
@@ -106,7 +107,7 @@ describe('ConfigDialog', () => {
   });
 
   it('saves the config, applies the port, and hands off to onSave/onClose on valid submit', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const onSave = vi.fn();
     const onClose = vi.fn();
     render(<ConfigDialog isOpen={true} onClose={onClose} onSave={onSave} />);

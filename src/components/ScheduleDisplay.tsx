@@ -1,35 +1,22 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-  Euro,
   FileJson,
   FileSpreadsheet,
   FileText,
   FileCode,
   Image,
   Shapes,
-  ChevronDown,
-  Check,
-  X,
-  MinusCircle,
-  ListChecks,
-  CheckCircle2,
-  XCircle,
-  Undo2,
-  Clock,
-  AlertTriangle,
-  RefreshCw,
-  History,
-  Info,
-  ArrowRightLeft,
 } from "lucide-react";
 import type {
   PaymentScheduleResponse,
   ScheduleItem,
   CollectionTransaction,
-  ReconciledStatus,
 } from "../types";
 import { exportScheduleImage } from "../utils/scheduleImage";
-import { buildScheduleReportDocument } from "../utils/scheduleReport";
+import {
+  buildScheduleReportDocument,
+  formatReportDate as formatDate,
+} from "../utils/scheduleReport";
 import { renderSchedulePdf } from "../utils/schedulePdf";
 import {
   convertResponseToFormat,
@@ -39,13 +26,19 @@ import { STORAGE_KEYS } from "../constants";
 import {
   reconcileScheduleItems,
   summarizeReconciliation,
-  getTransactionDate,
   getEffectiveSucceeded,
   getEffectiveCreatedDate,
 } from "../utils/reconcileCollections";
 import { detectScheduleAnomalies } from "../utils/scheduleAnomalies";
-import { isCollectionType } from "../utils/collectionType";
 import Modal from "./Modal";
+import SplitMenuButton, { type MenuOption } from "./schedule/SplitMenuButton";
+import ScheduleSummaryCards from "./schedule/ScheduleSummaryCards";
+import AnomaliesPanel from "./schedule/AnomaliesPanel";
+import ReconciliationSummaryBar from "./schedule/ReconciliationSummaryBar";
+import ScheduleLegend from "./schedule/ScheduleLegend";
+import ScheduleItemsTable from "./schedule/ScheduleItemsTable";
+import ReconciliationDetail from "./schedule/ReconciliationDetail";
+import BasisItemDetail from "./schedule/BasisItemDetail";
 
 interface Props {
   schedule: PaymentScheduleResponse;
@@ -56,32 +49,6 @@ interface Props {
 
 type ExportFormat = "json" | "csv" | "pdf" | "html" | "png" | "svg";
 type IconComponent = React.ComponentType<{ className?: string }>;
-
-const RECONCILIATION_BADGES: Record<
-  ReconciledStatus,
-  { label: string; className: string; Icon: IconComponent }
-> = {
-  collected: {
-    label: "Collected",
-    className: "bg-green-100 text-green-800",
-    Icon: CheckCircle2,
-  },
-  rejected: {
-    label: "Rejected",
-    className: "bg-red-100 text-red-800",
-    Icon: XCircle,
-  },
-  refunded: {
-    label: "Refunded",
-    className: "bg-blue-100 text-blue-800",
-    Icon: Undo2,
-  },
-  pending: {
-    label: "Pending",
-    className: "bg-gray-100 text-gray-600",
-    Icon: Clock,
-  },
-};
 
 const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
   json: "JSON",
@@ -103,8 +70,17 @@ const EXPORT_FORMAT_ICONS: Record<ExportFormat, IconComponent> = {
 
 const EXPORT_FORMATS = Object.keys(EXPORT_FORMAT_LABELS) as ExportFormat[];
 
+const EXPORT_OPTIONS: MenuOption<ExportFormat>[] = EXPORT_FORMATS.map(
+  (format) => ({
+    value: format,
+    label: EXPORT_FORMAT_LABELS[format],
+    Icon: EXPORT_FORMAT_ICONS[format],
+  }),
+);
+
+/** Whether a saved string is one of the supported export formats. */
 function isExportFormat(value: string | null): value is ExportFormat {
-  return !!value && (EXPORT_FORMATS as string[]).includes(value);
+  return Boolean(value) && (EXPORT_FORMATS as string[]).includes(value ?? "");
 }
 
 // 'seq' is an input-only format (a SEQ log of Policy Admin's raw request) — it's never
@@ -118,33 +94,22 @@ const VIEW_JSON_FORMAT_LABELS: Record<ViewJsonFormat, string> = {
   response: "Payment Schedule Response",
 };
 
-const VIEW_JSON_FORMATS: ViewJsonFormat[] = [
-  "policyAdmin",
-  "rerates",
-  "request",
-  "response",
-];
+const VIEW_JSON_OPTIONS: MenuOption<ViewJsonFormat>[] = (
+  ["policyAdmin", "rerates", "request", "response"] as ViewJsonFormat[]
+).map((format) => ({ value: format, label: VIEW_JSON_FORMAT_LABELS[format] }));
 
-/**
- * Closes an open dropdown when clicking outside of the given container ref.
- */
-function useCloseOnOutsideClick(
-  ref: React.RefObject<HTMLElement | null>,
-  isOpen: boolean,
-  onClose: () => void,
-) {
-  useEffect(() => {
-    if (!isOpen) return;
+const DAY_MS = 1000 * 60 * 60 * 24;
 
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen, ref, onClose]);
+/** Triggers a browser download of the given content. */
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 /**
@@ -169,36 +134,22 @@ export default function ScheduleDisplay({
   const [reconciliationDetailItemId, setReconciliationDetailItemId] = useState<
     string | null
   >(null);
-  const [originalItemDetail, setOriginalItemDetail] =
-    useState<ScheduleItem | null>(null);
-  const [isViewJsonMenuOpen, setIsViewJsonMenuOpen] = useState(false);
+  const [basisItemDetail, setBasisItemDetail] = useState<ScheduleItem | null>(
+    null,
+  );
   const [viewJsonFormat, setViewJsonFormat] =
     useState<ViewJsonFormat>("response");
-  const viewJsonMenuRef = useRef<HTMLDivElement>(null);
-  useCloseOnOutsideClick(viewJsonMenuRef, isViewJsonMenuOpen, () =>
-    setIsViewJsonMenuOpen(false),
-  );
-
-  const selectViewJsonFormat = (format: ViewJsonFormat) => {
-    setViewJsonFormat(format);
-    setIsViewJsonMenuOpen(false);
-  };
 
   const [exportError, setExportError] = useState<string | null>(null);
-  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT);
     return isExportFormat(saved) ? saved : "json";
   });
-  const exportMenuRef = useRef<HTMLDivElement>(null);
-  useCloseOnOutsideClick(exportMenuRef, isExportMenuOpen, () =>
-    setIsExportMenuOpen(false),
-  );
 
+  /** Remembers the chosen export format across visits. */
   const selectExportFormat = (format: ExportFormat) => {
     setExportFormat(format);
     localStorage.setItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT, format);
-    setIsExportMenuOpen(false);
   };
 
   const scheduleItems = useMemo(
@@ -206,13 +157,10 @@ export default function ScheduleDisplay({
     [schedule],
   );
 
-  const totalAmount =
-    scheduleItems.length > 0
-      ? scheduleItems.reduce(
-          (sum, item) => sum + Number(item?.amountDue ?? 0),
-          0,
-        )
-      : 0;
+  const totalAmount = scheduleItems.reduce(
+    (sum, item) => sum + Number(item?.amountDue ?? 0),
+    0,
+  );
 
   const reconciliation = useMemo(
     () =>
@@ -233,45 +181,14 @@ export default function ScheduleDisplay({
     () => detectScheduleAnomalies(schedule),
     [schedule],
   );
-  const frequencySwitchIndex = anomalies.find(
-    (anomaly) => anomaly.kind === "frequencySwitch",
-  )?.itemIndexes[0];
-  const itemAnomalies = (index: number) =>
-    anomalies.filter(
-      (anomaly) =>
-        anomaly.kind !== "frequencySwitch" &&
-        anomaly.itemIndexes.includes(index),
-    );
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr || dateStr === "0001-01-01T00:00:00+00:00") return "-";
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime()) || date.getFullYear() <= 1) return "-";
-    return date.toLocaleDateString("en-GB");
-  };
-
-  const getIndexBackgroundColor = (item: any) => {
-    if (Number(item.amountDue) < 0) return "bg-blue-100";
-    if (item.adminFees && Object.keys(item.adminFees).length > 0)
-      return "bg-orange-100";
-    if (isCollectionType(item, "proRata")) return "bg-yellow-100";
-    return "bg-green-100";
-  };
-
+  /** The item's status, falling back to the Collections-derived one when none is recorded. */
   const getEffectiveSucceededForItem = (item: ScheduleItem) =>
     getEffectiveSucceeded(item, reconciliation);
+
+  /** The item's created date, falling back to the Collections-derived one when none is recorded. */
   const getEffectiveCreatedDateForItem = (item: ScheduleItem) =>
     getEffectiveCreatedDate(item, reconciliation);
-
-  /**
-   * The channel a transaction was submitted through — used to explain, in the detail
-   * modal, which attempts were retries (resubmission or real-time) versus the original.
-   */
-  const getChannelLabel = (txn: CollectionTransaction): string => {
-    if (txn.isResubmission) return "Resubmission";
-    if (txn.isRealtime) return "Real-time";
-    return "Standard";
-  };
 
   /**
    * Generates and downloads a CSV file containing schedule item data.
@@ -313,19 +230,17 @@ export default function ScheduleDisplay({
 
       // Calculate days between due date and period start
       const daysDueDateBeforePeriodStart = Math.floor(
-        (periodStart.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
+        (periodStart.getTime() - dueDate.getTime()) / DAY_MS,
       );
 
       // Calculate days in period
       const daysInPeriod =
-        Math.floor(
-          (periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24),
-        ) + 1;
+        Math.floor((periodEnd.getTime() - periodStart.getTime()) / DAY_MS) + 1;
 
       // Calculate days remaining in period (from current date)
       const now = new Date();
       const daysRemainingInPeriod = Math.floor(
-        (periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+        (periodEnd.getTime() - now.getTime()) / DAY_MS,
       );
 
       const adminFeesTotal = Object.values(item.adminFees || {}).reduce(
@@ -380,19 +295,16 @@ export default function ScheduleDisplay({
       ...rows.map((row) => row.join(",")),
     ].join("\n");
 
-    const dataBlob = new Blob([csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `schedule-${schedule?.id || "export"}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadBlob(
+      new Blob([csvContent], { type: "text/csv;charset=utf-8;" }),
+      `schedule-${schedule?.id || "export"}.csv`,
+    );
   };
 
+  /**
+   * Downloads the schedule as JSON, with Collections-derived statuses/dates applied and,
+   * when collections are loaded, a per-item reconciliation summary.
+   */
   const downloadJson = () => {
     const exportedItems = scheduleItems.map((item) => {
       const { value: effectiveCreatedDate } =
@@ -423,33 +335,25 @@ export default function ScheduleDisplay({
       });
     }
 
-    const dataStr = JSON.stringify(exportedSchedule, null, 2);
-    const dataBlob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `schedule-${schedule?.id || "export"}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const downloadHtml = () => {
-    const blob = new Blob(
-      [buildScheduleReportDocument(schedule, collections)],
-      { type: "text/html" },
+    downloadBlob(
+      new Blob([JSON.stringify(exportedSchedule, null, 2)], {
+        type: "application/json",
+      }),
+      `schedule-${schedule?.id || "export"}.json`,
     );
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `schedule-${schedule.id}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
+  /** Downloads the branded, standalone HTML report. */
+  const downloadHtml = () => {
+    downloadBlob(
+      new Blob([buildScheduleReportDocument(schedule, collections)], {
+        type: "text/html",
+      }),
+      `schedule-${schedule.id}.html`,
+    );
+  };
+
+  /** Downloads the branded landscape A4 PDF report. */
   const downloadPdf = async () => {
     const jsPDFModule = await import("jspdf");
     const doc = new jsPDFModule.default({
@@ -461,6 +365,7 @@ export default function ScheduleDisplay({
     doc.save(`schedule-${schedule.id}.pdf`);
   };
 
+  /** Exports in the chosen format, showing a format-specific error if it fails. */
   const handleExport = async () => {
     setExportError(null);
     try {
@@ -479,8 +384,16 @@ export default function ScheduleDisplay({
           break;
         case "png":
         case "svg":
-          await exportScheduleImage(schedule, exportFormat, collections);
+          await exportScheduleImage(
+            schedule,
+            exportFormat,
+            collections ?? null,
+          );
           break;
+        default: {
+          const unsupported: never = exportFormat;
+          throw new Error(`Unsupported export format: ${String(unsupported)}`);
+        }
       }
     } catch (err) {
       console.error("Error exporting schedule:", err);
@@ -488,48 +401,6 @@ export default function ScheduleDisplay({
         `Failed to export schedule as ${EXPORT_FORMAT_LABELS[exportFormat]}. Please try again.`,
       );
     }
-  };
-
-  const getStatusIcon = (
-    succeeded: boolean | null,
-    index: number,
-    derived: boolean = false,
-  ) => {
-    const icon =
-      succeeded === null ? (
-        <MinusCircle className="w-5 h-5 text-gray-400" />
-      ) : succeeded ? (
-        <Check className="w-5 h-5 text-green-500" />
-      ) : (
-        <X className="w-5 h-5 text-red-500" />
-      );
-
-    const content = derived ? (
-      <span className="inline-flex items-center gap-1">
-        {icon}
-        <span className="text-[10px] font-medium text-indigo-600 uppercase">
-          auto
-        </span>
-      </span>
-    ) : (
-      icon
-    );
-
-    const title = derived
-      ? "Derived from Collections reconciliation — this schedule item has no recorded status"
-      : "Click to change status";
-
-    return onStatusChange ? (
-      <button
-        onClick={() => onStatusChange(index)}
-        className="hover:bg-gray-100 p-1 rounded-full transition-colors"
-        title={title}
-      >
-        {content}
-      </button>
-    ) : (
-      <span title={derived ? title : undefined}>{content}</span>
-    );
   };
 
   if (!schedule) {
@@ -540,96 +411,32 @@ export default function ScheduleDisplay({
     <>
       <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
         <div className="flex justify-end flex-wrap gap-2 mb-6">
-          <div className="relative inline-flex" ref={viewJsonMenuRef}>
-            <button
-              onClick={() => setIsJsonModalOpen(true)}
-              className="flex items-center gap-2 pl-4 pr-3 py-2 bg-gray-100 text-gray-700 rounded-l-md hover:bg-gray-200"
-              title={`View schedule JSON as ${VIEW_JSON_FORMAT_LABELS[viewJsonFormat]}`}
-            >
-              <FileJson className="w-5 h-5" />
-              View JSON as {VIEW_JSON_FORMAT_LABELS[viewJsonFormat]}
-            </button>
-            <button
-              onClick={() => setIsViewJsonMenuOpen((open) => !open)}
-              className="flex items-center px-2 py-2 bg-gray-100 text-gray-700 rounded-r-md hover:bg-gray-200 border-l border-gray-300"
-              aria-label="Choose JSON view format"
-              aria-haspopup="menu"
-              aria-expanded={isViewJsonMenuOpen}
-            >
-              <ChevronDown className="w-4 h-4" />
-            </button>
-
-            {isViewJsonMenuOpen && (
-              <div
-                role="menu"
-                className="absolute left-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-10 overflow-hidden"
-              >
-                {VIEW_JSON_FORMATS.map((format) => (
-                  <button
-                    key={format}
-                    role="menuitem"
-                    onClick={() => selectViewJsonFormat(format)}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                      format === viewJsonFormat
-                        ? "font-semibold text-primary"
-                        : "text-gray-700"
-                    }`}
-                  >
-                    {VIEW_JSON_FORMAT_LABELS[format]}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="relative inline-flex" ref={exportMenuRef}>
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 pl-4 pr-3 py-2 bg-primary text-white rounded-l-md hover:bg-primary-dark"
-              title={`Export schedule as ${EXPORT_FORMAT_LABELS[exportFormat]}`}
-            >
-              {(() => {
-                const CurrentExportIcon = EXPORT_FORMAT_ICONS[exportFormat];
-                return <CurrentExportIcon className="w-5 h-5" />;
-              })()}
-              Export as {EXPORT_FORMAT_LABELS[exportFormat]}
-            </button>
-            <button
-              onClick={() => setIsExportMenuOpen((open) => !open)}
-              className="flex items-center px-2 py-2 bg-primary text-white rounded-r-md hover:bg-primary-dark border-l border-primary-light"
-              aria-label="Choose export format"
-              aria-haspopup="menu"
-              aria-expanded={isExportMenuOpen}
-            >
-              <ChevronDown className="w-4 h-4" />
-            </button>
-
-            {isExportMenuOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-10 overflow-hidden"
-              >
-                {EXPORT_FORMATS.map((format) => {
-                  const Icon = EXPORT_FORMAT_ICONS[format];
-                  return (
-                    <button
-                      key={format}
-                      role="menuitem"
-                      onClick={() => selectExportFormat(format)}
-                      className={`w-full flex items-center gap-2 text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                        format === exportFormat
-                          ? "font-semibold text-primary"
-                          : "text-gray-700"
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      {EXPORT_FORMAT_LABELS[format]}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <SplitMenuButton
+            label={`View JSON as ${VIEW_JSON_FORMAT_LABELS[viewJsonFormat]}`}
+            title={`View schedule JSON as ${VIEW_JSON_FORMAT_LABELS[viewJsonFormat]}`}
+            Icon={FileJson}
+            menuLabel="Choose JSON view format"
+            options={VIEW_JSON_OPTIONS}
+            selected={viewJsonFormat}
+            onSelect={setViewJsonFormat}
+            onClick={() => setIsJsonModalOpen(true)}
+            variant="neutral"
+            menuAlign="left"
+            menuWidthClass="w-64"
+          />
+          <SplitMenuButton
+            label={`Export as ${EXPORT_FORMAT_LABELS[exportFormat]}`}
+            title={`Export schedule as ${EXPORT_FORMAT_LABELS[exportFormat]}`}
+            Icon={EXPORT_FORMAT_ICONS[exportFormat]}
+            menuLabel="Choose export format"
+            options={EXPORT_OPTIONS}
+            selected={exportFormat}
+            onSelect={selectExportFormat}
+            onClick={handleExport}
+            variant="primary"
+            menuAlign="right"
+            menuWidthClass="w-40"
+          />
         </div>
 
         {exportError && (
@@ -638,359 +445,25 @@ export default function ScheduleDisplay({
           </div>
         )}
 
-        <div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="p-4 bg-primary/10 rounded-lg">
-              <h3 className="text-sm font-medium text-primary">Total Amount</h3>
-              <p className="mt-2 flex items-center text-2xl font-semibold text-primary">
-                <Euro className="w-5 h-5 mr-1" />
-                {totalAmount.toFixed(2)}
-              </p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-900">
-                Collection Day
-              </h3>
-              <p className="mt-2 text-2xl font-semibold text-gray-900">
-                {schedule.collectionFrequency === "annual"
-                  ? "-"
-                  : schedule.collectionDay}
-              </p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-900">
-                Cover Period
-              </h3>
-              <p className="mt-2 text-sm font-medium text-gray-900">
-                {formatDate(schedule.coverStartDate)} -{" "}
-                {formatDate(schedule.coverEndDate)}
-              </p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-900">Schedule ID</h3>
-              <p className="mt-2 text-sm font-medium text-gray-900 break-all">
-                {schedule.id}
-              </p>
-            </div>
-          </div>
-
-          {anomalies.length > 0 && (
-            <section
-              aria-label="Schedule Anomalies"
-              className="mb-6 border border-gray-200 rounded-lg overflow-hidden"
-            >
-              <h3 className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                Schedule Anomalies ({anomalies.length})
-              </h3>
-              <ul className="divide-y divide-gray-200">
-                {anomalies.map((anomaly) => {
-                  const isWarning = anomaly.severity === "warning";
-                  const Icon =
-                    anomaly.kind === "frequencySwitch"
-                      ? ArrowRightLeft
-                      : isWarning
-                        ? AlertTriangle
-                        : Info;
-                  return (
-                    <li
-                      key={anomaly.kind + anomaly.itemIndexes.join(",")}
-                      role={isWarning ? "alert" : undefined}
-                      className={`p-3 flex items-start gap-2 ${isWarning ? "bg-red-50" : "bg-blue-50"}`}
-                    >
-                      <Icon
-                        className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isWarning ? "text-red-700" : "text-blue-700"}`}
-                      />
-                      <div
-                        className={`text-sm ${isWarning ? "text-red-900" : "text-blue-900"}`}
-                      >
-                        <p className="font-semibold">
-                          {anomaly.title}
-                          <span className="ml-2 text-xs font-medium uppercase opacity-70">
-                            {anomaly.severity}
-                          </span>
-                        </p>
-                        <p>{anomaly.message}</p>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
-
-          {reconciliationSummary && (
-            <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-2 text-indigo-900">
-                <ListChecks className="w-5 h-5 flex-shrink-0" />
-                <span className="text-sm font-medium">
-                  Collections reconciliation: {reconciliationSummary.collected}{" "}
-                  collected, {reconciliationSummary.rejected} rejected,{" "}
-                  {reconciliationSummary.refunded} refunded,{" "}
-                  {reconciliationSummary.pending} pending
-                  {reconciliationSummary.mismatches > 0 && (
-                    <span className="text-amber-700">
-                      {" "}
-                      — {reconciliationSummary.mismatches} flagged for review
-                    </span>
-                  )}
-                </span>
-              </div>
-              {onClearCollections && (
-                <button
-                  type="button"
-                  onClick={onClearCollections}
-                  className="flex items-center gap-1 text-sm text-indigo-700 hover:text-indigo-900 transition-colors"
-                  title="Clear loaded collections"
-                >
-                  <X className="w-4 h-4" />
-                  Clear
-                </button>
-              )}
-            </div>
-          )}
-
-          <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-900 mb-2">Legend</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-100 rounded"></div>
-                <span className="text-sm text-gray-600">Full Item</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-yellow-100 rounded"></div>
-                <span className="text-sm text-gray-600">Pro-Rata Item</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-orange-100 rounded"></div>
-                <span className="text-sm text-gray-600">Admin Fee Item</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-blue-100 rounded"></div>
-                <span className="text-sm text-gray-600">Refund Item</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Index
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Period
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Due Date
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Net Amount
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Taxes & Levies
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Admin Fees
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Collection Item Created Date
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Adjustment Date
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Has Basis Item
-                  </th>
-                  {reconciliation && (
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Collections
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {scheduleItems.map((item, index) => {
-                  const isFrequencyChangePivot = index === frequencySwitchIndex;
-                  return (
-                    <tr
-                      key={item.id}
-                      className={`hover:bg-gray-50 ${isFrequencyChangePivot ? "ring-2 ring-inset ring-amber-400" : ""}`}
-                    >
-                      <td
-                        className={`px-3 py-3 whitespace-nowrap text-sm text-gray-900 ${getIndexBackgroundColor(item)}`}
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          {index}
-                          {isFrequencyChangePivot && (
-                            <ArrowRightLeft
-                              className="w-3.5 h-3.5 text-amber-700"
-                              aria-label="Frequency changed here"
-                            />
-                          )}
-                          {itemAnomalies(index).map((anomaly) =>
-                            anomaly.severity === "warning" ? (
-                              <AlertTriangle
-                                key={anomaly.kind}
-                                className="w-3.5 h-3.5 text-red-700"
-                                aria-label={anomaly.title}
-                              />
-                            ) : (
-                              <Info
-                                key={anomaly.kind}
-                                className="w-3.5 h-3.5 text-blue-700"
-                                aria-label={anomaly.title}
-                              />
-                            ),
-                          )}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(item.periodStartDate)} -{" "}
-                        {formatDate(item.periodEndDate)}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(item.dueDate)}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                        €{Number(item?.netAmount ?? 0).toFixed(2)}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {item.taxesAndLevies &&
-                        Object.entries(item.taxesAndLevies).length > 0
-                          ? Object.entries(item.taxesAndLevies).map(
-                              ([key, value]) => (
-                                <div key={key}>
-                                  {key}: €{Number(value || 0).toFixed(2)}
-                                </div>
-                              ),
-                            )
-                          : "-"}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {item.adminFees &&
-                        Object.entries(item.adminFees).length > 0
-                          ? Object.entries(item.adminFees).map(
-                              ([key, value]) => (
-                                <div key={key}>
-                                  {key}: €
-                                  {Number(value.amountDue || 0).toFixed(2)}
-                                  {Number(value.taxAmount || 0) > 0 &&
-                                    ` + €${Number(value.taxAmount || 0).toFixed(2)} tax`}
-                                </div>
-                              ),
-                            )
-                          : "-"}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                        €{Number(item?.amountDue ?? 0).toFixed(2)}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {(() => {
-                          const { value, derived } =
-                            getEffectiveCreatedDateForItem(item);
-                          if (!value) return "-";
-                          return (
-                            <span
-                              className={
-                                derived ? "italic text-gray-500" : undefined
-                              }
-                              title={
-                                derived
-                                  ? "Derived from Collections reconciliation — not recorded on the schedule item"
-                                  : undefined
-                              }
-                            >
-                              {formatDate(value)}
-                            </span>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {(() => {
-                          const { value, derived } =
-                            getEffectiveSucceededForItem(item);
-                          return getStatusIcon(value, index, derived);
-                        })()}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(item.adjustmentDate)}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {item.originalItem ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setOriginalItemDetail(item.originalItem!)
-                            }
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:opacity-80 transition-opacity"
-                            title="View Basis Item details"
-                          >
-                            <History className="w-3.5 h-3.5" />
-                            Yes
-                          </button>
-                        ) : (
-                          "No"
-                        )}
-                      </td>
-                      {reconciliation && (
-                        <td className="px-3 py-3 whitespace-nowrap text-sm">
-                          {(() => {
-                            const entry = reconciliation.get(item.id);
-                            if (!entry) return "-";
-                            const { label, className, Icon } =
-                              RECONCILIATION_BADGES[entry.status];
-                            const hasIssue =
-                              entry.amountMismatch || entry.statusMismatch;
-                            const titleParts = [
-                              entry.transactions.length > 0
-                                ? `${entry.transactions.length} matching transaction(s) — click for details`
-                                : "No matching Collections transaction found — click for details",
-                            ];
-                            if (entry.wasRetried) {
-                              titleParts.push(
-                                "Retried via resubmission/real-time after an earlier rejection or refund",
-                              );
-                            }
-                            return (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setReconciliationDetailItemId(item.id)
-                                }
-                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-opacity hover:opacity-80 ${className}`}
-                                title={titleParts.join(" · ")}
-                              >
-                                <Icon className="w-3.5 h-3.5" />
-                                {label}
-                                {entry.wasRetried && (
-                                  <RefreshCw
-                                    className="w-3.5 h-3.5"
-                                    aria-label="Retried"
-                                  />
-                                )}
-                                {hasIssue && (
-                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                                )}
-                              </button>
-                            );
-                          })()}
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ScheduleSummaryCards schedule={schedule} totalAmount={totalAmount} />
+        <AnomaliesPanel anomalies={anomalies} />
+        {reconciliationSummary && (
+          <ReconciliationSummaryBar
+            summary={reconciliationSummary}
+            onClear={onClearCollections}
+          />
+        )}
+        <ScheduleLegend />
+        <ScheduleItemsTable
+          items={scheduleItems}
+          anomalies={anomalies}
+          reconciliation={reconciliation}
+          getCreatedDate={getEffectiveCreatedDateForItem}
+          getSucceeded={getEffectiveSucceededForItem}
+          onStatusChange={onStatusChange}
+          onShowBasisItem={setBasisItemDetail}
+          onShowReconciliation={setReconciliationDetailItemId}
+        />
       </div>
 
       <Modal
@@ -1014,212 +487,20 @@ export default function ScheduleDisplay({
         onClose={() => setReconciliationDetailItemId(null)}
         title={`Collections history — item ${reconciliationDetailItemId ?? ""}`}
       >
-        {!reconciliationDetail ||
-        reconciliationDetail.transactions.length === 0 ? (
-          <p className="text-gray-600">
-            No matching Collections Service transactions found for this schedule
-            item.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {(reconciliationDetail.amountMismatch ||
-              reconciliationDetail.statusMismatch) && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <div>
-                  {reconciliationDetail.statusMismatch && (
-                    <p>
-                      The schedule item's recorded status doesn't match the
-                      latest Collections outcome.
-                    </p>
-                  )}
-                  {reconciliationDetail.amountMismatch && (
-                    <p>
-                      The collected amount differs from this item's amount due.
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead>
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">
-                      Processed
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">
-                      Status
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">
-                      Channel
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">
-                      Amount
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">
-                      Reference
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-500">
-                      Error
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {reconciliationDetail.transactions.map((txn, i) => (
-                    <tr key={txn.transactionReference || i}>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {formatDate(getTransactionDate(txn) || "")}
-                      </td>
-                      <td className="px-3 py-2 capitalize">
-                        {txn.collectionStatus}
-                      </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {getChannelLabel(txn)}
-                      </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        €{Number(txn.amountDue ?? 0).toFixed(2)}
-                      </td>
-                      <td className="px-3 py-2 break-all">
-                        {txn.transactionReference || "-"}
-                      </td>
-                      <td className="px-3 py-2">
-                        {txn.providerDetails?.errorMessage || "-"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        <ReconciliationDetail entry={reconciliationDetail} />
       </Modal>
 
       <Modal
-        isOpen={originalItemDetail !== null}
-        onClose={() => setOriginalItemDetail(null)}
+        isOpen={basisItemDetail !== null}
+        onClose={() => setBasisItemDetail(null)}
         title="Basis Item"
       >
-        {originalItemDetail &&
-          (() => {
-            const matchIndex = scheduleItems.findIndex(
-              (si) => si.id === originalItemDetail.id,
-            );
-            return (
-              <div className="space-y-4">
-                {matchIndex >= 0 ? (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 text-sm flex items-start gap-2">
-                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <p>
-                      This matches schedule item <strong>#{matchIndex}</strong>{" "}
-                      in the table above.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 text-sm flex items-start gap-2">
-                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <p>
-                      This item isn't part of the current schedule's items — it
-                      was likely generated on the fly by the Payment Schedule
-                      service to compute this adjustment, rather than being a
-                      persisted schedule item. This is the usual case for a
-                      Basis Item.
-                    </p>
-                  </div>
-                )}
-                <p className="text-xs text-gray-500">
-                  The full-period item this Pro-Rata Item's amount is calculated
-                  from (<code>originalItem</code> in the JSON).
-                </p>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <h3 className="font-medium text-gray-500">Id</h3>
-                    <p className="break-all">{originalItemDetail.id}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-500">
-                      Collection Type
-                    </h3>
-                    <p>{originalItemDetail.collectionType}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-500">Period</h3>
-                    <p>
-                      {formatDate(originalItemDetail.periodStartDate)} -{" "}
-                      {formatDate(originalItemDetail.periodEndDate)}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-500">Due Date</h3>
-                    <p>{formatDate(originalItemDetail.dueDate)}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-500">Net Amount</h3>
-                    <p>
-                      €{Number(originalItemDetail.netAmount ?? 0).toFixed(2)}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-500">Amount Due</h3>
-                    <p>
-                      €{Number(originalItemDetail.amountDue ?? 0).toFixed(2)}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-500">
-                      Taxes & Levies
-                    </h3>
-                    <p>
-                      {Object.entries(originalItemDetail.taxesAndLevies || {})
-                        .length > 0
-                        ? Object.entries(originalItemDetail.taxesAndLevies).map(
-                            ([key, value]) => (
-                              <span key={key} className="block">
-                                {key}: €{Number(value || 0).toFixed(2)}
-                              </span>
-                            ),
-                          )
-                        : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-500">Admin Fees</h3>
-                    <p>
-                      {Object.entries(originalItemDetail.adminFees || {})
-                        .length > 0
-                        ? Object.entries(originalItemDetail.adminFees).map(
-                            ([key, value]) => (
-                              <span key={key} className="block">
-                                {key}: €
-                                {Number(value.amountDue || 0).toFixed(2)}
-                              </span>
-                            ),
-                          )
-                        : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-500">
-                      Collection Item Created Date
-                    </h3>
-                    <p>
-                      {originalItemDetail.collectionItemCreatedDate
-                        ? formatDate(
-                            originalItemDetail.collectionItemCreatedDate,
-                          )
-                        : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-500">
-                      Has Its Own Basis Item
-                    </h3>
-                    <p>{originalItemDetail.originalItem ? "Yes" : "No"}</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+        {basisItemDetail && (
+          <BasisItemDetail
+            basisItem={basisItemDetail}
+            scheduleItems={scheduleItems}
+          />
+        )}
       </Modal>
     </>
   );

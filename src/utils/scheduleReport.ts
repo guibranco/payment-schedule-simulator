@@ -48,6 +48,7 @@ export const ROW_TYPE_LEGEND: Array<{ color: string; label: string }> = [
   { color: REPORT_COLORS.blue100, label: "Refund Item" },
 ];
 
+/** Escapes a value for safe inclusion in HTML text or attributes. */
 export function escapeHtml(value: unknown): string {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -57,6 +58,7 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, "&#39;");
 }
 
+/** Formats a date as dd/mm/yyyy, or "-" when empty or the 0001-01-01 sentinel. */
 export function formatReportDate(dateStr: string | null | undefined): string {
   if (!dateStr || dateStr === "0001-01-01T00:00:00+00:00") return "-";
   const date = new Date(dateStr);
@@ -91,6 +93,7 @@ const COLLECTIONS_STATUS_COLORS: Record<
   pending: { bg: REPORT_COLORS.gray50, fg: REPORT_COLORS.gray500 },
 };
 
+/** The Reconciled Outcome as a label, e.g. "Collected (retried)", or "-" without one. */
 export function collectionsLabel(
   entry: ItemReconciliation | undefined,
 ): string {
@@ -99,6 +102,7 @@ export function collectionsLabel(
   return entry.wasRetried ? `${label} (retried)` : label;
 }
 
+/** Background and text colours for a Reconciled Outcome, or null without one. */
 export function collectionsColors(
   entry: ItemReconciliation | undefined,
 ): { bg: string; fg: string } | null {
@@ -173,6 +177,7 @@ export function buildScheduleReport(
   };
 }
 
+/** The Schedule Anomalies section, or an empty string when there are none. */
 function anomaliesSection(anomalies: ScheduleAnomaly[]): string {
   if (anomalies.length === 0) return "";
   const entries = anomalies
@@ -196,16 +201,19 @@ function anomaliesSection(anomalies: ScheduleAnomaly[]): string {
   `;
 }
 
+/** The item's succeeded status as a tick, cross or dash. */
 function statusSymbol(succeeded: boolean | null): string {
   if (succeeded === null) return "—";
   return succeeded ? "✓" : "✕";
 }
 
+/** Text colour for the succeeded status: green, red, or grey when unknown. */
 function statusColor(succeeded: boolean | null): string {
   if (succeeded === null) return REPORT_COLORS.gray500;
   return succeeded ? REPORT_COLORS.green800 : REPORT_COLORS.red800;
 }
 
+/** One summary card (title above value), accented for the headline total. */
 function summaryCard(
   title: string,
   value: string,
@@ -224,6 +232,7 @@ function summaryCard(
   `;
 }
 
+/** A colour swatch with its label for the legend. */
 function legendSwatch(color: string, label: string): string {
   return `
     <span style="display:inline-flex; align-items:center; gap:8px; margin-right:24px;">
@@ -233,10 +242,12 @@ function legendSwatch(color: string, label: string): string {
   `;
 }
 
+/** A brand-coloured table header cell. */
 function tableHeaderCell(label: string): string {
   return `<th style="padding:10px 12px; text-align:left; font-size:11px; font-weight:700; color:${REPORT_COLORS.white}; background:${REPORT_COLORS.primary}; text-transform:uppercase; letter-spacing:0.03em;">${label}</th>`;
 }
 
+/** A table cell with optional background, text colour and bold. */
 function tableCell(
   content: string,
   opts?: { bg?: string; color?: string; bold?: boolean },
@@ -244,6 +255,7 @@ function tableCell(
   return `<td style="padding:10px 12px; font-size:13px; color:${opts?.color || REPORT_COLORS.gray900}; ${opts?.bold ? "font-weight:700; " : ""}border-bottom:1px solid ${REPORT_COLORS.gray200}; background:${opts?.bg || "transparent"}; white-space:nowrap;">${content}</td>`;
 }
 
+/** The Collections column cell: a coloured pill with the Reconciled Outcome. */
 function collectionsCell(entry: ItemReconciliation | undefined): string {
   const colors = collectionsColors(entry);
   const label = escapeHtml(collectionsLabel(entry));

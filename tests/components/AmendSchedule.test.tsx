@@ -3,9 +3,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AmendSchedule from '../../src/components/AmendSchedule';
 import { STORAGE_KEYS } from '../../src/constants';
 import { SAMPLE_SCHEDULES } from '../../src/constants/sampleSchedules';
+import { must } from '../helpers';
 
-const responseSample = SAMPLE_SCHEDULES.find((s) => s.format === 'response')!;
-const requestSample = SAMPLE_SCHEDULES.find((s) => s.format === 'request')!;
+const responseSample = must(SAMPLE_SCHEDULES.find((s) => s.format === 'response'));
+const requestSample = must(SAMPLE_SCHEDULES.find((s) => s.format === 'request'));
 
 function setValidToken() {
   localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, 'a-token');
@@ -173,7 +174,7 @@ describe('AmendSchedule', () => {
     fireEvent.change(screen.getByPlaceholderText('Paste your JSON request here...'), {
       target: { value: JSON.stringify(requestSample.json) }
     });
-    fireEvent.submit(screen.getByPlaceholderText('Paste your JSON request here...').closest('form')!);
+    fireEvent.submit(must(screen.getByPlaceholderText('Paste your JSON request here...').closest('form')));
 
     expect(screen.getByText('Current Schedule')).toBeInTheDocument();
   });
@@ -186,7 +187,7 @@ describe('AmendSchedule', () => {
     fireEvent.change(screen.getByPlaceholderText('Paste your JSON request here...'), {
       target: { value: JSON.stringify(withoutCurrentSchedule) }
     });
-    fireEvent.submit(screen.getByPlaceholderText('Paste your JSON request here...').closest('form')!);
+    fireEvent.submit(must(screen.getByPlaceholderText('Paste your JSON request here...').closest('form')));
 
     expect(
       screen.getByText('No current schedule found in the JSON request. Please ensure the JSON contains a currentSchedule object.')

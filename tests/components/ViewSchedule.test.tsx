@@ -3,6 +3,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import ViewSchedule from "../../src/components/ViewSchedule";
 import { SAMPLE_SCHEDULES } from "../../src/constants/sampleSchedules";
 import { FORMAT_LABELS } from "../../src/utils/scheduleDetector";
+import { must } from "../helpers";
 
 function submitJson(json: string) {
   fireEvent.change(screen.getByPlaceholderText(/{/), {
@@ -35,9 +36,9 @@ describe("ViewSchedule", () => {
     fireEvent.change(select, { target: { value: "policyAdmin" } });
 
     const textarea = screen.getByPlaceholderText(/{/) as HTMLTextAreaElement;
-    const policyAdminSample = SAMPLE_SCHEDULES.find(
+    const policyAdminSample = must(SAMPLE_SCHEDULES.find(
       (s) => s.format === "policyAdmin",
-    )!;
+    ));
     expect(textarea.value).toBe(
       JSON.stringify(policyAdminSample.json, null, 2),
     );
@@ -55,7 +56,7 @@ describe("ViewSchedule", () => {
     "detects the %s format and shows its label",
     (format, label) => {
       render(<ViewSchedule apiEndpoint="" />);
-      const sample = SAMPLE_SCHEDULES.find((s) => s.format === format)!;
+      const sample = must(SAMPLE_SCHEDULES.find((s) => s.format === format));
       submitJson(JSON.stringify(sample.json));
 
       expect(screen.getByText(`Detected format: ${label}`)).toBeInTheDocument();
@@ -64,7 +65,7 @@ describe("ViewSchedule", () => {
 
   it("shows only the input parameters for a request with no embedded currentSchedule", () => {
     render(<ViewSchedule apiEndpoint="" />);
-    const requestSample = SAMPLE_SCHEDULES.find((s) => s.format === "request")!
+    const requestSample = must(SAMPLE_SCHEDULES.find((s) => s.format === "request"))
       .json as any;
     const { currentSchedule, ...withoutCurrentSchedule } = requestSample;
 
@@ -79,9 +80,9 @@ describe("ViewSchedule", () => {
 
   it("does not show a stale schedule alongside a parse error after resetting and re-submitting", () => {
     render(<ViewSchedule apiEndpoint="" />);
-    const responseSample = SAMPLE_SCHEDULES.find(
+    const responseSample = must(SAMPLE_SCHEDULES.find(
       (s) => s.format === "response",
-    )!;
+    ));
     submitJson(JSON.stringify(responseSample.json));
     expect(
       screen.getByText(`Detected format: ${responseSample.label}`),
@@ -100,9 +101,9 @@ describe("ViewSchedule", () => {
 
   it('resets back to the input form when "Parse New Schedule" is clicked', () => {
     render(<ViewSchedule apiEndpoint="" />);
-    const responseSample = SAMPLE_SCHEDULES.find(
+    const responseSample = must(SAMPLE_SCHEDULES.find(
       (s) => s.format === "response",
-    )!;
+    ));
     submitJson(JSON.stringify(responseSample.json));
 
     fireEvent.click(screen.getByText("Parse New Schedule"));
@@ -115,14 +116,14 @@ describe("ViewSchedule", () => {
     render(<ViewSchedule apiEndpoint="" />);
     submitJson(
       JSON.stringify(
-        SAMPLE_SCHEDULES.find((s) => s.format === "response")!.json,
+        must(SAMPLE_SCHEDULES.find((s) => s.format === "response")).json,
       ),
     );
 
     const button = screen.getByRole("button", { name: "Load Collections" });
-    const tooltip = document.getElementById(
-      button.getAttribute("aria-describedby")!,
-    )!;
+    const tooltip = must(document.getElementById(
+      must(button.getAttribute("aria-describedby")),
+    ));
     expect(tooltip).toHaveAttribute("role", "tooltip");
     expect(tooltip).toHaveTextContent("Collections Service Swagger");
   });
@@ -136,9 +137,9 @@ describe("ViewSchedule", () => {
 
   it("reconciles the displayed schedule against pasted Collections JSON", () => {
     render(<ViewSchedule apiEndpoint="" />);
-    const responseSample = SAMPLE_SCHEDULES.find(
+    const responseSample = must(SAMPLE_SCHEDULES.find(
       (s) => s.format === "response",
-    )!.json as any;
+    )).json as any;
     submitJson(JSON.stringify(responseSample));
 
     fireEvent.click(screen.getByRole("button", { name: /Load Collections/ }));
@@ -166,9 +167,9 @@ describe("ViewSchedule", () => {
 
   it("hands off to the Amend Schedule form with the derived input pre-filled", () => {
     const { container } = render(<ViewSchedule apiEndpoint="test-endpoint" />);
-    const responseSample = SAMPLE_SCHEDULES.find(
+    const responseSample = must(SAMPLE_SCHEDULES.find(
       (s) => s.format === "response",
-    )!;
+    ));
     submitJson(JSON.stringify(responseSample.json));
 
     fireEvent.click(screen.getByRole("button", { name: /Amend Schedule/ }));
@@ -188,9 +189,9 @@ describe("ViewSchedule", () => {
 
   it("returns from the Amend Schedule form to the displayed schedule when Back is clicked", () => {
     render(<ViewSchedule apiEndpoint="test-endpoint" />);
-    const responseSample = SAMPLE_SCHEDULES.find(
+    const responseSample = must(SAMPLE_SCHEDULES.find(
       (s) => s.format === "response",
-    )!;
+    ));
     submitJson(JSON.stringify(responseSample.json));
 
     fireEvent.click(screen.getByRole("button", { name: /Amend Schedule/ }));
@@ -228,9 +229,9 @@ describe("ViewSchedule", () => {
     render(<ViewSchedule apiEndpoint="" />);
     fireEvent.click(screen.getByRole("button", { name: /Upload File/ }));
 
-    const responseSample = SAMPLE_SCHEDULES.find(
+    const responseSample = must(SAMPLE_SCHEDULES.find(
       (s) => s.format === "response",
-    )!;
+    ));
     const file = new File(
       [JSON.stringify(responseSample.json)],
       "schedule.json",
@@ -246,9 +247,9 @@ describe("ViewSchedule", () => {
 
   it("cycles a schedule item status through true -> false -> null -> true when its icon is clicked", () => {
     render(<ViewSchedule apiEndpoint="" />);
-    const responseSample = SAMPLE_SCHEDULES.find(
+    const responseSample = must(SAMPLE_SCHEDULES.find(
       (s) => s.format === "response",
-    )!;
+    ));
     submitJson(JSON.stringify(responseSample.json));
 
     // The sample's first item starts with succeeded: true.
@@ -274,9 +275,9 @@ describe("ViewSchedule", () => {
 
   it('reverts to "Load Collections" after clearing loaded collections', () => {
     render(<ViewSchedule apiEndpoint="" />);
-    const responseSample = SAMPLE_SCHEDULES.find(
+    const responseSample = must(SAMPLE_SCHEDULES.find(
       (s) => s.format === "response",
-    )!.json as any;
+    )).json as any;
     submitJson(JSON.stringify(responseSample));
 
     fireEvent.click(screen.getByRole("button", { name: /Load Collections/ }));
@@ -311,7 +312,7 @@ describe("ViewSchedule", () => {
 
   it("shows non-empty admin fees for a request with no embedded currentSchedule", () => {
     render(<ViewSchedule apiEndpoint="" />);
-    const requestSample = SAMPLE_SCHEDULES.find((s) => s.format === "request")!
+    const requestSample = must(SAMPLE_SCHEDULES.find((s) => s.format === "request"))
       .json as any;
     const { currentSchedule, ...withoutCurrentSchedule } = requestSample;
     const withFees = {
