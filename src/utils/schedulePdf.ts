@@ -308,7 +308,10 @@ export function renderSchedulePdf(
       }
 
       const isBold =
-        i === 0 || i === totalIndex || i === statusIndex || Boolean(collectionsColor);
+        i === 0 ||
+        i === totalIndex ||
+        i === statusIndex ||
+        Boolean(collectionsColor);
       doc.setFont("helvetica", isBold ? "bold" : "normal");
       doc.setFontSize(8);
       if (i === statusIndex) doc.setTextColor(statusColor(row.succeeded));

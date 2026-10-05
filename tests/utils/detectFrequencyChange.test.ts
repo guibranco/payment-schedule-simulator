@@ -1,79 +1,90 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { describe, it, expect } from 'vitest';
-import { detectFrequencyChange } from '../../src/utils/detectFrequencyChange';
-import { detectAndNormalizeSchedule } from '../../src/utils/scheduleDetector';
-import type { PaymentScheduleResponse, ScheduleItem } from '../../src/types';
-import { must } from '../helpers';
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, it, expect } from "vitest";
+import { detectFrequencyChange } from "../../src/utils/detectFrequencyChange";
+import { detectAndNormalizeSchedule } from "../../src/utils/scheduleDetector";
+import type { PaymentScheduleResponse, ScheduleItem } from "../../src/types";
+import { must } from "../helpers";
 
 function loadFixture(name: string): unknown {
-  return JSON.parse(readFileSync(join(__dirname, '..', 'fixtures', name), 'utf8'));
+  return JSON.parse(
+    readFileSync(join(__dirname, "..", "fixtures", name), "utf8"),
+  );
 }
 
 function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
   return {
-    id: 'item',
-    collectionType: 'Full',
-    periodStartDate: '2026-01-10',
-    periodEndDate: '2026-02-09',
-    adjustmentDate: '0001-01-01T00:00:00-00:25',
-    dueDate: '2025-11-25',
+    id: "item",
+    collectionType: "Full",
+    periodStartDate: "2026-01-10",
+    periodEndDate: "2026-02-09",
+    adjustmentDate: "0001-01-01T00:00:00-00:25",
+    dueDate: "2025-11-25",
     amountDue: 34.09,
     netAmount: 32.46,
     taxesAndLevies: {},
     adminFees: {},
     succeeded: null,
-    ...overrides
+    ...overrides,
   };
 }
 
-function makeSchedule(scheduleItems: ScheduleItem[], overrides: Partial<PaymentScheduleResponse> = {}): PaymentScheduleResponse {
+function makeSchedule(
+  scheduleItems: ScheduleItem[],
+  overrides: Partial<PaymentScheduleResponse> = {},
+): PaymentScheduleResponse {
   return {
-    id: 'schedule-1',
-    token: '',
-    hash: '',
-    collectionFrequency: 'annual',
+    id: "schedule-1",
+    token: "",
+    hash: "",
+    collectionFrequency: "annual",
     collectionDay: 0,
-    inceptionDate: '2025-10-10',
-    coverStartDate: '2025-10-10',
-    coverEndDate: '2026-10-09',
+    inceptionDate: "2025-10-10",
+    coverStartDate: "2025-10-10",
+    coverEndDate: "2026-10-09",
     scheduleItems,
-    ...overrides
+    ...overrides,
   };
 }
 
-describe('detectFrequencyChange', () => {
-  it('detects a switch modeled on the real-world pattern: monthly collections followed by an annual true-up basis', () => {
+describe("detectFrequencyChange", () => {
+  it("detects a switch modeled on the real-world pattern: monthly collections followed by an annual true-up basis", () => {
     // Mirrors the sample: 9 monthly Full items, then a ProRata item whose originalItem
     // is a synthetic Full record spanning the entire cover period (the annual basis).
     const monthlyPeriods: Array<[string, string]> = [
-      ['2025-12-10', '2026-01-09'],
-      ['2026-01-10', '2026-02-09'],
-      ['2026-02-10', '2026-03-09'],
-      ['2026-03-10', '2026-04-09'],
-      ['2026-04-10', '2026-05-09'],
-      ['2026-05-10', '2026-06-09'],
-      ['2026-06-10', '2026-07-09'],
-      ['2026-07-10', '2026-08-09'],
-      ['2026-08-10', '2026-09-09']
+      ["2025-12-10", "2026-01-09"],
+      ["2026-01-10", "2026-02-09"],
+      ["2026-02-10", "2026-03-09"],
+      ["2026-03-10", "2026-04-09"],
+      ["2026-04-10", "2026-05-09"],
+      ["2026-05-10", "2026-06-09"],
+      ["2026-06-10", "2026-07-09"],
+      ["2026-07-10", "2026-08-09"],
+      ["2026-08-10", "2026-09-09"],
     ];
-    const monthlyItems: ScheduleItem[] = monthlyPeriods.map(([periodStartDate, periodEndDate], i) =>
-      makeItem({ id: `monthly-${i}`, collectionType: 'Full', periodStartDate, periodEndDate })
+    const monthlyItems: ScheduleItem[] = monthlyPeriods.map(
+      ([periodStartDate, periodEndDate], i) =>
+        makeItem({
+          id: `monthly-${i}`,
+          collectionType: "Full",
+          periodStartDate,
+          periodEndDate,
+        }),
     );
 
     const pivotItem = makeItem({
-      id: 'pivot-item',
-      collectionType: 'ProRata',
-      periodStartDate: '2026-09-10',
-      periodEndDate: '2026-10-09',
+      id: "pivot-item",
+      collectionType: "ProRata",
+      periodStartDate: "2026-09-10",
+      periodEndDate: "2026-10-09",
       originalItem: makeItem({
-        id: 'synthetic-annual-basis',
-        collectionType: 'Full',
-        periodStartDate: '2025-10-10',
-        periodEndDate: '2026-10-09',
+        id: "synthetic-annual-basis",
+        collectionType: "Full",
+        periodStartDate: "2025-10-10",
+        periodEndDate: "2026-10-09",
         amountDue: 331.91,
-        netAmount: 319.15
-      })
+        netAmount: 319.15,
+      }),
     });
 
     const schedule = makeSchedule([...monthlyItems, pivotItem]);
@@ -81,94 +92,181 @@ describe('detectFrequencyChange', () => {
     const result = detectFrequencyChange(schedule);
 
     expect(result.detected).toBe(true);
-    expect(result.pivotItemId).toBe('pivot-item');
+    expect(result.pivotItemId).toBe("pivot-item");
     expect(result.pivotIndex).toBe(monthlyItems.length);
   });
 
-  it('detects a switch to Annual made late in the cover period, where no item spans the whole cover period (real Policy Admin document)', () => {
+  it("detects a switch to Annual made late in the cover period, where no item spans the whole cover period (real Policy Admin document)", () => {
     // Policy ran Monthly for 11 months, then was switched to Annual on 2026-09-15 with only the
     // final month (2026-10-11 to 2026-11-10) left to collect. The Annual "basis" is therefore a
     // one-month-long Full item, not a cover-period-long one, so period length alone cannot tell.
-    const schedule = must(detectAndNormalizeSchedule(loadFixture('policy-admin-late-switch-to-annual.json')).schedule);
+    const schedule = must(
+      detectAndNormalizeSchedule(
+        loadFixture("policy-admin-late-switch-to-annual.json"),
+      ).schedule,
+    );
 
     const result = detectFrequencyChange(schedule);
 
     expect(result.detected).toBe(true);
     // The remainder collection appended by the switch: last Full item ending on the cover end date,
     // priced at the new annualised premium (586.86 / 12 = 48.90 net).
-    expect(result.pivotItemId).toBe('931cb221-50a4-4e57-a3d3-e1c52159ea74');
+    expect(result.pivotItemId).toBe("931cb221-50a4-4e57-a3d3-e1c52159ea74");
     expect(result.pivotIndex).toBe(17);
     expect(result.message).toMatch(/switched from Monthly to Annual/);
   });
 
-  it('detects a late switch from the minimal shape: an Annual schedule carrying monthly-length Full items and no cover-length basis', () => {
+  it("detects a late switch from the minimal shape: an Annual schedule carrying monthly-length Full items and no cover-length basis", () => {
     const items: ScheduleItem[] = [
-      makeItem({ id: 'monthly-1', collectionType: 'Full', periodStartDate: '2025-10-10', periodEndDate: '2025-11-09' }),
-      makeItem({ id: 'monthly-2', collectionType: 'Full', periodStartDate: '2025-11-10', periodEndDate: '2025-12-09' }),
-      makeItem({ id: 'remainder', collectionType: 'Full', periodStartDate: '2026-09-10', periodEndDate: '2026-10-09' })
+      makeItem({
+        id: "monthly-1",
+        collectionType: "Full",
+        periodStartDate: "2025-10-10",
+        periodEndDate: "2025-11-09",
+      }),
+      makeItem({
+        id: "monthly-2",
+        collectionType: "Full",
+        periodStartDate: "2025-11-10",
+        periodEndDate: "2025-12-09",
+      }),
+      makeItem({
+        id: "remainder",
+        collectionType: "Full",
+        periodStartDate: "2026-09-10",
+        periodEndDate: "2026-10-09",
+      }),
     ];
 
-    const result = detectFrequencyChange(makeSchedule(items, { collectionFrequency: 'annual' }));
+    const result = detectFrequencyChange(
+      makeSchedule(items, { collectionFrequency: "annual" }),
+    );
 
     expect(result.detected).toBe(true);
-    expect(result.pivotItemId).toBe('remainder');
+    expect(result.pivotItemId).toBe("remainder");
     expect(result.pivotIndex).toBe(2);
   });
 
-  it('prefers the cover-length basis as pivot over the remainder item when both are present', () => {
+  it("prefers the cover-length basis as pivot over the remainder item when both are present", () => {
     const items: ScheduleItem[] = [
-      makeItem({ id: 'monthly-1', collectionType: 'Full', periodStartDate: '2025-10-10', periodEndDate: '2025-11-09' }),
-      makeItem({ id: 'monthly-2', collectionType: 'Full', periodStartDate: '2025-11-10', periodEndDate: '2025-12-09' }),
       makeItem({
-        id: 'true-up',
-        collectionType: 'ProRata',
-        periodStartDate: '2025-12-10',
-        periodEndDate: '2026-10-09',
-        originalItem: makeItem({ id: 'annual-basis', collectionType: 'Full', periodStartDate: '2025-10-10', periodEndDate: '2026-10-09' })
+        id: "monthly-1",
+        collectionType: "Full",
+        periodStartDate: "2025-10-10",
+        periodEndDate: "2025-11-09",
       }),
-      makeItem({ id: 'remainder', collectionType: 'Full', periodStartDate: '2026-09-10', periodEndDate: '2026-10-09' })
+      makeItem({
+        id: "monthly-2",
+        collectionType: "Full",
+        periodStartDate: "2025-11-10",
+        periodEndDate: "2025-12-09",
+      }),
+      makeItem({
+        id: "true-up",
+        collectionType: "ProRata",
+        periodStartDate: "2025-12-10",
+        periodEndDate: "2026-10-09",
+        originalItem: makeItem({
+          id: "annual-basis",
+          collectionType: "Full",
+          periodStartDate: "2025-10-10",
+          periodEndDate: "2026-10-09",
+        }),
+      }),
+      makeItem({
+        id: "remainder",
+        collectionType: "Full",
+        periodStartDate: "2026-09-10",
+        periodEndDate: "2026-10-09",
+      }),
     ];
 
-    const result = detectFrequencyChange(makeSchedule(items, { collectionFrequency: 'annual' }));
+    const result = detectFrequencyChange(
+      makeSchedule(items, { collectionFrequency: "annual" }),
+    );
 
-    expect(result.pivotItemId).toBe('true-up');
+    expect(result.pivotItemId).toBe("true-up");
   });
 
-  it('falls back to the last Full item as pivot when no Full item ends on the cover end date', () => {
+  it("falls back to the last Full item as pivot when no Full item ends on the cover end date", () => {
     const items: ScheduleItem[] = [
-      makeItem({ id: 'monthly-1', collectionType: 'Full', periodStartDate: '2025-10-10', periodEndDate: '2025-11-09' }),
-      makeItem({ id: 'monthly-2', collectionType: 'Full', periodStartDate: '2025-11-10', periodEndDate: '2025-12-09' }),
-      makeItem({ id: 'pro-rata', collectionType: 'ProRata', periodStartDate: '2025-12-10', periodEndDate: '2025-12-20' })
+      makeItem({
+        id: "monthly-1",
+        collectionType: "Full",
+        periodStartDate: "2025-10-10",
+        periodEndDate: "2025-11-09",
+      }),
+      makeItem({
+        id: "monthly-2",
+        collectionType: "Full",
+        periodStartDate: "2025-11-10",
+        periodEndDate: "2025-12-09",
+      }),
+      makeItem({
+        id: "pro-rata",
+        collectionType: "ProRata",
+        periodStartDate: "2025-12-10",
+        periodEndDate: "2025-12-20",
+      }),
     ];
 
-    const result = detectFrequencyChange(makeSchedule(items, { collectionFrequency: 'annual' }));
+    const result = detectFrequencyChange(
+      makeSchedule(items, { collectionFrequency: "annual" }),
+    );
 
     expect(result.detected).toBe(true);
-    expect(result.pivotItemId).toBe('monthly-2');
+    expect(result.pivotItemId).toBe("monthly-2");
   });
 
-  it('does not treat a Monthly schedule with monthly-length items as a switch, whatever the item count', () => {
+  it("does not treat a Monthly schedule with monthly-length items as a switch, whatever the item count", () => {
     const items: ScheduleItem[] = [
-      makeItem({ id: 'monthly-1', collectionType: 'Full', periodStartDate: '2025-10-10', periodEndDate: '2025-11-09' }),
-      makeItem({ id: 'monthly-2', collectionType: 'Full', periodStartDate: '2025-11-10', periodEndDate: '2025-12-09' }),
-      makeItem({ id: 'monthly-3', collectionType: 'Full', periodStartDate: '2025-12-10', periodEndDate: '2026-01-09' })
+      makeItem({
+        id: "monthly-1",
+        collectionType: "Full",
+        periodStartDate: "2025-10-10",
+        periodEndDate: "2025-11-09",
+      }),
+      makeItem({
+        id: "monthly-2",
+        collectionType: "Full",
+        periodStartDate: "2025-11-10",
+        periodEndDate: "2025-12-09",
+      }),
+      makeItem({
+        id: "monthly-3",
+        collectionType: "Full",
+        periodStartDate: "2025-12-10",
+        periodEndDate: "2026-01-09",
+      }),
     ];
 
-    for (const collectionFrequency of ['monthly', 'Monthly']) {
-      expect(detectFrequencyChange(makeSchedule(items, { collectionFrequency })).detected).toBe(false);
+    for (const collectionFrequency of ["monthly", "Monthly"]) {
+      expect(
+        detectFrequencyChange(makeSchedule(items, { collectionFrequency }))
+          .detected,
+      ).toBe(false);
     }
   });
 
-  it('does not treat an Annual schedule with a single short Full collection as a switch', () => {
+  it("does not treat an Annual schedule with a single short Full collection as a switch", () => {
     // e.g. a mid-term inception or cancellation leaving only a month of cover to collect.
     const items: ScheduleItem[] = [
-      makeItem({ id: 'short-remainder', collectionType: 'Full', periodStartDate: '2026-09-10', periodEndDate: '2026-10-09' })
+      makeItem({
+        id: "short-remainder",
+        collectionType: "Full",
+        periodStartDate: "2026-09-10",
+        periodEndDate: "2026-10-09",
+      }),
     ];
 
-    expect(detectFrequencyChange(makeSchedule(items, { collectionFrequency: 'annual' })).detected).toBe(false);
+    expect(
+      detectFrequencyChange(
+        makeSchedule(items, { collectionFrequency: "annual" }),
+      ).detected,
+    ).toBe(false);
   });
 
-  it('does not detect a switch for a schedule that stays monthly throughout', () => {
+  it("does not detect a switch for a schedule that stays monthly throughout", () => {
     const items: ScheduleItem[] = Array.from({ length: 12 }, (_, i) => {
       const startMonth = i + 1;
       const endMonth = startMonth + 1;
@@ -176,20 +274,30 @@ describe('detectFrequencyChange', () => {
       const endMonthNorm = endMonth > 12 ? 1 : endMonth;
       return makeItem({
         id: `monthly-${i}`,
-        collectionType: 'Full',
-        periodStartDate: `2026-${String(startMonth).padStart(2, '0')}-10`,
-        periodEndDate: `${endYear}-${String(endMonthNorm).padStart(2, '0')}-09`
+        collectionType: "Full",
+        periodStartDate: `2026-${String(startMonth).padStart(2, "0")}-10`,
+        periodEndDate: `${endYear}-${String(endMonthNorm).padStart(2, "0")}-09`,
       });
     });
 
-    const result = detectFrequencyChange(makeSchedule(items, { collectionFrequency: 'monthly', coverEndDate: '2027-01-09' }));
+    const result = detectFrequencyChange(
+      makeSchedule(items, {
+        collectionFrequency: "monthly",
+        coverEndDate: "2027-01-09",
+      }),
+    );
 
     expect(result.detected).toBe(false);
   });
 
-  it('does not detect a switch for a schedule that is annual from the start', () => {
+  it("does not detect a switch for a schedule that is annual from the start", () => {
     const items: ScheduleItem[] = [
-      makeItem({ id: 'annual-1', collectionType: 'Full', periodStartDate: '2025-10-10', periodEndDate: '2026-10-09' })
+      makeItem({
+        id: "annual-1",
+        collectionType: "Full",
+        periodStartDate: "2025-10-10",
+        periodEndDate: "2026-10-09",
+      }),
     ];
 
     const result = detectFrequencyChange(makeSchedule(items));
@@ -197,10 +305,20 @@ describe('detectFrequencyChange', () => {
     expect(result.detected).toBe(false);
   });
 
-  it('requires at least 2 monthly-length observations before considering a candidate as a switch', () => {
+  it("requires at least 2 monthly-length observations before considering a candidate as a switch", () => {
     const items: ScheduleItem[] = [
-      makeItem({ id: 'monthly-1', collectionType: 'Full', periodStartDate: '2025-10-10', periodEndDate: '2025-11-09' }),
-      makeItem({ id: 'annual-basis', collectionType: 'Full', periodStartDate: '2025-10-10', periodEndDate: '2026-10-09' })
+      makeItem({
+        id: "monthly-1",
+        collectionType: "Full",
+        periodStartDate: "2025-10-10",
+        periodEndDate: "2025-11-09",
+      }),
+      makeItem({
+        id: "annual-basis",
+        collectionType: "Full",
+        periodStartDate: "2025-10-10",
+        periodEndDate: "2026-10-09",
+      }),
     ];
 
     const result = detectFrequencyChange(makeSchedule(items));
@@ -208,11 +326,26 @@ describe('detectFrequencyChange', () => {
     expect(result.detected).toBe(false);
   });
 
-  it('ignores ProRata items when counting monthly observations', () => {
+  it("ignores ProRata items when counting monthly observations", () => {
     const items: ScheduleItem[] = [
-      makeItem({ id: 'pro-rata-1', collectionType: 'ProRata', periodStartDate: '2025-10-10', periodEndDate: '2025-11-09' }),
-      makeItem({ id: 'pro-rata-2', collectionType: 'ProRata', periodStartDate: '2025-11-10', periodEndDate: '2025-12-09' }),
-      makeItem({ id: 'annual-basis', collectionType: 'Full', periodStartDate: '2025-10-10', periodEndDate: '2026-10-09' })
+      makeItem({
+        id: "pro-rata-1",
+        collectionType: "ProRata",
+        periodStartDate: "2025-10-10",
+        periodEndDate: "2025-11-09",
+      }),
+      makeItem({
+        id: "pro-rata-2",
+        collectionType: "ProRata",
+        periodStartDate: "2025-11-10",
+        periodEndDate: "2025-12-09",
+      }),
+      makeItem({
+        id: "annual-basis",
+        collectionType: "Full",
+        periodStartDate: "2025-10-10",
+        periodEndDate: "2026-10-09",
+      }),
     ];
 
     const result = detectFrequencyChange(makeSchedule(items));
@@ -220,23 +353,46 @@ describe('detectFrequencyChange', () => {
     expect(result.detected).toBe(false);
   });
 
-  it('does not detect a switch when a ProRata item with no Full originalItem appears after enough monthly observations', () => {
+  it("does not detect a switch when a ProRata item with no Full originalItem appears after enough monthly observations", () => {
     const items: ScheduleItem[] = [
-      makeItem({ id: 'monthly-1', collectionType: 'Full', periodStartDate: '2025-10-10', periodEndDate: '2025-11-09' }),
-      makeItem({ id: 'monthly-2', collectionType: 'Full', periodStartDate: '2025-11-10', periodEndDate: '2025-12-09' }),
-      makeItem({ id: 'pro-rata-no-original', collectionType: 'ProRata', periodStartDate: '2025-12-10', periodEndDate: '2025-12-20' })
+      makeItem({
+        id: "monthly-1",
+        collectionType: "Full",
+        periodStartDate: "2025-10-10",
+        periodEndDate: "2025-11-09",
+      }),
+      makeItem({
+        id: "monthly-2",
+        collectionType: "Full",
+        periodStartDate: "2025-11-10",
+        periodEndDate: "2025-12-09",
+      }),
+      makeItem({
+        id: "pro-rata-no-original",
+        collectionType: "ProRata",
+        periodStartDate: "2025-12-10",
+        periodEndDate: "2025-12-20",
+      }),
     ];
 
-    const result = detectFrequencyChange(makeSchedule(items, { collectionFrequency: 'monthly' }));
+    const result = detectFrequencyChange(
+      makeSchedule(items, { collectionFrequency: "monthly" }),
+    );
 
     expect(result.detected).toBe(false);
   });
 
-  it('returns false for a zero-length or invalid cover period instead of throwing', () => {
-    const schedule = makeSchedule([], { coverStartDate: '2026-01-01', coverEndDate: '2026-01-01' });
+  it("returns false for a zero-length or invalid cover period instead of throwing", () => {
+    const schedule = makeSchedule([], {
+      coverStartDate: "2026-01-01",
+      coverEndDate: "2026-01-01",
+    });
     expect(detectFrequencyChange(schedule).detected).toBe(false);
 
-    const invalidSchedule = makeSchedule([], { coverStartDate: 'not-a-date', coverEndDate: '2026-01-01' });
+    const invalidSchedule = makeSchedule([], {
+      coverStartDate: "not-a-date",
+      coverEndDate: "2026-01-01",
+    });
     expect(detectFrequencyChange(invalidSchedule).detected).toBe(false);
   });
 });

@@ -34,8 +34,8 @@ export default function BasisItemDetail({
         )}
       </div>
       <p className="text-xs text-gray-500">
-        The full-period item this Pro-Rata Item&apos;s amount is calculated
-        from (<code>originalItem</code> in the JSON).
+        The full-period item this Pro-Rata Item&apos;s amount is calculated from
+        (<code>originalItem</code> in the JSON).
       </p>
       <BasisItemFields item={basisItem} />
     </div>

@@ -22,7 +22,9 @@ interface Props {
   anomalies: ScheduleAnomaly[];
   /** Reconciliation per item id, or null when no collections are loaded. */
   reconciliation: Map<string, ItemReconciliation> | null;
-  getCreatedDate: (item: ScheduleItem) => EffectiveValue<string | null | undefined>;
+  getCreatedDate: (
+    item: ScheduleItem,
+  ) => EffectiveValue<string | null | undefined>;
   getSucceeded: (item: ScheduleItem) => EffectiveValue<boolean | null>;
   onStatusChange?: (index: number) => void;
   onShowBasisItem: (basisItem: ScheduleItem) => void;

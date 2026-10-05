@@ -75,7 +75,9 @@ const policyAdminDocument = {
   ModifiedBy: "RERATE",
 };
 
-const baseSchedule = must(detectAndNormalizeSchedule(policyAdminDocument).schedule);
+const baseSchedule = must(
+  detectAndNormalizeSchedule(policyAdminDocument).schedule,
+);
 const [fullItem, stampDutyItem, proRataItem] = baseSchedule.scheduleItems;
 
 function withItems(
@@ -138,7 +140,10 @@ describe("detectScheduleAnomalies", () => {
     it("flags a Basis Item that has a Basis Item of its own", () => {
       const nested = {
         ...proRataItem,
-        originalItem: { ...must(proRataItem.originalItem), originalItem: fullItem },
+        originalItem: {
+          ...must(proRataItem.originalItem),
+          originalItem: fullItem,
+        },
       };
       expect(kinds(withItems([fullItem, stampDutyItem, nested]))).toContain(
         "nestedBasisItem",

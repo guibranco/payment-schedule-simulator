@@ -21,7 +21,9 @@ export default function ScheduleSummaryCards({
         </p>
       </div>
       <SummaryCard title="Collection Day" large>
-        {schedule.collectionFrequency === "annual" ? "-" : schedule.collectionDay}
+        {schedule.collectionFrequency === "annual"
+          ? "-"
+          : schedule.collectionDay}
       </SummaryCard>
       <SummaryCard title="Cover Period">
         {formatDate(schedule.coverStartDate)} -{" "}

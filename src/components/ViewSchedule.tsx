@@ -183,8 +183,8 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
                   ))}
                 </ul>
                 <p className="mt-2">
-                  Use the &quot;Load Example&quot; dropdown next to the buttons below to
-                  try a sample of each format.
+                  Use the &quot;Load Example&quot; dropdown next to the buttons
+                  below to try a sample of each format.
                 </p>
               </div>
             </div>

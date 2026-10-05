@@ -53,7 +53,9 @@ function AnomalyEntry({ anomaly }: { anomaly: ScheduleAnomaly }) {
       className={`p-3 flex items-start gap-2 ${isWarning ? "bg-red-50" : "bg-blue-50"}`}
     >
       <AnomalyIcon anomaly={anomaly} />
-      <div className={`text-sm ${isWarning ? "text-red-900" : "text-blue-900"}`}>
+      <div
+        className={`text-sm ${isWarning ? "text-red-900" : "text-blue-900"}`}
+      >
         <p className="font-semibold">
           {anomaly.title}
           <span className="ml-2 text-xs font-medium uppercase opacity-70">

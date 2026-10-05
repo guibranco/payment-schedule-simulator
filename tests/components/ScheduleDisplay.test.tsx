@@ -59,9 +59,9 @@ vi.mock("jspdf", () => ({
   }),
 }));
 
-const responseSample = must(SAMPLE_SCHEDULES.find(
-  (s) => s.format === "response",
-)).json;
+const responseSample = must(
+  SAMPLE_SCHEDULES.find((s) => s.format === "response"),
+).json;
 const schedule = must(detectAndNormalizeSchedule(responseSample).schedule);
 const [firstItemId, secondItemId] = schedule.scheduleItems.map(
   (item) => item.id,
@@ -203,9 +203,9 @@ describe("ScheduleDisplay", () => {
 
     clickViewJsonButton();
 
-    const modal = must(must(screen
-      .getByText(/Schedule JSON/)
-      .closest("div")).parentElement);
+    const modal = must(
+      must(screen.getByText(/Schedule JSON/).closest("div")).parentElement,
+    );
     expect(
       within(modal).getByText(new RegExp(schedule.id)),
     ).toBeInTheDocument();
@@ -238,9 +238,9 @@ describe("ScheduleDisplay", () => {
     selectViewJsonFormat("policyAdmin");
     clickViewJsonButton();
 
-    const modal = must(must(screen
-      .getByText(/Schedule JSON/)
-      .closest("div")).parentElement);
+    const modal = must(
+      must(screen.getByText(/Schedule JSON/).closest("div")).parentElement,
+    );
     expect(within(modal).getByText(/"PaymentScheduleId"/)).toBeInTheDocument();
     expect(within(modal).getByText(/"ScheduleItems"/)).toBeInTheDocument();
   });
@@ -250,9 +250,9 @@ describe("ScheduleDisplay", () => {
     selectViewJsonFormat("rerates");
     clickViewJsonButton();
 
-    const modal = must(must(screen
-      .getByText(/Schedule JSON/)
-      .closest("div")).parentElement);
+    const modal = must(
+      must(screen.getByText(/Schedule JSON/).closest("div")).parentElement,
+    );
     expect(within(modal).getByText(/"PaymentScheduleId"/)).toBeInTheDocument();
     expect(within(modal).getByText(/"Items"/)).toBeInTheDocument();
   });
@@ -262,9 +262,9 @@ describe("ScheduleDisplay", () => {
     selectViewJsonFormat("request");
     clickViewJsonButton();
 
-    const modal = must(must(screen
-      .getByText(/Schedule JSON/)
-      .closest("div")).parentElement);
+    const modal = must(
+      must(screen.getByText(/Schedule JSON/).closest("div")).parentElement,
+    );
     expect(within(modal).getByText(/"scheduleStartDate"/)).toBeInTheDocument();
     expect(within(modal).getByText(/"netAmount"/)).toBeInTheDocument();
   });
@@ -360,32 +360,28 @@ describe("ScheduleDisplay", () => {
   });
 
   it("exports a PNG via the scheduleImage util after choosing it from the menu", async () => {
-    vi.mocked(exportScheduleImage).mockImplementationOnce(() => Promise.resolve());
+    vi.mocked(exportScheduleImage).mockImplementationOnce(() =>
+      Promise.resolve(),
+    );
     render(<ScheduleDisplay schedule={schedule} />);
     selectFormat("png");
     clickExportButton();
 
     await waitFor(() => {
-      expect(exportScheduleImage).toHaveBeenCalledWith(
-        schedule,
-        "png",
-        null,
-      );
+      expect(exportScheduleImage).toHaveBeenCalledWith(schedule, "png", null);
     });
   });
 
   it("exports an SVG via the scheduleImage util after choosing it from the menu", async () => {
-    vi.mocked(exportScheduleImage).mockImplementationOnce(() => Promise.resolve());
+    vi.mocked(exportScheduleImage).mockImplementationOnce(() =>
+      Promise.resolve(),
+    );
     render(<ScheduleDisplay schedule={schedule} />);
     selectFormat("svg");
     clickExportButton();
 
     await waitFor(() => {
-      expect(exportScheduleImage).toHaveBeenCalledWith(
-        schedule,
-        "svg",
-        null,
-      );
+      expect(exportScheduleImage).toHaveBeenCalledWith(schedule, "svg", null);
     });
   });
 
@@ -415,9 +411,9 @@ describe("ScheduleDisplay", () => {
     clickExportButton();
 
     await waitFor(() => {
-      const instance = must(vi
-        .mocked(jsPDFModule.default)
-        .mock.results.at(-1)).value;
+      const instance = must(
+        vi.mocked(jsPDFModule.default).mock.results.at(-1),
+      ).value;
       expect(instance.addPage).toHaveBeenCalled();
     });
   });
@@ -469,7 +465,9 @@ describe("ScheduleDisplay", () => {
   });
 
   it("renders a fallback message when no schedule is provided", () => {
-    render(<ScheduleDisplay schedule={null as unknown as PaymentScheduleResponse} />);
+    render(
+      <ScheduleDisplay schedule={null as unknown as PaymentScheduleResponse} />,
+    );
     expect(screen.getByText("No schedule data available.")).toBeInTheDocument();
   });
 
@@ -505,9 +503,7 @@ describe("ScheduleDisplay", () => {
     });
 
     it("shows a summary banner and per-item status badges once collections are provided", () => {
-      render(
-        <ScheduleDisplay schedule={schedule} collections={collections} />,
-      );
+      render(<ScheduleDisplay schedule={schedule} collections={collections} />);
 
       expect(screen.getByText(/Collections reconciliation:/)).toHaveTextContent(
         "1 collected, 1 rejected, 0 refunded, 0 pending",
@@ -521,9 +517,7 @@ describe("ScheduleDisplay", () => {
     });
 
     it("opens a transaction detail modal when a status badge is clicked", () => {
-      render(
-        <ScheduleDisplay schedule={schedule} collections={collections} />,
-      );
+      render(<ScheduleDisplay schedule={schedule} collections={collections} />);
 
       fireEvent.click(screen.getByRole("button", { name: /Rejected/ }));
 
@@ -533,14 +527,13 @@ describe("ScheduleDisplay", () => {
     });
 
     it("closes the transaction detail modal via its close button", () => {
-      render(
-        <ScheduleDisplay schedule={schedule} collections={collections} />,
-      );
+      render(<ScheduleDisplay schedule={schedule} collections={collections} />);
       fireEvent.click(screen.getByRole("button", { name: /Rejected/ }));
 
-      const modal = must(must(screen
-        .getByText(/Collections history/)
-        .closest("div")).parentElement);
+      const modal = must(
+        must(screen.getByText(/Collections history/).closest("div"))
+          .parentElement,
+      );
       fireEvent.click(within(modal).getByRole("button", { name: "" }));
 
       expect(screen.queryByText(/Collections history/)).not.toBeInTheDocument();
@@ -705,9 +698,7 @@ describe("ScheduleDisplay", () => {
     });
 
     it("does not override a schedule item that already has a recorded status", () => {
-      render(
-        <ScheduleDisplay schedule={schedule} collections={collections} />,
-      );
+      render(<ScheduleDisplay schedule={schedule} collections={collections} />);
       expect(screen.queryByText("auto")).not.toBeInTheDocument();
     });
 
@@ -858,9 +849,9 @@ describe("ScheduleDisplay", () => {
       render(<ScheduleDisplay schedule={scheduleWithMatch} />);
       fireEvent.click(screen.getByTitle("View Basis Item details"));
 
-      const modal = must(must(screen
-        .getByText("Basis Item")
-        .closest("div")).parentElement);
+      const modal = must(
+        must(screen.getByText("Basis Item").closest("div")).parentElement,
+      );
       fireEvent.click(within(modal).getByRole("button", { name: "" }));
 
       expect(screen.queryByText("Basis Item")).not.toBeInTheDocument();
@@ -1027,9 +1018,9 @@ describe("ScheduleDisplay", () => {
       clickExportButton();
 
       await waitFor(() => {
-        const instance = must(vi
-          .mocked(jsPDFModule.default)
-          .mock.results.at(-1)).value;
+        const instance = must(
+          vi.mocked(jsPDFModule.default).mock.results.at(-1),
+        ).value;
         const calls = instance.text.mock.calls.map(
           (call: unknown[]) => call[0],
         );
@@ -1199,7 +1190,9 @@ describe("ScheduleDisplay", () => {
       expect(warning).toHaveTextContent("Orphaned Pro-Rata Item");
       expect(warning).toHaveTextContent("Pro-Rata Item #2 has no Basis Item");
       const flag = screen.getByLabelText("Orphaned Pro-Rata Item");
-      expect(must(must(flag.closest("tr")).querySelector("td")).textContent).toBe("2");
+      expect(
+        must(must(flag.closest("tr")).querySelector("td")).textContent,
+      ).toBe("2");
     });
 
     it("lists warnings before info", () => {

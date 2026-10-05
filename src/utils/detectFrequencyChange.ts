@@ -1,5 +1,5 @@
-import type { PaymentScheduleResponse, ScheduleItem } from '../types';
-import { isCollectionType } from './collectionType';
+import type { PaymentScheduleResponse, ScheduleItem } from "../types";
+import { isCollectionType } from "./collectionType";
 
 export interface FrequencyChangeDetection {
   detected: boolean;
@@ -33,11 +33,14 @@ function isRoughlyAnnual(days: number, coverDays: number): boolean {
 
 /** Whether the schedule is collected annually. */
 function isAnnualSchedule(schedule: PaymentScheduleResponse): boolean {
-  return (schedule.collectionFrequency || '').toLowerCase() === 'annual';
+  return (schedule.collectionFrequency || "").toLowerCase() === "annual";
 }
 
 /** Index of the last item matching the predicate, or -1. */
-function findLastIndex(items: ScheduleItem[], predicate: (item: ScheduleItem) => boolean): number {
+function findLastIndex(
+  items: ScheduleItem[],
+  predicate: (item: ScheduleItem) => boolean,
+): number {
   for (let i = items.length - 1; i >= 0; i--) {
     if (predicate(items[i])) return i;
   }
@@ -59,7 +62,9 @@ function findLastIndex(items: ScheduleItem[], predicate: (item: ScheduleItem) =>
  *    collections, which a schedule that was Annual from inception never has. The pivot is the last Full
  *    item ending on the cover end date: the remainder collection appended by the switch.
  */
-export function detectFrequencyChange(schedule: PaymentScheduleResponse): FrequencyChangeDetection {
+export function detectFrequencyChange(
+  schedule: PaymentScheduleResponse,
+): FrequencyChangeDetection {
   const coverDays = daysBetween(schedule.coverStartDate, schedule.coverEndDate);
   if (!(coverDays > 0)) return { detected: false };
 
@@ -68,24 +73,33 @@ export function detectFrequencyChange(schedule: PaymentScheduleResponse): Freque
   for (let i = 0; i < schedule.scheduleItems.length; i++) {
     const item = schedule.scheduleItems[i];
 
-    if (isCollectionType(item, 'full')) {
+    if (isCollectionType(item, "full")) {
       const days = daysBetween(item.periodStartDate, item.periodEndDate);
       if (isRoughlyMonthly(days)) monthlyCount++;
     }
 
     if (monthlyCount < MIN_MONTHLY_OBSERVATIONS) continue;
 
-    const candidate: ScheduleItem | null =
-      isCollectionType(item, 'full') ? item : item.originalItem && isCollectionType(item.originalItem, 'full') ? item.originalItem : null;
+    const candidate: ScheduleItem | null = isCollectionType(item, "full")
+      ? item
+      : item.originalItem && isCollectionType(item.originalItem, "full")
+        ? item.originalItem
+        : null;
     if (!candidate) continue;
 
-    const candidateDays = daysBetween(candidate.periodStartDate, candidate.periodEndDate);
-    if (isRoughlyAnnual(candidateDays, coverDays) && !isRoughlyMonthly(candidateDays)) {
+    const candidateDays = daysBetween(
+      candidate.periodStartDate,
+      candidate.periodEndDate,
+    );
+    if (
+      isRoughlyAnnual(candidateDays, coverDays) &&
+      !isRoughlyMonthly(candidateDays)
+    ) {
       return {
         detected: true,
         pivotItemId: item.id,
         pivotIndex: i,
-        message: `This schedule appears to have switched from Monthly to Annual collection around item #${i} (basis period ${candidate.periodStartDate} to ${candidate.periodEndDate}).`
+        message: `This schedule appears to have switched from Monthly to Annual collection around item #${i} (basis period ${candidate.periodStartDate} to ${candidate.periodEndDate}).`,
       };
     }
   }
@@ -93,15 +107,21 @@ export function detectFrequencyChange(schedule: PaymentScheduleResponse): Freque
   if (monthlyCount >= MIN_MONTHLY_OBSERVATIONS && isAnnualSchedule(schedule)) {
     const items = schedule.scheduleItems;
     /** Whether the item is a Full Item. */
-    const isFull = (item: ScheduleItem) => isCollectionType(item, 'full');
-    const remainderIndex = findLastIndex(items, (item) => isFull(item) && daysBetween(item.periodEndDate, schedule.coverEndDate) === 0);
-    const pivotIndex = remainderIndex >= 0 ? remainderIndex : findLastIndex(items, isFull);
+    const isFull = (item: ScheduleItem) => isCollectionType(item, "full");
+    const remainderIndex = findLastIndex(
+      items,
+      (item) =>
+        isFull(item) &&
+        daysBetween(item.periodEndDate, schedule.coverEndDate) === 0,
+    );
+    const pivotIndex =
+      remainderIndex >= 0 ? remainderIndex : findLastIndex(items, isFull);
     const pivot = items[pivotIndex];
     return {
       detected: true,
       pivotItemId: pivot.id,
       pivotIndex,
-      message: `This schedule is Annual but contains ${monthlyCount} monthly-length collections, so it appears to have switched from Monthly to Annual late in the cover period; the remaining cover is collected by item #${pivotIndex} (period ${pivot.periodStartDate} to ${pivot.periodEndDate}).`
+      message: `This schedule is Annual but contains ${monthlyCount} monthly-length collections, so it appears to have switched from Monthly to Annual late in the cover period; the remaining cover is collected by item #${pivotIndex} (period ${pivot.periodStartDate} to ${pivot.periodEndDate}).`,
     };
   }
 

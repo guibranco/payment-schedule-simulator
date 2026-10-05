@@ -116,18 +116,14 @@ export default function ScheduleItemRow({
         {formatDate(item.periodStartDate)} - {formatDate(item.periodEndDate)}
       </td>
       <td className={CELL_CLASS}>{formatDate(item.dueDate)}</td>
-      <td className={CELL_CLASS}>
-        €{Number(item?.netAmount ?? 0).toFixed(2)}
-      </td>
+      <td className={CELL_CLASS}>€{Number(item?.netAmount ?? 0).toFixed(2)}</td>
       <td className={CELL_CLASS}>
         <TaxesList taxes={item.taxesAndLevies} />
       </td>
       <td className={CELL_CLASS}>
         <AdminFeesList fees={item.adminFees} />
       </td>
-      <td className={CELL_CLASS}>
-        €{Number(item?.amountDue ?? 0).toFixed(2)}
-      </td>
+      <td className={CELL_CLASS}>€{Number(item?.amountDue ?? 0).toFixed(2)}</td>
       <td className={CELL_CLASS}>
         <CreatedDate createdDate={createdDate} />
       </td>
@@ -194,7 +190,11 @@ function TaxesList({ taxes }: { taxes: Record<string, number> | undefined }) {
 }
 
 /** Admin fees as one "code: €amount (+ tax)" line each, or "-" when there are none. */
-function AdminFeesList({ fees }: { fees: ScheduleItem["adminFees"] | undefined }) {
+function AdminFeesList({
+  fees,
+}: {
+  fees: ScheduleItem["adminFees"] | undefined;
+}) {
   const entries = Object.entries(fees || {});
   if (entries.length === 0) return <>-</>;
   return (
