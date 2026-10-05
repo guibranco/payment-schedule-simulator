@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from "react";
 import {
   type OAuthService,
   SERVICE_STORAGE,
   buildAuthorizationUrl,
   collectionsScope,
   environmentSuffix,
-  savedEnvironment
-} from '../utils/oauthFlow';
+  savedEnvironment,
+} from "../utils/oauthFlow";
 
 export interface TokenInfo {
   accessToken: string | null;
@@ -35,7 +35,7 @@ interface UseTokenManagerOptions {
 /**
  * Reads a service's token information from localStorage and calculates its expiration status.
  */
-export function readTokenInfo(service: OAuthService = 'schedule'): TokenInfo {
+export function readTokenInfo(service: OAuthService = "schedule"): TokenInfo {
   const keys = SERVICE_STORAGE[service];
   const accessToken = localStorage.getItem(keys.accessToken);
   const expiresAtStr = localStorage.getItem(keys.expiresAt);
@@ -43,20 +43,20 @@ export function readTokenInfo(service: OAuthService = 'schedule'): TokenInfo {
 
   const now = Date.now();
   const isExpired = expiresAt ? now >= expiresAt : false;
-  const isExpiringSoon = expiresAt ? now >= (expiresAt - 5 * 60 * 1000) : false; // 5 minutes before expiry
+  const isExpiringSoon = expiresAt ? now >= expiresAt - 5 * 60 * 1000 : false; // 5 minutes before expiry
 
   return {
     accessToken,
     expiresAt,
     isExpired,
     isExpiringSoon,
-    checkedAt: now
+    checkedAt: now,
   };
 }
 
 /** The scope requested when re-authorizing a service. */
 function refreshScope(service: OAuthService): string {
-  if (service === 'collections') return collectionsScope();
+  if (service === "collections") return collectionsScope();
   return `api://schedule-api${environmentSuffix(savedEnvironment())}/user_impersonation`;
 }
 
@@ -67,10 +67,12 @@ function refreshScope(service: OAuthService): string {
  * is about to expire, and provides manual refresh functionality.
  */
 export function useTokenManager(
-  service: OAuthService = 'schedule',
-  { autoRefresh = service === 'schedule' }: UseTokenManagerOptions = {}
+  service: OAuthService = "schedule",
+  { autoRefresh = service === "schedule" }: UseTokenManagerOptions = {},
 ): UseTokenManagerReturn {
-  const [tokenInfo, setTokenInfo] = useState<TokenInfo>(() => readTokenInfo(service));
+  const [tokenInfo, setTokenInfo] = useState<TokenInfo>(() =>
+    readTokenInfo(service),
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,9 +91,13 @@ export function useTokenManager(
     setError(null);
 
     try {
-      window.location.href = await buildAuthorizationUrl(service, refreshScope(service), { silent: true });
+      window.location.href = await buildAuthorizationUrl(
+        service,
+        refreshScope(service),
+        { silent: true },
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to refresh token');
+      setError(err instanceof Error ? err.message : "Failed to refresh token");
       setIsRefreshing(false);
     }
   }, [service]);
@@ -101,14 +107,25 @@ export function useTokenManager(
    * The refresh is scheduled rather than run inline so no state is set synchronously in the effect.
    */
   useEffect(() => {
-    if (!autoRefresh || !tokenInfo.isExpiringSoon || tokenInfo.isExpired || isRefreshing) {
+    if (
+      !autoRefresh ||
+      !tokenInfo.isExpiringSoon ||
+      tokenInfo.isExpired ||
+      isRefreshing
+    ) {
       return undefined;
     }
     const timeout = setTimeout(() => {
       void refreshToken();
     }, 0);
     return () => clearTimeout(timeout);
-  }, [autoRefresh, tokenInfo.isExpiringSoon, tokenInfo.isExpired, isRefreshing, refreshToken]);
+  }, [
+    autoRefresh,
+    tokenInfo.isExpiringSoon,
+    tokenInfo.isExpired,
+    isRefreshing,
+    refreshToken,
+  ]);
 
   /**
    * Set up periodic token info updates (the initial read happens in the state initialiser)
@@ -131,14 +148,14 @@ export function useTokenManager(
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, [service, updateTokenInfo]);
 
   return {
     tokenInfo,
     refreshToken,
     isRefreshing,
-    error
+    error,
   };
 }

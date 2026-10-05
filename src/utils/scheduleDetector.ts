@@ -336,9 +336,7 @@ export function detectScheduleFormat(json: unknown): ScheduleFormat {
     getCI(obj, "netAmount") != null &&
     !Number.isNaN(Number(getCI(obj, "netAmount")))
   ) {
-    return Object.hasOwn(obj, "CollectionFrequency")
-      ? "seq"
-      : "request";
+    return Object.hasOwn(obj, "CollectionFrequency") ? "seq" : "request";
   }
 
   throw new Error(

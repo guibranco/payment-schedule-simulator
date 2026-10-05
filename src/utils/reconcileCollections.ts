@@ -3,19 +3,29 @@ import type {
   ItemReconciliation,
   ReconciledStatus,
   ReconciliationSummary,
-  ScheduleItem
-} from '../types';
+  ScheduleItem,
+} from "../types";
 
 const AMOUNT_TOLERANCE = 0.01;
-const KNOWN_STATUSES: ReadonlySet<ReconciledStatus> = new Set<ReconciledStatus>(['collected', 'rejected', 'refunded']);
+const KNOWN_STATUSES: ReadonlySet<ReconciledStatus> = new Set<ReconciledStatus>(
+  ["collected", "rejected", "refunded"],
+);
 
 /**
  * The best available timestamp for a transaction, in order of how authoritative it is
  * about when the collection actually happened: provider processing date first, then the
  * record's own modified/created dates, then the scheduled value/due dates as a last resort.
  */
-export function getTransactionDate(txn: CollectionTransaction): string | undefined {
-  return txn.providerDetails?.processingDate || txn.modifiedDate || txn.createdDate || txn.valueDate || txn.dueDate;
+export function getTransactionDate(
+  txn: CollectionTransaction,
+): string | undefined {
+  return (
+    txn.providerDetails?.processingDate ||
+    txn.modifiedDate ||
+    txn.createdDate ||
+    txn.valueDate ||
+    txn.dueDate
+  );
 }
 
 /** Epoch milliseconds of the transaction's best available date, or 0 when it has none. */
@@ -27,8 +37,8 @@ function getProcessingTime(txn: CollectionTransaction): number {
 
 /** Lower-cases a Collections status, treating anything unrecognised as 'pending'. */
 function normalizeStatus(status: string): ReconciledStatus {
-  const normalized = (status || '').toLowerCase() as ReconciledStatus;
-  return KNOWN_STATUSES.has(normalized) ? normalized : 'pending';
+  const normalized = (status || "").toLowerCase() as ReconciledStatus;
+  return KNOWN_STATUSES.has(normalized) ? normalized : "pending";
 }
 
 /**
@@ -36,8 +46,10 @@ function normalizeStatus(status: string): ReconciledStatus {
  * moved, then was successfully returned) — not a failure — so it counts as successful
  * alongside 'collected'. Only 'rejected' (and 'pending', i.e. no attempt yet) are not.
  */
-export function isSuccessfulReconciledStatus(status: ReconciledStatus): boolean {
-  return status === 'collected' || status === 'refunded';
+export function isSuccessfulReconciledStatus(
+  status: ReconciledStatus,
+): boolean {
+  return status === "collected" || status === "refunded";
 }
 
 /**
@@ -45,13 +57,17 @@ export function isSuccessfulReconciledStatus(status: ReconciledStatus): boolean 
  * through a resubmission or real-time retry channel — surfaced so a failed/refunded
  * item that's already been retried can be told apart from one still awaiting a retry.
  */
-export function wasRetriedAfterFailure(transactions: CollectionTransaction[]): boolean {
-  const sorted = [...transactions].sort((a, b) => getProcessingTime(a) - getProcessingTime(b));
+export function wasRetriedAfterFailure(
+  transactions: CollectionTransaction[],
+): boolean {
+  const sorted = [...transactions].sort(
+    (a, b) => getProcessingTime(a) - getProcessingTime(b),
+  );
 
   let hadFailureOrRefund = false;
   for (const txn of sorted) {
-    const status = (txn.collectionStatus || '').toLowerCase();
-    if (status === 'rejected' || status === 'refunded') {
+    const status = (txn.collectionStatus || "").toLowerCase();
+    if (status === "rejected" || status === "refunded") {
       hadFailureOrRefund = true;
     } else if (hadFailureOrRefund && (txn.isResubmission || txn.isRealtime)) {
       return true;
@@ -74,15 +90,17 @@ export function parseCollectionsJson(raw: string): CollectionTransaction[] {
  */
 export function validateCollections(json: unknown): CollectionTransaction[] {
   if (!Array.isArray(json)) {
-    throw new TypeError('Expected a JSON array of collection transactions.');
+    throw new TypeError("Expected a JSON array of collection transactions.");
   }
 
   return json.map((entry, index) => {
-    if (!entry || typeof entry !== 'object') {
+    if (!entry || typeof entry !== "object") {
       throw new TypeError(`Entry at index ${index} is not an object.`);
     }
     if (!Array.isArray(entry.paymentScheduleItemIds)) {
-      throw new TypeError(`Entry at index ${index} is missing paymentScheduleItemIds.`);
+      throw new TypeError(
+        `Entry at index ${index} is missing paymentScheduleItemIds.`,
+      );
     }
     if (!entry.collectionStatus) {
       throw new Error(`Entry at index ${index} is missing collectionStatus.`);
@@ -90,10 +108,12 @@ export function validateCollections(json: unknown): CollectionTransaction[] {
     if (
       entry.amountDue === null ||
       entry.amountDue === undefined ||
-      (typeof entry.amountDue === 'string' && entry.amountDue.trim() === '') ||
+      (typeof entry.amountDue === "string" && entry.amountDue.trim() === "") ||
       Number.isNaN(Number(entry.amountDue))
     ) {
-      throw new Error(`Entry at index ${index} is missing or has an invalid amountDue.`);
+      throw new Error(
+        `Entry at index ${index} is missing or has an invalid amountDue.`,
+      );
     }
     // Coerce here (e.g. a numeric string) so CollectionTransaction.amountDue is genuinely a number downstream.
     entry.amountDue = Number(entry.amountDue);
@@ -109,7 +129,7 @@ export function validateCollections(json: unknown): CollectionTransaction[] {
  */
 export function reconcileScheduleItems(
   scheduleItems: ScheduleItem[],
-  collections: CollectionTransaction[]
+  collections: CollectionTransaction[],
 ): Map<string, ItemReconciliation> {
   const result = new Map<string, ItemReconciliation>();
 
@@ -119,19 +139,31 @@ export function reconcileScheduleItems(
       .sort((a, b) => getProcessingTime(a) - getProcessingTime(b));
 
     const latestTransaction = transactions.at(-1) ?? null;
-    const status: ReconciledStatus = latestTransaction ? normalizeStatus(latestTransaction.collectionStatus) : 'pending';
+    const status: ReconciledStatus = latestTransaction
+      ? normalizeStatus(latestTransaction.collectionStatus)
+      : "pending";
 
     // Batched collections cover several items with one combined amount, so amount
     // reconciliation only makes sense when the transaction covers this item alone.
     const amountMismatch =
       latestTransaction !== null &&
       latestTransaction.paymentScheduleItemIds.length === 1 &&
-      Math.abs(Number(latestTransaction.amountDue) - Number(item.amountDue)) > AMOUNT_TOLERANCE;
+      Math.abs(Number(latestTransaction.amountDue) - Number(item.amountDue)) >
+        AMOUNT_TOLERANCE;
 
-    const statusMismatch = item.succeeded !== null && item.succeeded !== isSuccessfulReconciledStatus(status);
+    const statusMismatch =
+      item.succeeded !== null &&
+      item.succeeded !== isSuccessfulReconciledStatus(status);
     const wasRetried = wasRetriedAfterFailure(transactions);
 
-    result.set(item.id, { status, transactions, latestTransaction, amountMismatch, statusMismatch, wasRetried });
+    result.set(item.id, {
+      status,
+      transactions,
+      latestTransaction,
+      amountMismatch,
+      statusMismatch,
+      wasRetried,
+    });
   }
 
   return result;
@@ -149,12 +181,13 @@ export interface EffectiveValue<T> {
  */
 export function getEffectiveSucceeded(
   item: ScheduleItem,
-  reconciliation?: Map<string, ItemReconciliation> | null
+  reconciliation?: Map<string, ItemReconciliation> | null,
 ): EffectiveValue<boolean | null> {
   if (item.succeeded !== null) return { value: item.succeeded, derived: false };
 
   const entry = reconciliation?.get(item.id);
-  if (!entry || entry.status === 'pending') return { value: null, derived: false };
+  if (!entry || entry.status === "pending")
+    return { value: null, derived: false };
 
   return { value: isSuccessfulReconciledStatus(entry.status), derived: true };
 }
@@ -166,9 +199,10 @@ export function getEffectiveSucceeded(
  */
 export function getEffectiveCreatedDate(
   item: ScheduleItem,
-  reconciliation?: Map<string, ItemReconciliation> | null
+  reconciliation?: Map<string, ItemReconciliation> | null,
 ): EffectiveValue<string | undefined> {
-  if (item.collectionItemCreatedDate) return { value: item.collectionItemCreatedDate, derived: false };
+  if (item.collectionItemCreatedDate)
+    return { value: item.collectionItemCreatedDate, derived: false };
 
   const txn = reconciliation?.get(item.id)?.latestTransaction;
   const derivedDate = txn ? getTransactionDate(txn) : undefined;
@@ -176,14 +210,16 @@ export function getEffectiveCreatedDate(
 }
 
 /** Counts the Reconciled Outcomes and mismatches across every reconciled schedule item. */
-export function summarizeReconciliation(reconciliation: Map<string, ItemReconciliation>): ReconciliationSummary {
+export function summarizeReconciliation(
+  reconciliation: Map<string, ItemReconciliation>,
+): ReconciliationSummary {
   const summary: ReconciliationSummary = {
     totalItems: reconciliation.size,
     collected: 0,
     rejected: 0,
     refunded: 0,
     pending: 0,
-    mismatches: 0
+    mismatches: 0,
   };
 
   for (const entry of reconciliation.values()) {
