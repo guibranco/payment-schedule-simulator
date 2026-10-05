@@ -14,12 +14,12 @@ interface Props {
  * transactions for a schedule) so it can be reconciled against the schedule items
  * currently shown on the View Schedule screen.
  */
-export default function CollectionsLoader({ onLoad, onClose }: Props) {
+export default function CollectionsLoader({ onLoad, onClose }: Readonly<Props>) {
   const [jsonInput, setJsonInput] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   /** Parses and validates the pasted JSON; on success hands the collections back and closes. */
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
 
@@ -47,18 +47,17 @@ export default function CollectionsLoader({ onLoad, onClose }: Props) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      setJsonInput(content);
-      setError(null);
-    };
-    reader.onerror = () => {
-      setError(
-        "Failed to read the file. Please try again or paste the JSON directly.",
-      );
-    };
-    reader.readAsText(file);
+    file.text().then(
+      (content) => {
+        setJsonInput(content);
+        setError(null);
+      },
+      () => {
+        setError(
+          "Failed to read the file. Please try again or paste the JSON directly.",
+        );
+      },
+    );
   };
 
   return (
@@ -112,12 +111,12 @@ function CollectionsLoaderFields({
   onJsonChange,
   onFileUpload,
   error,
-}: {
+}: Readonly<{
   jsonInput: string;
   onJsonChange: (value: string) => void;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   error: string | null;
-}) {
+}>) {
   return (
     <div className="flex-1 space-y-4">
       <div className="p-4 bg-primary/5 border border-primary/20 rounded-md text-sm text-gray-700">
@@ -138,10 +137,14 @@ function CollectionsLoaderFields({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label
+          htmlFor="collections-json"
+          className="block text-sm font-medium text-gray-700 mb-2"
+        >
           Collections JSON
         </label>
         <textarea
+          id="collections-json"
           value={jsonInput}
           onChange={(e) => onJsonChange(e.target.value)}
           placeholder="Paste the Collections Service JSON array here..."

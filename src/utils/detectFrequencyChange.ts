@@ -17,7 +17,7 @@ const MIN_MONTHLY_OBSERVATIONS = 2;
 function daysBetween(start: string, end: string): number {
   const startTime = new Date(start).getTime();
   const endTime = new Date(end).getTime();
-  if (isNaN(startTime) || isNaN(endTime)) return NaN;
+  if (Number.isNaN(startTime) || Number.isNaN(endTime)) return Number.NaN;
   return Math.round((endTime - startTime) / (1000 * 60 * 60 * 24));
 }
 
@@ -47,6 +47,94 @@ function findLastIndex(
   return -1;
 }
 
+/** Whether the item is a Full Item. */
+function isFull(item: ScheduleItem): boolean {
+  return isCollectionType(item, "full");
+}
+
+/**
+ * The 'Full' record whose period shape 1 inspects: the item itself when it is a Full Item, else the
+ * Basis Item behind a Pro-Rata Item when that Basis Item is Full, else null.
+ */
+function fullBasisCandidate(item: ScheduleItem): ScheduleItem | null {
+  if (isFull(item)) return item;
+  if (item.originalItem && isFull(item.originalItem))
+    return item.originalItem;
+  return null;
+}
+
+/**
+ * Shape 1 (annual true-up): scans for a Full record spanning essentially the whole cover period once
+ * at least two monthly-length Full Items have been seen. Also returns the monthly count observed.
+ */
+function detectAnnualTrueUp(
+  items: ScheduleItem[],
+  coverDays: number,
+): { detection: FrequencyChangeDetection | null; monthlyCount: number } {
+  let monthlyCount = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+
+    if (
+      isFull(item) &&
+      isRoughlyMonthly(daysBetween(item.periodStartDate, item.periodEndDate))
+    ) {
+      monthlyCount++;
+    }
+
+    const candidate =
+      monthlyCount >= MIN_MONTHLY_OBSERVATIONS
+        ? fullBasisCandidate(item)
+        : null;
+    if (!candidate) continue;
+
+    const candidateDays = daysBetween(
+      candidate.periodStartDate,
+      candidate.periodEndDate,
+    );
+    if (
+      isRoughlyAnnual(candidateDays, coverDays) &&
+      !isRoughlyMonthly(candidateDays)
+    ) {
+      return {
+        monthlyCount,
+        detection: {
+          detected: true,
+          pivotItemId: item.id,
+          pivotIndex: i,
+          message: `This schedule appears to have switched from Monthly to Annual collection around item #${i} (basis period ${candidate.periodStartDate} to ${candidate.periodEndDate}).`,
+        },
+      };
+    }
+  }
+
+  return { detection: null, monthlyCount };
+}
+
+/** Shape 2 (late switch): the pivot is the last Full Item ending on the cover end date, else the last Full Item. */
+function detectLateSwitch(
+  schedule: PaymentScheduleResponse,
+  monthlyCount: number,
+): FrequencyChangeDetection {
+  const items = schedule.scheduleItems;
+  const remainderIndex = findLastIndex(
+    items,
+    (item) =>
+      isFull(item) &&
+      daysBetween(item.periodEndDate, schedule.coverEndDate) === 0,
+  );
+  const pivotIndex =
+    remainderIndex >= 0 ? remainderIndex : findLastIndex(items, isFull);
+  const pivot = items[pivotIndex];
+  return {
+    detected: true,
+    pivotItemId: pivot.id,
+    pivotIndex,
+    message: `This schedule is Annual but contains ${monthlyCount} monthly-length collections, so it appears to have switched from Monthly to Annual late in the cover period; the remaining cover is collected by item #${pivotIndex} (period ${pivot.periodStartDate} to ${pivot.periodEndDate}).`,
+  };
+}
+
 /**
  * Detects a schedule that started on Monthly collections and later switched to Annual.
  *
@@ -66,63 +154,17 @@ export function detectFrequencyChange(
   schedule: PaymentScheduleResponse,
 ): FrequencyChangeDetection {
   const coverDays = daysBetween(schedule.coverStartDate, schedule.coverEndDate);
-  if (!(coverDays > 0)) return { detected: false };
+  // NaN (an invalid cover date) must also bail out, which a bare `coverDays <= 0` would miss.
+  if (Number.isNaN(coverDays) || coverDays <= 0) return { detected: false };
 
-  let monthlyCount = 0;
-
-  for (let i = 0; i < schedule.scheduleItems.length; i++) {
-    const item = schedule.scheduleItems[i];
-
-    if (isCollectionType(item, "full")) {
-      const days = daysBetween(item.periodStartDate, item.periodEndDate);
-      if (isRoughlyMonthly(days)) monthlyCount++;
-    }
-
-    if (monthlyCount < MIN_MONTHLY_OBSERVATIONS) continue;
-
-    const candidate: ScheduleItem | null = isCollectionType(item, "full")
-      ? item
-      : item.originalItem && isCollectionType(item.originalItem, "full")
-        ? item.originalItem
-        : null;
-    if (!candidate) continue;
-
-    const candidateDays = daysBetween(
-      candidate.periodStartDate,
-      candidate.periodEndDate,
-    );
-    if (
-      isRoughlyAnnual(candidateDays, coverDays) &&
-      !isRoughlyMonthly(candidateDays)
-    ) {
-      return {
-        detected: true,
-        pivotItemId: item.id,
-        pivotIndex: i,
-        message: `This schedule appears to have switched from Monthly to Annual collection around item #${i} (basis period ${candidate.periodStartDate} to ${candidate.periodEndDate}).`,
-      };
-    }
-  }
+  const { detection, monthlyCount } = detectAnnualTrueUp(
+    schedule.scheduleItems,
+    coverDays,
+  );
+  if (detection) return detection;
 
   if (monthlyCount >= MIN_MONTHLY_OBSERVATIONS && isAnnualSchedule(schedule)) {
-    const items = schedule.scheduleItems;
-    /** Whether the item is a Full Item. */
-    const isFull = (item: ScheduleItem) => isCollectionType(item, "full");
-    const remainderIndex = findLastIndex(
-      items,
-      (item) =>
-        isFull(item) &&
-        daysBetween(item.periodEndDate, schedule.coverEndDate) === 0,
-    );
-    const pivotIndex =
-      remainderIndex >= 0 ? remainderIndex : findLastIndex(items, isFull);
-    const pivot = items[pivotIndex];
-    return {
-      detected: true,
-      pivotItemId: pivot.id,
-      pivotIndex,
-      message: `This schedule is Annual but contains ${monthlyCount} monthly-length collections, so it appears to have switched from Monthly to Annual late in the cover period; the remaining cover is collected by item #${pivotIndex} (period ${pivot.periodStartDate} to ${pivot.periodEndDate}).`,
-    };
+    return detectLateSwitch(schedule, monthlyCount);
   }
 
   return { detected: false };

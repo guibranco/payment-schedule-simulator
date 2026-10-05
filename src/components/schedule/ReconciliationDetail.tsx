@@ -22,12 +22,30 @@ function channelLabel(txn: CollectionTransaction): string {
   return "Standard";
 }
 
+/**
+ * Pairs each transaction with a stable, unique React key: the transaction reference when present, else
+ * its date, status and amount, with a suffix only when two transactions would otherwise collide.
+ */
+function withTransactionKeys(
+  transactions: CollectionTransaction[],
+): Array<{ key: string; txn: CollectionTransaction }> {
+  const seen = new Map<string, number>();
+  return transactions.map((txn) => {
+    const base =
+      txn.transactionReference ||
+      `${getTransactionDate(txn) ?? ""}|${txn.collectionStatus}|${txn.amountDue}`;
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    return { key: count === 0 ? base : `${base}#${count}`, txn };
+  });
+}
+
 /** The Collection Transactions behind one item's Reconciled Outcome, with any mismatch flagged. */
 export default function ReconciliationDetail({
   entry,
-}: {
+}: Readonly<{
   entry: ItemReconciliation | null | undefined;
-}) {
+}>) {
   if (!entry || entry.transactions.length === 0) {
     return (
       <p className="text-gray-600">
@@ -46,7 +64,9 @@ export default function ReconciliationDetail({
 }
 
 /** Explains a status or amount mismatch between the schedule item and its collections. */
-function MismatchWarning({ entry }: { entry: ItemReconciliation }) {
+function MismatchWarning({
+  entry,
+}: Readonly<{ entry: ItemReconciliation }>) {
   if (!entry.amountMismatch && !entry.statusMismatch) return null;
   return (
     <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm flex items-start gap-2">
@@ -69,9 +89,10 @@ function MismatchWarning({ entry }: { entry: ItemReconciliation }) {
 /** One row per Collection Transaction: when, outcome, channel, amount, reference and error. */
 function TransactionsTable({
   transactions,
-}: {
+}: Readonly<{
   transactions: CollectionTransaction[];
-}) {
+}>) {
+  const keyedTransactions = withTransactionKeys(transactions);
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -88,8 +109,8 @@ function TransactionsTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {transactions.map((txn, i) => (
-            <tr key={txn.transactionReference || i}>
+          {keyedTransactions.map(({ key, txn }) => (
+            <tr key={key}>
               <td className="px-3 py-2 whitespace-nowrap">
                 {formatDate(getTransactionDate(txn))}
               </td>

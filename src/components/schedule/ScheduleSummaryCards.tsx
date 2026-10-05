@@ -7,10 +7,10 @@ import { formatReportDate as formatDate } from "../../utils/scheduleReport";
 export default function ScheduleSummaryCards({
   schedule,
   totalAmount,
-}: {
+}: Readonly<{
   schedule: PaymentScheduleResponse;
   totalAmount: number;
-}) {
+}>) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
       <div className="p-4 bg-primary/10 rounded-lg">
@@ -42,12 +42,12 @@ function SummaryCard({
   large = false,
   breakAll = false,
   children,
-}: {
+}: Readonly<{
   title: string;
   large?: boolean;
   breakAll?: boolean;
   children: ReactNode;
-}) {
+}>) {
   const valueClass = large
     ? "mt-2 text-2xl font-semibold text-gray-900"
     : `mt-2 text-sm font-medium text-gray-900${breakAll ? " break-all" : ""}`;

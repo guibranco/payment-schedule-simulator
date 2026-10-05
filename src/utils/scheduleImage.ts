@@ -33,7 +33,7 @@ function triggerDownload(blob: Blob, filename: string) {
   link.download = filename;
   document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
+  link.remove();
   URL.revokeObjectURL(url);
 }
 
@@ -73,6 +73,6 @@ export async function exportScheduleImage(
       triggerDownload(new Blob([svg], { type: "image/svg+xml" }), filename);
     }
   } finally {
-    document.body.removeChild(node);
+    node.remove();
   }
 }

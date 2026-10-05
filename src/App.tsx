@@ -8,6 +8,7 @@ import ConfigDialog from './components/ConfigDialog';
 import TokenStatus from './components/TokenStatus';
 import { STORAGE_KEYS } from './constants';
 import { getRedirectUri } from './utils/url';
+import { isSafeIdentifier, microsoftOAuthEndpoint, toSameOriginUrl } from './utils/oauthValidation';
 
 const VALID_TABS = ['new', 'amend', 'view', 'compare'] as const;
 
@@ -15,6 +16,118 @@ type Tab = (typeof VALID_TABS)[number];
 
 function isValidTab(value: string | null): value is Tab {
   return !!value && (VALID_TABS as readonly string[]).includes(value);
+}
+
+/**
+ * Returns the saved API endpoint when both it and an access token are stored, otherwise ''.
+ */
+function readInitialApiEndpoint(): string {
+  const savedEndpoint = localStorage.getItem(STORAGE_KEYS.API_ENDPOINT);
+  const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+  return savedEndpoint && accessToken ? savedEndpoint : '';
+}
+
+/**
+ * Whether the config dialog should open on load: the app is not configured and the
+ * dialog hasn't been cancelled before.
+ */
+function shouldOpenConfigInitially(): boolean {
+  const configCancelled = localStorage.getItem(STORAGE_KEYS.CONFIG_CANCELLED);
+  return readInitialApiEndpoint() === '' && !configCancelled;
+}
+
+/**
+ * Handles an OAuth error response. If a silent refresh failed, retries the
+ * authorization without prompt=none (never leaving this origin); otherwise clears the URL.
+ */
+function handleOAuthError(error: string): void {
+  console.error('OAuth error:', error);
+  // If silent refresh failed, try with prompt
+  if (error === 'interaction_required' || error === 'login_required') {
+    const returnUrl = localStorage.getItem(STORAGE_KEYS.RETURN_URL);
+    if (returnUrl) {
+      localStorage.removeItem(STORAGE_KEYS.RETURN_URL);
+      // Retry without prompt=none, never leaving this origin
+      const retryUrl = toSameOriginUrl(
+        window.location.href.replace('prompt=none&', '').replace('&prompt=none', '')
+      );
+      if (retryUrl) {
+        window.location.href = retryUrl;
+        return;
+      }
+    }
+  }
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+/**
+ * Exchanges an authorization code for an access token, stores the token and its
+ * expiry, and returns to the original (same-origin) URL if one was saved.
+ * Throws if the configuration is invalid or the exchange fails.
+ */
+async function exchangeCodeForToken(code: string, codeVerifier: string): Promise<void> {
+  const tenantId = localStorage.getItem(STORAGE_KEYS.TENANT_ID);
+  const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID);
+
+  if (!isSafeIdentifier(tenantId)) {
+    throw new TypeError('Invalid or missing tenant ID');
+  }
+  const redirectUri = getRedirectUri();
+
+  const response = await fetch(microsoftOAuthEndpoint(tenantId, 'token'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: code,
+      client_id: isSafeIdentifier(clientId) ? clientId : '',
+      redirect_uri: redirectUri,
+      code_verifier: codeVerifier,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Token exchange failed: ${response.status}`);
+  }
+
+  const data: { access_token?: unknown; expires_in?: unknown } = await response.json();
+  if (typeof data.access_token !== 'string' || data.access_token === '') {
+    throw new TypeError('Token response did not include an access token');
+  }
+  localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token);
+
+  // Calculate and store expiration time, defaulting to 1 hour if missing or invalid
+  const expiresIn = Number(data.expires_in);
+  const expiresAt = Date.now() + (Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600) * 1000;
+  localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, expiresAt.toString());
+
+  // Clean up the code verifier
+  localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
+
+  // Return to the original URL if available — only ever on this origin
+  const returnUrl = toSameOriginUrl(localStorage.getItem(STORAGE_KEYS.RETURN_URL));
+  localStorage.removeItem(STORAGE_KEYS.RETURN_URL);
+  if (returnUrl && returnUrl !== window.location.href) {
+    window.location.href = returnUrl;
+  }
+}
+
+/**
+ * Renders the page component for the given tab.
+ */
+function renderTab(tab: Tab, apiEndpoint: string) {
+  switch (tab) {
+    case 'new':
+      return <NewSchedule apiEndpoint={apiEndpoint} />;
+    case 'amend':
+      return <AmendSchedule apiEndpoint={apiEndpoint} />;
+    case 'view':
+      return <ViewSchedule apiEndpoint={apiEndpoint} />;
+    default:
+      return <CompareSchedules />;
+  }
 }
 
 /**
@@ -34,27 +147,13 @@ export default function App() {
     const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
     return isValidTab(saved) ? saved : 'new';
   });
-  const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [apiEndpoint, setApiEndpoint] = useState('');
+  // Only show the config dialog on load if the app isn't configured and it hasn't been cancelled before
+  const [isConfigOpen, setIsConfigOpen] = useState(shouldOpenConfigInitially);
+  const [apiEndpoint, setApiEndpoint] = useState(readInitialApiEndpoint);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
   }, [activeTab]);
-
-  useEffect(() => {
-    const savedEndpoint = localStorage.getItem(STORAGE_KEYS.API_ENDPOINT);
-    const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-    const configCancelled = localStorage.getItem(STORAGE_KEYS.CONFIG_CANCELLED);
-    
-    if (!savedEndpoint || !accessToken) {
-      // Only show config dialog if it hasn't been cancelled before
-      if (!configCancelled) {
-        setIsConfigOpen(true);
-      }
-    } else {
-      setApiEndpoint(savedEndpoint);
-    }
-  }, []);
 
   useEffect(() => {
     /**
@@ -73,95 +172,45 @@ export default function App() {
       const error = urlParams.get('error');
       
       if (error) {
-        console.error('OAuth error:', error);
-        // If silent refresh failed, try with prompt
-        if (error === 'interaction_required' || error === 'login_required') {
-          const returnUrl = localStorage.getItem(STORAGE_KEYS.RETURN_URL);
-          if (returnUrl) {
-            localStorage.removeItem(STORAGE_KEYS.RETURN_URL);
-            // Retry without prompt=none
-            const currentUrl = new URL(window.location.href);
-            const newUrl = currentUrl.href.replace('prompt=none&', '').replace('&prompt=none', '');
-            window.location.href = newUrl;
-            return;
-          }
-        }
-        window.history.replaceState({}, document.title, window.location.pathname);
+        handleOAuthError(error);
         return;
       }
       
-      if (code && state) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
-        const tenantId = localStorage.getItem(STORAGE_KEYS.TENANT_ID);
-        const tokenEndpoint = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
-        const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID);
-        const codeVerifier = localStorage.getItem(STORAGE_KEYS.CODE_VERIFIER);
-        
-        if (!codeVerifier) {
-          console.error('Code verifier not found');
-          setIsConfigOpen(true);
-          return;
-        }
+      if (!code || !state) {
+        return;
+      }
 
-        try {
-          const redirectUri = getRedirectUri();
-          
-          const response = await fetch(tokenEndpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-              grant_type: 'authorization_code',
-              code: code,
-              client_id: clientId || '',
-              redirect_uri: redirectUri,
-              code_verifier: codeVerifier,
-            }),
-          });
+      window.history.replaceState({}, document.title, window.location.pathname);
 
-          if (!response.ok) {
-            throw new Error(`Token exchange failed: ${response.status}`);
-          }
+      const codeVerifier = localStorage.getItem(STORAGE_KEYS.CODE_VERIFIER);
+      if (!codeVerifier) {
+        console.error('Code verifier not found');
+        setIsConfigOpen(true);
+        return;
+      }
 
-          const data = await response.json();
-          localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token);
-          
-          // Calculate and store expiration time
-          const expiresIn = data.expires_in || 3600; // Default to 1 hour if not provided
-          const expiresAt = Date.now() + (expiresIn * 1000);
-          localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, expiresAt.toString());
-          
-          // Clean up the code verifier
-          localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
-          
-          // Return to the original URL if available
-          const returnUrl = localStorage.getItem(STORAGE_KEYS.RETURN_URL);
-          if (returnUrl && returnUrl !== window.location.href) {
-            localStorage.removeItem(STORAGE_KEYS.RETURN_URL);
-            window.location.href = returnUrl;
-            return;
-          }
-        } catch (error) {
-          console.error('Error exchanging code for token:', error);
-          // Clean up the code verifier on error
-          localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
-          localStorage.removeItem(STORAGE_KEYS.RETURN_URL);
-          setIsConfigOpen(true);
-        }
+      try {
+        await exchangeCodeForToken(code, codeVerifier);
+      } catch (err) {
+        console.error('Error exchanging code for token:', err);
+        // Clean up the code verifier on error
+        localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
+        localStorage.removeItem(STORAGE_KEYS.RETURN_URL);
+        setIsConfigOpen(true);
       }
     };
 
-    handleOAuthCallback();
+    void handleOAuthCallback();
   }, []);
 
+  /** Stores the saved API endpoint and clears the config-cancelled flag. */
   const handleSaveConfig = (endpoint: string) => {
     setApiEndpoint(endpoint);
     // Clear the cancellation flag when config is successfully saved
     localStorage.removeItem(STORAGE_KEYS.CONFIG_CANCELLED);
   };
 
+  /** Opens the config dialog, clearing the config-cancelled flag. */
   const handleOpenConfig = () => {
     // Clear the cancellation flag when manually opening config
     localStorage.removeItem(STORAGE_KEYS.CONFIG_CANCELLED);
@@ -243,15 +292,7 @@ export default function App() {
       </nav>
 
       <main className="py-8">
-        {activeTab === 'new' ? (
-          <NewSchedule apiEndpoint={apiEndpoint} />
-        ) : activeTab === 'amend' ? (
-          <AmendSchedule apiEndpoint={apiEndpoint} />
-        ) : activeTab === 'view' ? (
-          <ViewSchedule apiEndpoint={apiEndpoint} />
-        ) : (
-          <CompareSchedules />
-        )}
+        {renderTab(activeTab, apiEndpoint)}
       </main>
 
       <ConfigDialog

@@ -4,9 +4,9 @@ import type { ScheduleAnomaly } from "../../utils/scheduleAnomalies";
 /** Lists every Schedule Anomaly, warnings first; renders nothing when there are none. */
 export default function AnomaliesPanel({
   anomalies,
-}: {
+}: Readonly<{
   anomalies: ScheduleAnomaly[];
-}) {
+}>) {
   if (anomalies.length === 0) return null;
 
   return (
@@ -31,7 +31,9 @@ export default function AnomaliesPanel({
 }
 
 /** The anomaly's icon: the switch arrows for a Frequency Switch, else by severity. */
-function AnomalyIcon({ anomaly }: { anomaly: ScheduleAnomaly }) {
+function AnomalyIcon({
+  anomaly,
+}: Readonly<{ anomaly: ScheduleAnomaly }>) {
   if (anomaly.kind === "frequencySwitch") {
     return (
       <ArrowRightLeft className="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-700" />
@@ -45,7 +47,9 @@ function AnomalyIcon({ anomaly }: { anomaly: ScheduleAnomaly }) {
 }
 
 /** One anomaly: its title, severity and message, coloured by severity. Warnings are announced as alerts. */
-function AnomalyEntry({ anomaly }: { anomaly: ScheduleAnomaly }) {
+function AnomalyEntry({
+  anomaly,
+}: Readonly<{ anomaly: ScheduleAnomaly }>) {
   const isWarning = anomaly.severity === "warning";
   return (
     <li

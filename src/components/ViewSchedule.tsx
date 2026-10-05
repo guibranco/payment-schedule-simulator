@@ -31,6 +31,86 @@ interface Props {
   apiEndpoint: string;
 }
 
+/** Returns the next succeeded status in the cycle unknown → succeeded → failed → unknown. */
+function nextSucceededStatus(current: boolean | null): boolean | null {
+  if (current === null) return true;
+  return current ? false : null;
+}
+
+/**
+ * Summary of a schedule request's input parameters, shown when the request has
+ * no embedded currentSchedule to display.
+ */
+function ScheduleInputSummary({
+  input,
+}: Readonly<{ input: PaymentScheduleInput }>) {
+  const taxesAndLevies = Object.entries(input.taxesAndLevies);
+  const adminFees = Object.entries(input.adminFees);
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <h3 className="text-sm font-medium text-gray-500">
+          Collection Frequency
+        </h3>
+        <p className="mt-1 text-base text-gray-900">
+          {input.collectionFrequency}
+        </p>
+      </div>
+      <div>
+        <h3 className="text-sm font-medium text-gray-500">
+          Schedule Start Date
+        </h3>
+        <p className="mt-1 text-base text-gray-900">
+          {input.scheduleStartDate}
+        </p>
+      </div>
+      <div>
+        <h3 className="text-sm font-medium text-gray-500">Effective Date</h3>
+        <p className="mt-1 text-base text-gray-900">{input.effectiveDate}</p>
+      </div>
+      <div>
+        <h3 className="text-sm font-medium text-gray-500">Due Date</h3>
+        <p className="mt-1 text-base text-gray-900">{input.dueDate || "-"}</p>
+      </div>
+      <div>
+        <h3 className="text-sm font-medium text-gray-500">Net Amount</h3>
+        <p className="mt-1 text-base text-gray-900">
+          €{input.netAmount.toFixed(2)}
+        </p>
+      </div>
+      <div>
+        <h3 className="text-sm font-medium text-gray-500">Taxes & Levies</h3>
+        <p className="mt-1 text-base text-gray-900">
+          {taxesAndLevies.length > 0
+            ? taxesAndLevies.flatMap(([key, dates]) =>
+                Object.entries(dates).map(([date, value]) => (
+                  <span key={`${key}-${date}`} className="block">
+                    {key}
+                    {date !== "0001-01-01" && ` (effective ${date})`}
+                    : €{Number(value).toFixed(2)}
+                  </span>
+                )),
+              )
+            : "-"}
+        </p>
+      </div>
+      <div>
+        <h3 className="text-sm font-medium text-gray-500">Admin Fees</h3>
+        <p className="mt-1 text-base text-gray-900">
+          {adminFees.length > 0
+            ? adminFees.map(([key, value]) => (
+                <span key={key} className="block">
+                  {key}: €{Number(value.amountDue).toFixed(2)}
+                </span>
+              ))
+            : "-"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Merged "View Schedule" page.
  *
@@ -38,7 +118,7 @@ interface Props {
  * Service Response/Request, Policy Admin CosmosDB Document, Rerates CosmosDB
  * Document, SEQ Log), auto-detects which one was provided, and normalizes it for display.
  */
-export default function ViewSchedule({ apiEndpoint }: Props) {
+export default function ViewSchedule({ apiEndpoint }: Readonly<Props>) {
   const [jsonInput, setJsonInput] = useState("");
   const [showPasteInput, setShowPasteInput] = useState(true);
   const [selectedExample, setSelectedExample] = useState("");
@@ -82,7 +162,7 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
   };
 
   /** Parses the pasted JSON. */
-  const handlePasteSubmit = (e: React.FormEvent) => {
+  const handlePasteSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     processJson(jsonInput);
   };
@@ -92,13 +172,17 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      setJsonInput(content);
-      processJson(content);
-    };
-    reader.readAsText(file);
+    file.text().then(
+      (content) => {
+        setJsonInput(content);
+        processJson(content);
+      },
+      () => {
+        setError(
+          "Failed to read the file. Please try again or paste the JSON directly.",
+        );
+      },
+    );
   };
 
   /** Fills the text area with the chosen sample schedule. */
@@ -130,9 +214,9 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
       ...schedule,
       scheduleItems: [...schedule.scheduleItems],
     };
-    const currentStatus = newSchedule.scheduleItems[index].succeeded;
-    const newStatus =
-      currentStatus === null ? true : currentStatus ? false : null;
+    const newStatus = nextSucceededStatus(
+      newSchedule.scheduleItems[index].succeeded,
+    );
 
     newSchedule.scheduleItems[index] = {
       ...newSchedule.scheduleItems[index],
@@ -347,86 +431,11 @@ export default function ViewSchedule({ apiEndpoint }: Props) {
                 collections={collections}
                 onClearCollections={() => setCollections(null)}
               />
-            ) : scheduleInput ? (
-              <div className="bg-white border border-gray-200 rounded-lg p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">
-                    Collection Frequency
-                  </h3>
-                  <p className="mt-1 text-base text-gray-900">
-                    {scheduleInput.collectionFrequency}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">
-                    Schedule Start Date
-                  </h3>
-                  <p className="mt-1 text-base text-gray-900">
-                    {scheduleInput.scheduleStartDate}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">
-                    Effective Date
-                  </h3>
-                  <p className="mt-1 text-base text-gray-900">
-                    {scheduleInput.effectiveDate}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">
-                    Due Date
-                  </h3>
-                  <p className="mt-1 text-base text-gray-900">
-                    {scheduleInput.dueDate || "-"}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">
-                    Net Amount
-                  </h3>
-                  <p className="mt-1 text-base text-gray-900">
-                    €{scheduleInput.netAmount.toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">
-                    Taxes & Levies
-                  </h3>
-                  <p className="mt-1 text-base text-gray-900">
-                    {Object.entries(scheduleInput.taxesAndLevies).length > 0
-                      ? Object.entries(scheduleInput.taxesAndLevies).flatMap(
-                          ([key, dates]) =>
-                            Object.entries(dates).map(([date, value]) => (
-                              <span key={`${key}-${date}`} className="block">
-                                {key}
-                                {date !== "0001-01-01" &&
-                                  ` (effective ${date})`}
-                                : €{Number(value).toFixed(2)}
-                              </span>
-                            )),
-                        )
-                      : "-"}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">
-                    Admin Fees
-                  </h3>
-                  <p className="mt-1 text-base text-gray-900">
-                    {Object.entries(scheduleInput.adminFees).length > 0
-                      ? Object.entries(scheduleInput.adminFees).map(
-                          ([key, value]) => (
-                            <span key={key} className="block">
-                              {key}: €{Number(value.amountDue).toFixed(2)}
-                            </span>
-                          ),
-                        )
-                      : "-"}
-                  </p>
-                </div>
-              </div>
-            ) : null}
+            ) : (
+              scheduleInput && (
+                <ScheduleInputSummary input={scheduleInput} />
+              )
+            )}
           </div>
         )}
       </div>

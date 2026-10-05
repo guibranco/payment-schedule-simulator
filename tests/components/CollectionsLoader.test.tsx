@@ -93,15 +93,13 @@ describe('CollectionsLoader', () => {
     expect(getTextarea().value).toBe('');
   });
 
-  it('shows an error when the FileReader fails to read the file', async () => {
+  it('shows an error when the file cannot be read', async () => {
     render(<CollectionsLoader onLoad={vi.fn()} onClose={vi.fn()} />);
 
     const input = screen.getByLabelText(/Upload JSON File/) as HTMLInputElement;
     const file = new File(['content'], 'collections.json', { type: 'application/json' });
 
-    vi.spyOn(FileReader.prototype, 'readAsText').mockImplementationOnce(function (this: FileReader) {
-      setTimeout(() => this.onerror?.(new ProgressEvent('error') as unknown as ProgressEvent<FileReader>));
-    });
+    vi.spyOn(file, 'text').mockRejectedValueOnce(new Error('read failed'));
 
     fireEvent.change(input, { target: { files: [file] } });
 

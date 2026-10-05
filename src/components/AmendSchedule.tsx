@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FileUp, Clipboard, Calendar, ArrowRight, FileJson } from 'lucide-react';
-import type { PaymentScheduleInput, PaymentScheduleResponse } from '../types';
+import type { PaymentScheduleInput, PaymentScheduleResponse, ScheduleItem } from '../types';
 import { deriveInputFromResponse } from '../utils/scheduleDetector';
 import { useTokenManager } from '../hooks/useTokenManager';
 import NewSchedule from './NewSchedule';
@@ -12,6 +12,149 @@ interface Props {
   apiEndpoint: string;
 }
 
+type JsonRecord = Record<string, unknown>;
+
+const REQUIRED_FIELDS: Record<string, 'string' | 'array'> = {
+  id: 'string',
+  collectionfrequency: 'string',
+  scheduleitems: 'array',
+  coverstartdate: 'string',
+  coverenddate: 'string',
+  inceptiondate: 'string'
+};
+
+/**
+ * Recursively normalizes object keys to lowercase.
+ *
+ * This function iterates over an object or array, converting all keys of objects to lowercase.
+ * If a value is an array or object, it recursively applies the normalization.
+ *
+ * @param obj - The input object or array whose keys are to be normalized.
+ */
+const normalizeKeys = (obj: unknown): unknown => {
+  if (Array.isArray(obj)) {
+    return obj.map(normalizeKeys);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj).map(([key, value]) => [
+        key.toLowerCase(),
+        normalizeKeys(value)
+      ])
+    );
+  }
+  return obj;
+};
+
+/** Throws when a required top-level field is missing or has the wrong type. */
+const validateRequiredFields = (normalizedJson: JsonRecord): void => {
+  for (const [field, type] of Object.entries(REQUIRED_FIELDS)) {
+    const value = normalizedJson[field];
+    if (!value) {
+      throw new Error(`Missing required field: ${field}`);
+    }
+
+    if (type === 'array' && !Array.isArray(value)) {
+      throw new TypeError(`${field} must be an array`);
+    } else if (type !== 'array' && typeof value !== type) {
+      throw new TypeError(`${field} must be a ${type}`);
+    }
+  }
+};
+
+/** Throws when any (lowercase-keyed) schedule item is missing or mistypes a required property. */
+const validateScheduleItems = (items: JsonRecord[]): void => {
+  if (items.length === 0) {
+    throw new Error('Schedule must contain at least one item');
+  }
+
+  for (const [index, item] of items.entries()) {
+    if (!item.id) {
+      throw new Error(`Schedule item at index ${index} is missing an id`);
+    }
+    if (!item.duedate) {
+      throw new Error(`Schedule item at index ${index} is missing a due date`);
+    }
+    if (typeof item.netamount !== 'number') {
+      throw new TypeError(`Schedule item at index ${index} has invalid net amount`);
+    }
+    if (typeof item.amountdue !== 'number') {
+      throw new TypeError(`Schedule item at index ${index} has invalid amount due`);
+    }
+    if (!item.periodstartdate || !item.periodenddate) {
+      throw new Error(`Schedule item at index ${index} is missing period dates`);
+    }
+  }
+};
+
+/** Maps a raw (camelCase or PascalCase) admin fee map to typed admin fees. */
+const mapAdminFees = (raw: unknown): ScheduleItem['adminFees'] =>
+  Object.fromEntries(
+    Object.entries((raw || {}) as Record<string, JsonRecord>).map(([key, value]) => [
+      key,
+      {
+        amountDue: Number(value.amountDue || value.AmountDue || 0),
+        taxAmount: Number(value.taxAmount || value.TaxAmount || 0)
+      }
+    ])
+  );
+
+/** Maps a raw (camelCase or PascalCase) schedule item to a typed ScheduleItem. */
+const mapScheduleItem = (item: JsonRecord): ScheduleItem => ({
+  // `succeeded` is deliberately not populated here, matching the original mapping.
+  id: (item.id || item.Id || item.ID) as string,
+  collectionType: (item.collectionType || item.CollectionType) as string,
+  periodStartDate: (item.periodStartDate || item.PeriodStartDate) as string,
+  periodEndDate: (item.periodEndDate || item.PeriodEndDate) as string,
+  adjustmentDate: (item.adjustmentDate || item.AdjustmentDate) as string,
+  dueDate: (item.dueDate || item.DueDate) as string,
+  amountDue: Number(item.amountDue || item.AmountDue || 0),
+  netAmount: Number(item.netAmount || item.NetAmount || 0),
+  taxesAndLevies: (item.taxesAndLevies || item.TaxesAndLevies || {}) as ScheduleItem['taxesAndLevies'],
+  adminFees: mapAdminFees(item.adminFees || item.AdminFees)
+}) as ScheduleItem;
+
+/**
+ * Validates a schedule JSON object and converts it to a PaymentScheduleResponse.
+ *
+ * The function normalizes all keys to lowercase for case-insensitive comparison,
+ * checks for missing required fields, validates their types, and ensures that the
+ * schedule contains at least one item with valid properties. It then maps the
+ * original (camelCase or PascalCase) data to the application's schedule shape.
+ *
+ * @param json - A JSON object containing schedule information.
+ * @throws Error If any required field is missing or invalid.
+ */
+const parseScheduleJson = (json: JsonRecord): PaymentScheduleResponse => {
+  // Normalize all keys to lowercase for case-insensitive comparison
+  const normalizedJson = normalizeKeys(json) as JsonRecord;
+
+  validateRequiredFields(normalizedJson);
+
+  // Validate collection day based on frequency
+  const frequency = (normalizedJson.collectionfrequency as string).toLowerCase();
+  if (frequency === 'monthly' && (!normalizedJson.collectionday || typeof normalizedJson.collectionday !== 'number')) {
+    throw new Error('Monthly schedules must have a valid collection day (1-31)');
+  }
+
+  validateScheduleItems(normalizedJson.scheduleitems as JsonRecord[]);
+
+  const collectionDay = (json.collectionDay || json.CollectionDay) as number;
+
+  // Convert back to original case for the application
+  return {
+    id: (json.id || json.Id || json.ID) as string,
+    token: (json.token || json.Token || '') as string,
+    hash: (json.hash || json.Hash || '') as string,
+    collectionFrequency: (json.collectionFrequency || json.CollectionFrequency) as string,
+    collectionDay: frequency === 'annual' ? (collectionDay || 0) : collectionDay,
+    inceptionDate: (json.inceptionDate || json.InceptionDate) as string,
+    coverStartDate: (json.coverStartDate || json.CoverStartDate) as string,
+    coverEndDate: (json.coverEndDate || json.CoverEndDate) as string,
+    scheduleItems: ((json.scheduleItems || json.ScheduleItems) as JsonRecord[]).map(mapScheduleItem)
+  };
+};
+
 /**
  * Function to amend a payment schedule by uploading or pasting JSON data.
  *
@@ -21,7 +164,7 @@ interface Props {
  *
  * @param {Props} props - An object containing the API endpoint as a property.
  */
-export default function AmendSchedule({ apiEndpoint }: Props) {
+export default function AmendSchedule({ apiEndpoint }: Readonly<Props>) {
   const [existingSchedule, setExistingSchedule] = useState<PaymentScheduleResponse | null>(null);
   const [showNewSchedule, setShowNewSchedule] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,140 +174,14 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
   const [isJsonLoaderOpen, setIsJsonLoaderOpen] = useState(false);
   const { tokenInfo } = useTokenManager();
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const json = JSON.parse(event.target?.result as string);
-        validateAndSetSchedule(json);
-      } catch (err) {
-        setError('Invalid JSON syntax. Please check for missing commas, quotes, or brackets.');
-      }
-    };
-    reader.readAsText(file);
-  };
-
   /**
-   * Recursively normalizes object keys to lowercase.
-   *
-   * This function iterates over an object or array, converting all keys of objects to lowercase.
-   * If a value is an array or object, it recursively applies the normalization.
-   *
-   * @param obj - The input object or array whose keys are to be normalized.
-   */
-  const normalizeKeys = (obj: any): any => {
-    if (Array.isArray(obj)) {
-      return obj.map(normalizeKeys);
-    }
-    if (obj !== null && typeof obj === 'object') {
-      return Object.fromEntries(
-        Object.entries(obj).map(([key, value]) => [
-          key.toLowerCase(),
-          normalizeKeys(value)
-        ])
-      );
-    }
-    return obj;
-  };
-
-  /**
-   * Validates and sets a payment schedule from a JSON object.
-   *
-   * The function normalizes all keys to lowercase for case-insensitive comparison,
-   * checks for missing required fields, validates their types, and ensures that the
-   * schedule contains at least one item with valid properties. It then converts the
-   * validated data back to its original case and sets it as the existing schedule.
+   * Validates a schedule JSON object and, if valid, sets it as the existing schedule.
    *
    * @param json - A JSON object containing schedule information.
+   * @throws Error If any required field is missing or invalid.
    */
-  const validateAndSetSchedule = (json: any) => {
-    // Normalize all keys to lowercase for case-insensitive comparison
-    const normalizedJson = normalizeKeys(json);
-
-    const requiredFields = {
-      id: 'string',
-      collectionfrequency: 'string',
-      scheduleitems: 'array',
-      coverstartdate: 'string',
-      coverenddate: 'string',
-      inceptiondate: 'string'
-    };
-
-    // Check for missing required fields
-    for (const [field, type] of Object.entries(requiredFields)) {
-      if (!normalizedJson[field]) {
-        throw new Error(`Missing required field: ${field}`);
-      }
-
-      // Type validation
-      if (type === 'array' && !Array.isArray(normalizedJson[field])) {
-        throw new Error(`${field} must be an array`);
-      } else if (type !== 'array' && typeof normalizedJson[field] !== type) {
-        throw new Error(`${field} must be a ${type}`);
-      }
-    }
-
-    // Validate collection day based on frequency
-    const frequency = normalizedJson.collectionfrequency.toLowerCase();
-    if (frequency === 'monthly' && (!normalizedJson.collectionday || typeof normalizedJson.collectionday !== 'number')) {
-      throw new Error('Monthly schedules must have a valid collection day (1-31)');
-    }
-
-    // Validate schedule items
-    if (normalizedJson.scheduleitems.length === 0) {
-      throw new Error('Schedule must contain at least one item');
-    }
-
-    for (const [index, item] of normalizedJson.scheduleitems.entries()) {
-      if (!item.id) {
-        throw new Error(`Schedule item at index ${index} is missing an id`);
-      }
-      if (!item.duedate) {
-        throw new Error(`Schedule item at index ${index} is missing a due date`);
-      }
-      if (typeof item.netamount !== 'number') {
-        throw new Error(`Schedule item at index ${index} has invalid net amount`);
-      }
-      if (typeof item.amountdue !== 'number') {
-        throw new Error(`Schedule item at index ${index} has invalid amount due`);
-      }
-      if (!item.periodstartdate || !item.periodenddate) {
-        throw new Error(`Schedule item at index ${index} is missing period dates`);
-      }
-    }
-
-    // Convert back to original case for the application
-    const schedule: PaymentScheduleResponse = {
-      id: json.id || json.Id || json.ID,
-      token: json.token || json.Token || '',
-      hash: json.hash || json.Hash || '',
-      collectionFrequency: json.collectionFrequency || json.CollectionFrequency,
-      collectionDay: frequency === 'annual' ? (json.collectionDay || json.CollectionDay || 0) : (json.collectionDay || json.CollectionDay),
-      inceptionDate: json.inceptionDate || json.InceptionDate,
-      coverStartDate: json.coverStartDate || json.CoverStartDate,
-      coverEndDate: json.coverEndDate || json.CoverEndDate,
-      scheduleItems: (json.scheduleItems || json.ScheduleItems).map((item: any) => ({
-        id: item.id || item.Id || item.ID,
-        collectionType: item.collectionType || item.CollectionType,
-        periodStartDate: item.periodStartDate || item.PeriodStartDate,
-        periodEndDate: item.periodEndDate || item.PeriodEndDate,
-        adjustmentDate: item.adjustmentDate || item.AdjustmentDate,
-        dueDate: item.dueDate || item.DueDate,
-        amountDue: Number(item.amountDue || item.AmountDue || 0),
-        netAmount: Number(item.netAmount || item.NetAmount || 0),
-        taxesAndLevies: item.taxesAndLevies || item.TaxesAndLevies || {},
-        adminFees: Object.entries(item.adminFees || item.AdminFees || {}).reduce((acc, [key, value]: [string, any]) => ({
-          ...acc,
-          [key]: {
-            amountDue: Number(value.amountDue || value.AmountDue || 0),
-            taxAmount: Number(value.taxAmount || value.TaxAmount || 0)
-          }
-        }), {})
-      }))
-    };
+  const validateAndSetSchedule = (json: JsonRecord) => {
+    const schedule = parseScheduleJson(json);
 
     setExistingSchedule(schedule);
     setError(null);
@@ -172,7 +189,28 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
     setJsonInput('');
   };
 
-  const handlePasteSubmit = (e: React.FormEvent) => {
+  /** Reads an uploaded schedule file and validates its JSON contents. */
+  const loadScheduleFile = async (file: File) => {
+    try {
+      const json = JSON.parse(await file.text());
+      validateAndSetSchedule(json);
+    } catch {
+      // Any read, parse or validation failure for an uploaded file is surfaced
+      // to the user as a single syntax error message.
+      setError('Invalid JSON syntax. Please check for missing commas, quotes, or brackets.');
+    }
+  };
+
+  /** Handles the file input change by loading the selected schedule file. */
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    void loadScheduleFile(file);
+  };
+
+  /** Parses and validates the pasted schedule JSON on form submission. */
+  const handlePasteSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
       const json = JSON.parse(jsonInput);
@@ -311,7 +349,7 @@ export default function AmendSchedule({ apiEndpoint }: Props) {
             <div className="bg-primary/10 p-4 rounded-lg">
               <h2 className="text-lg font-semibold text-primary mb-2">Current Schedule</h2>
               <p className="text-gray-700">
-                Review the current schedule below before making amendments. Click "Create New Schedule" 
+                Review the current schedule below before making amendments. Click &quot;Create New Schedule&quot;
                 to start the amendment process with the current values pre-filled.
               </p>
             </div>

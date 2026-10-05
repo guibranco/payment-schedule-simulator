@@ -108,7 +108,7 @@ function downloadBlob(blob: Blob, filename: string) {
   link.download = filename;
   document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
+  link.remove();
   URL.revokeObjectURL(url);
 }
 
@@ -129,7 +129,7 @@ export default function ScheduleDisplay({
   onStatusChange,
   collections,
   onClearCollections,
-}: Props) {
+}: Readonly<Props>) {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   const [reconciliationDetailItemId, setReconciliationDetailItemId] = useState<
     string | null

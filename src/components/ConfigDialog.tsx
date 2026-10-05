@@ -1,8 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Settings, X } from 'lucide-react';
 import { STORAGE_KEYS } from '../constants';
 import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
 import { getRedirectUri } from '../utils/url';
+import {
+  type Environment,
+  isEnvironment,
+  isHttpUrl,
+  isSafeIdentifier,
+  microsoftOAuthEndpoint,
+} from '../utils/oauthValidation';
 
 interface Props {
   isOpen: boolean;
@@ -10,11 +17,47 @@ interface Props {
   onSave: (endpoint: string) => void;
 }
 
+type FormProps = Omit<Props, 'isOpen'>;
+
 interface OAuthConfig {
   clientId: string;
   tenantId: string;
-  environment: 'prod' | 'int' | 'stg';
+  environment: Environment;
   scopes: string[];
+}
+
+interface SavedConfig {
+  baseUrl: string;
+  port: string;
+  clientId: string;
+  tenantId: string;
+  environment: Environment;
+}
+
+/**
+ * Reads the previously saved configuration from localStorage, splitting the saved
+ * endpoint into its base URL and port.
+ */
+function readSavedConfig(): SavedConfig {
+  const savedEndpoint = localStorage.getItem(STORAGE_KEYS.API_ENDPOINT) || '';
+  const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID) || '';
+  const tenantId = localStorage.getItem(STORAGE_KEYS.TENANT_ID) || '';
+  const storedEnvironment = localStorage.getItem(STORAGE_KEYS.ENVIRONMENT);
+  const environment: Environment = isEnvironment(storedEnvironment) ? storedEnvironment : 'prod';
+
+  let baseUrl: string;
+  let port: string;
+  try {
+    const url = new URL(savedEndpoint);
+    baseUrl = `${url.protocol}//${url.hostname}`;
+    port = url.port || '';
+  } catch {
+    // Not a parseable URL (e.g. nothing saved yet): show it as-is with no port
+    baseUrl = savedEndpoint;
+    port = '';
+  }
+
+  return { baseUrl, port, clientId, tenantId, environment };
 }
 
 /**
@@ -22,48 +65,36 @@ interface OAuthConfig {
  *
  * This component renders a dialog to configure an API endpoint, including base URL, port,
  * client ID, tenant ID, environment, and scopes. It handles form submission to save the configurations
- * and redirects to the authorization URL for OAuth2 authentication with PKCE. The component also manages
- * state using React hooks such as `useState` and `useEffect`, and uses callbacks for handling events.
+ * and redirects to the authorization URL for OAuth2 authentication with PKCE. The form is mounted
+ * each time the dialog opens, so it always starts from the configuration saved in localStorage.
  *
  * @param isOpen - A boolean indicating whether the dialog is open or closed.
  * @param onClose - A function to close the dialog.
  * @param onSave - A function to handle the save action after form submission.
  */
-export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
-  const [baseUrl, setBaseUrl] = useState('');
-  const [port, setPort] = useState('');
-  const [clientId, setClientId] = useState('');
-  const [tenantId, setTenantId] = useState('');
-  const [environment, setEnvironment] = useState<'prod' | 'int' | 'stg'>('prod');
+export default function ConfigDialog({ isOpen, onClose, onSave }: Readonly<Props>) {
+  if (!isOpen) return null;
+
+  return <ConfigDialogForm onClose={onClose} onSave={onSave} />;
+}
+
+/**
+ * The open configuration dialog, initialised from the saved configuration.
+ */
+function ConfigDialogForm({ onClose, onSave }: Readonly<FormProps>) {
+  const [saved] = useState(readSavedConfig);
+  const [baseUrl, setBaseUrl] = useState(saved.baseUrl);
+  const [port, setPort] = useState(saved.port);
+  const [clientId, setClientId] = useState(saved.clientId);
+  const [tenantId, setTenantId] = useState(saved.tenantId);
+  const [environment, setEnvironment] = useState<Environment>(saved.environment);
   const [selectedScopes] = useState(['api://schedule-api{environment-suffix}.outsurance.ie/user_impersonation']);
-
-  useEffect(() => {
-    if (isOpen) {
-      const savedEndpoint = localStorage.getItem(STORAGE_KEYS.API_ENDPOINT) || '';
-      const savedClientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID) || '';
-      const savedTenantId = localStorage.getItem(STORAGE_KEYS.TENANT_ID) || '';
-      const savedEnvironment = (localStorage.getItem(STORAGE_KEYS.ENVIRONMENT) || 'prod') as 'prod' | 'int' | 'stg';
-
-      try {
-        const url = new URL(savedEndpoint);
-        setBaseUrl(url.protocol + '//' + url.hostname);
-        setPort(url.port || '');
-      } catch {
-        setBaseUrl(savedEndpoint);
-        setPort('');
-      }
-
-      setClientId(savedClientId);
-      setTenantId(savedTenantId);
-      setEnvironment(savedEnvironment);
-    }
-  }, [isOpen]);
 
   /**
    * Generates the authorization URL for OAuth 2.0 authentication with PKCE.
    */
   const getAuthorizationUrl = useCallback(async (config: OAuthConfig) => {
-    const baseUrl = `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/authorize`;
+    const baseUrl = microsoftOAuthEndpoint(config.tenantId, 'authorize');
     const envSuffix = config.environment === 'prod' ? '' : `-${config.environment}`;
     const scope = config.scopes.map(scope => 
       scope.replace('{environment-suffix}', envSuffix)
@@ -95,20 +126,29 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
    * Handles form submission by preventing default behavior, validating and storing API endpoint details,
    * generating an authorization URL with PKCE, and redirecting to it. Also saves configuration and closes the form.
    */
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     
+    let endpoint: URL;
     try {
-      const url = new URL(baseUrl);
+      endpoint = new URL(baseUrl);
       if (port) {
-        url.port = port;
+        endpoint.port = port;
       }
-      localStorage.setItem(STORAGE_KEYS.API_ENDPOINT, url.toString());
     } catch (error) {
       console.error('Invalid URL:', error);
       return;
     }
+    if (!isHttpUrl(endpoint)) {
+      console.error('Invalid URL: the API base URL must use http or https');
+      return;
+    }
+    if (!isSafeIdentifier(clientId) || !isSafeIdentifier(tenantId) || !isEnvironment(environment)) {
+      console.error('Invalid configuration: client and tenant IDs may only contain letters, digits, dots and hyphens');
+      return;
+    }
 
+    localStorage.setItem(STORAGE_KEYS.API_ENDPOINT, endpoint.toString());
     localStorage.setItem(STORAGE_KEYS.CLIENT_ID, clientId);
     localStorage.setItem(STORAGE_KEYS.TENANT_ID, tenantId);
     localStorage.setItem(STORAGE_KEYS.ENVIRONMENT, environment);
@@ -127,13 +167,12 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
     onClose();
   }, [baseUrl, port, clientId, tenantId, environment, selectedScopes, getAuthorizationUrl, onSave, onClose]);
 
+  /** Records that the dialog was cancelled and closes it. */
   const handleClose = useCallback(() => {
     // Save the cancellation state to localStorage
     localStorage.setItem(STORAGE_KEYS.CONFIG_CANCELLED, 'true');
     onClose();
   }, [onClose]);
-
-  if (!isOpen) return null;
 
   const redirectUri = getRedirectUri();
 
@@ -218,7 +257,7 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
               <select
                 id="environment"
                 value={environment}
-                onChange={(e) => setEnvironment(e.target.value as 'prod' | 'int' | 'stg')}
+                onChange={(e) => setEnvironment(isEnvironment(e.target.value) ? e.target.value : 'prod')}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
               >
                 <option value="prod">Production</option>
@@ -227,9 +266,9 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <span className="block text-sm font-medium text-gray-700">
                 Redirect URI
-              </label>
+              </span>
               <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-600 break-all">
                 {redirectUri}
               </div>
@@ -238,9 +277,9 @@ export default function ConfigDialog({ isOpen, onClose, onSave }: Props) {
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <span className="block text-sm font-medium text-gray-700">
                 Required Scopes
-              </label>
+              </span>
               <div className="mt-1 text-sm text-gray-500">
                 {selectedScopes.map(scope => (
                   <div key={scope} className="p-2 bg-gray-50 rounded">

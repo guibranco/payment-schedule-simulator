@@ -7,7 +7,7 @@ import type {
 } from '../types';
 
 const AMOUNT_TOLERANCE = 0.01;
-const KNOWN_STATUSES: ReconciledStatus[] = ['collected', 'rejected', 'refunded'];
+const KNOWN_STATUSES: ReadonlySet<ReconciledStatus> = new Set<ReconciledStatus>(['collected', 'rejected', 'refunded']);
 
 /**
  * The best available timestamp for a transaction, in order of how authoritative it is
@@ -18,15 +18,17 @@ export function getTransactionDate(txn: CollectionTransaction): string | undefin
   return txn.providerDetails?.processingDate || txn.modifiedDate || txn.createdDate || txn.valueDate || txn.dueDate;
 }
 
+/** Epoch milliseconds of the transaction's best available date, or 0 when it has none. */
 function getProcessingTime(txn: CollectionTransaction): number {
   const raw = getTransactionDate(txn);
-  const time = raw ? new Date(raw).getTime() : NaN;
-  return isNaN(time) ? 0 : time;
+  const time = raw ? new Date(raw).getTime() : Number.NaN;
+  return Number.isNaN(time) ? 0 : time;
 }
 
+/** Lower-cases a Collections status, treating anything unrecognised as 'pending'. */
 function normalizeStatus(status: string): ReconciledStatus {
   const normalized = (status || '').toLowerCase() as ReconciledStatus;
-  return KNOWN_STATUSES.includes(normalized) ? normalized : 'pending';
+  return KNOWN_STATUSES.has(normalized) ? normalized : 'pending';
 }
 
 /**
@@ -66,15 +68,15 @@ export function parseCollectionsJson(raw: string): CollectionTransaction[] {
   const json = JSON.parse(raw);
 
   if (!Array.isArray(json)) {
-    throw new Error('Expected a JSON array of collection transactions.');
+    throw new TypeError('Expected a JSON array of collection transactions.');
   }
 
   return json.map((entry, index) => {
     if (!entry || typeof entry !== 'object') {
-      throw new Error(`Entry at index ${index} is not an object.`);
+      throw new TypeError(`Entry at index ${index} is not an object.`);
     }
     if (!Array.isArray(entry.paymentScheduleItemIds)) {
-      throw new Error(`Entry at index ${index} is missing paymentScheduleItemIds.`);
+      throw new TypeError(`Entry at index ${index} is missing paymentScheduleItemIds.`);
     }
     if (!entry.collectionStatus) {
       throw new Error(`Entry at index ${index} is missing collectionStatus.`);
@@ -83,7 +85,7 @@ export function parseCollectionsJson(raw: string): CollectionTransaction[] {
       entry.amountDue === null ||
       entry.amountDue === undefined ||
       (typeof entry.amountDue === 'string' && entry.amountDue.trim() === '') ||
-      isNaN(Number(entry.amountDue))
+      Number.isNaN(Number(entry.amountDue))
     ) {
       throw new Error(`Entry at index ${index} is missing or has an invalid amountDue.`);
     }
@@ -110,7 +112,7 @@ export function reconcileScheduleItems(
       .filter((txn) => txn.paymentScheduleItemIds.includes(item.id))
       .sort((a, b) => getProcessingTime(a) - getProcessingTime(b));
 
-    const latestTransaction = transactions.length > 0 ? transactions[transactions.length - 1] : null;
+    const latestTransaction = transactions.at(-1) ?? null;
     const status: ReconciledStatus = latestTransaction ? normalizeStatus(latestTransaction.collectionStatus) : 'pending';
 
     // Batched collections cover several items with one combined amount, so amount
@@ -167,6 +169,7 @@ export function getEffectiveCreatedDate(
   return { value: derivedDate, derived: !!derivedDate };
 }
 
+/** Counts the Reconciled Outcomes and mismatches across every reconciled schedule item. */
 export function summarizeReconciliation(reconciliation: Map<string, ItemReconciliation>): ReconciliationSummary {
   const summary: ReconciliationSummary = {
     totalItems: reconciliation.size,

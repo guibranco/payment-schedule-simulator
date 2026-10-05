@@ -51,18 +51,18 @@ export const ROW_TYPE_LEGEND: Array<{ color: string; label: string }> = [
 /** Escapes a value for safe inclusion in HTML text or attributes. */
 export function escapeHtml(value: unknown): string {
   return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 /** Formats a date as dd/mm/yyyy, or "-" when empty or the 0001-01-01 sentinel. */
 export function formatReportDate(dateStr: string | null | undefined): string {
   if (!dateStr || dateStr === "0001-01-01T00:00:00+00:00") return "-";
   const date = new Date(dateStr);
-  if (isNaN(date.getTime()) || date.getFullYear() <= 1) return "-";
+  if (Number.isNaN(date.getTime()) || date.getFullYear() <= 1) return "-";
   return date.toLocaleDateString("en-GB");
 }
 

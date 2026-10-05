@@ -41,7 +41,7 @@ export default function ScheduleItemsTable({
   onStatusChange,
   onShowBasisItem,
   onShowReconciliation,
-}: Props) {
+}: Readonly<Props>) {
   const frequencySwitchIndex = anomalies.find(
     (anomaly) => anomaly.kind === "frequencySwitch",
   )?.itemIndexes[0];

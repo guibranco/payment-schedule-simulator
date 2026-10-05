@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { Calendar, Euro, X, ArrowLeft, FileJson } from 'lucide-react';
 import type { PaymentScheduleInput, PaymentScheduleResponse, ApiErrorResponse } from '../types';
 import { useTokenManager } from '../hooks/useTokenManager';
@@ -43,7 +43,7 @@ interface Props {
  *
  * @returns {JSX.Element} PaymentScheduleForm component
  */
-export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, existingSchedule }: Props) {
+export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, existingSchedule }: Readonly<Props>) {
   const [schedule, setSchedule] = useState<PaymentScheduleInput>({
     ...initialSchedule || defaultSchedule,
     currentSchedule: existingSchedule
@@ -59,16 +59,21 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
   const [isJsonModalOpen, setIsJsonModalOpen] = useState(false);
   const [isJsonLoaderOpen, setIsJsonLoaderOpen] = useState(false);
   const { tokenInfo, refreshToken } = useTokenManager();
+  const idPrefix = useId();
+  /** Builds a unique element id for a form field, used to associate labels with controls. */
+  const fieldId = (name: string) => `${idPrefix}-${name}`;
 
+  /** Updates the schedule field matching the changed input's name. */
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setSchedule(prev => ({
       ...prev,
       [name]: value,
-      ...(name === 'collectionFrequency' && value === 'Annual' ? { collectionDay: 0 } : {})
+      ...(name === 'collectionFrequency' && value === 'Annual' && { collectionDay: 0 })
     }));
   };
 
+  /** Adds the pending tax entry (label, effective date, amount) to the schedule. */
   const addTax = () => {
     if (!taxKey || !taxValue) return;
     const effectiveDate = taxDate || '0001-01-01';
@@ -76,7 +81,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
       ...prev,
       taxesAndLevies: {
         ...prev.taxesAndLevies,
-        [taxKey]: { ...(prev.taxesAndLevies[taxKey] || {}), [effectiveDate]: parseFloat(taxValue) }
+        [taxKey]: { ...prev.taxesAndLevies[taxKey], [effectiveDate]: Number.parseFloat(taxValue) }
       }
     }));
     setTaxKey('');
@@ -91,7 +96,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
   const removeTax = (key: string, date: string) => {
     setSchedule(prev => {
       const newTaxes = { ...prev.taxesAndLevies };
-      const dates = { ...(newTaxes[key] || {}) };
+      const dates = { ...newTaxes[key] };
       delete dates[date];
       if (Object.keys(dates).length === 0) {
         delete newTaxes[key];
@@ -105,6 +110,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
     });
   };
 
+  /** Adds the pending admin fee (label, amount, tax) to the schedule. */
   const addFee = () => {
     if (!feeKey || !feeAmount) return;
     setSchedule(prev => ({
@@ -112,8 +118,8 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
       adminFees: {
         ...prev.adminFees,
         [feeKey]: {
-          amountDue: parseFloat(feeAmount),
-          taxAmount: parseFloat(feeTax || '0')
+          amountDue: Number.parseFloat(feeAmount),
+          taxAmount: Number.parseFloat(feeTax || '0')
         }
       }
     }));
@@ -153,7 +159,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
    *
    * @param e - The form event object.
    */
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setApiError(null);
     setResponse(null);
@@ -278,10 +284,11 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
           <div className="grid grid-cols-1 gap-8">
             <div className="flex gap-6">
               <div className="flex-1">
-                <label className="block text-base font-semibold text-gray-700 mb-2">
+                <label htmlFor={fieldId('collectionFrequency')} className="block text-base font-semibold text-gray-700 mb-2">
                   Collection Frequency
                 </label>
                 <select
+                  id={fieldId('collectionFrequency')}
                   name="collectionFrequency"
                   value={schedule.collectionFrequency}
                   onChange={handleInputChange}
@@ -293,11 +300,12 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
               </div>
 
               <div className="flex-1">
-                <label className="block text-base font-semibold text-gray-700 mb-2">
+                <label htmlFor={fieldId('collectionDay')} className="block text-base font-semibold text-gray-700 mb-2">
                   Collection Day {schedule.collectionFrequency === 'Monthly' ? '(1-31)' : ''}
                 </label>
                 <input
                   type="number"
+                  id={fieldId('collectionDay')}
                   name="collectionDay"
                   min="1"
                   max="31"
@@ -312,11 +320,12 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
 
             <div className="flex gap-6">
               <div className="flex-1">
-                <label className="block text-base font-semibold text-gray-700 mb-2">
+                <label htmlFor={fieldId('scheduleStartDate')} className="block text-base font-semibold text-gray-700 mb-2">
                   Schedule Start Date
                 </label>
                 <input
                   type="date"
+                  id={fieldId('scheduleStartDate')}
                   name="scheduleStartDate"
                   value={schedule.scheduleStartDate}
                   onChange={handleInputChange}
@@ -325,11 +334,12 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
               </div>
 
               <div className="flex-1">
-                <label className="block text-base font-semibold text-gray-700 mb-2">
+                <label htmlFor={fieldId('scheduleEndDate')} className="block text-base font-semibold text-gray-700 mb-2">
                   Schedule End Date
                 </label>
                 <input
                   type="date"
+                  id={fieldId('scheduleEndDate')}
                   name="scheduleEndDate"
                   value={schedule.scheduleEndDate}
                   onChange={handleInputChange}
@@ -340,11 +350,12 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
 
             <div className="flex gap-6">
               <div className="flex-1">
-                <label className="block text-base font-semibold text-gray-700 mb-2">
+                <label htmlFor={fieldId('effectiveDate')} className="block text-base font-semibold text-gray-700 mb-2">
                   Effective Date
                 </label>
                 <input
                   type="date"
+                  id={fieldId('effectiveDate')}
                   name="effectiveDate"
                   value={schedule.effectiveDate}
                   onChange={handleInputChange}
@@ -353,11 +364,12 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
               </div>
 
               <div className="flex-1">
-                <label className="block text-base font-semibold text-gray-700 mb-2">
+                <label htmlFor={fieldId('dueDate')} className="block text-base font-semibold text-gray-700 mb-2">
                   Due Date (Optional)
                 </label>
                 <input
                   type="date"
+                  id={fieldId('dueDate')}
                   name="dueDate"
                   value={schedule.dueDate || ''}
                   onChange={handleInputChange}
@@ -367,7 +379,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
             </div>
 
             <div>
-              <label className="block text-base font-semibold text-gray-700 mb-2">
+              <label htmlFor={fieldId('netAmount')} className="block text-base font-semibold text-gray-700 mb-2">
                 Net Amount (€)
               </label>
               <div className="relative">
@@ -376,6 +388,7 @@ export default function NewSchedule({ initialSchedule, apiEndpoint, onBack, exis
                 </div>
                 <input
                   type="number"
+                  id={fieldId('netAmount')}
                   name="netAmount"
                   value={schedule.netAmount}
                   onChange={handleInputChange}

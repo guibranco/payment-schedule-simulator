@@ -21,6 +21,17 @@ const emptySlot: SlotState = {
   error: null
 };
 
+/** Maps an error thrown while parsing a schedule to a user-facing message. */
+const getProcessingErrorMessage = (err: unknown): string => {
+  if (err instanceof SyntaxError) {
+    return 'Invalid JSON syntax. Please check for missing commas, quotes, or brackets.';
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return 'Invalid schedule format';
+};
+
 /**
  * Component to compare two payment schedules by uploading or pasting JSON data.
  *
@@ -38,6 +49,7 @@ export default function CompareSchedules() {
   const getSlot = (scheduleNumber: 1 | 2) => (scheduleNumber === 1 ? slot1 : slot2);
   const setSlot = (scheduleNumber: 1 | 2) => (scheduleNumber === 1 ? setSlot1 : setSlot2);
 
+  /** Parses and detects a schedule from raw JSON, storing the result or error in the given slot. */
   const processJson = (scheduleNumber: 1 | 2, raw: string) => {
     const update = setSlot(scheduleNumber);
 
@@ -66,17 +78,13 @@ export default function CompareSchedules() {
         ...prev,
         schedule: null,
         format: null,
-        error:
-          err instanceof SyntaxError
-            ? 'Invalid JSON syntax. Please check for missing commas, quotes, or brackets.'
-            : err instanceof Error
-              ? err.message
-              : 'Invalid schedule format'
+        error: getProcessingErrorMessage(err)
       }));
     }
   };
 
-  const handleJsonSubmit = (scheduleNumber: 1 | 2) => (e: React.FormEvent) => {
+  /** Builds the submit handler that loads the pasted JSON for the given slot. */
+  const handleJsonSubmit = (scheduleNumber: 1 | 2) => (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     processJson(scheduleNumber, getSlot(scheduleNumber).jsonInput);
   };
@@ -85,6 +93,7 @@ export default function CompareSchedules() {
     setSlot(scheduleNumber)(emptySlot);
   };
 
+  /** Builds the change handler that loads an uploaded JSON file into the given slot. */
   const handleFileUpload = (scheduleNumber: 1 | 2) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -100,16 +109,15 @@ export default function CompareSchedules() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      update((prev) => ({ ...prev, jsonInput: content }));
-      processJson(scheduleNumber, content);
-    };
-    reader.onerror = () => {
-      update((prev) => ({ ...prev, error: 'Error reading file. Please try again.' }));
-    };
-    reader.readAsText(file);
+    void file.text().then(
+      (content) => {
+        update((prev) => ({ ...prev, jsonInput: content }));
+        processJson(scheduleNumber, content);
+      },
+      () => {
+        update((prev) => ({ ...prev, error: 'Error reading file. Please try again.' }));
+      }
+    );
   };
 
   const handleExampleChange = (scheduleNumber: 1 | 2) => (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -149,6 +157,7 @@ export default function CompareSchedules() {
     }
 
     const exampleSelectId = `schedule-${scheduleNumber}-example`;
+    const jsonInputId = `schedule-${scheduleNumber}-json`;
 
     return (
       <div className="space-y-4">
@@ -185,10 +194,11 @@ export default function CompareSchedules() {
 
         <form onSubmit={handleJsonSubmit(scheduleNumber)} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor={jsonInputId} className="block text-sm font-medium text-gray-700 mb-2">
               Paste Schedule {scheduleNumber} JSON
             </label>
             <textarea
+              id={jsonInputId}
               value={jsonInput}
               onChange={(e) => setSlot(scheduleNumber)((prev) => ({ ...prev, jsonInput: e.target.value }))}
               className="w-full h-48 p-4 border border-gray-300 rounded-md focus:border-primary focus:ring focus:ring-primary/20 font-mono text-sm"

@@ -8,9 +8,13 @@ interface Props {
   children: React.ReactNode;
 }
 
-export default function Modal({ isOpen, onClose, title, children }: Props) {
+/**
+ * Full-screen modal dialog with a title, a copy-to-clipboard button and a close button.
+ */
+export default function Modal({ isOpen, onClose, title, children }: Readonly<Props>) {
   const [copied, setCopied] = React.useState(false);
 
+  /** Copies the modal's text content to the clipboard and briefly shows a confirmation icon. */
   const handleCopy = async () => {
     const content = document.querySelector('.modal-content')?.textContent;
     if (content) {

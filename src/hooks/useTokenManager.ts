@@ -2,12 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { STORAGE_KEYS } from '../constants';
 import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
 import { getRedirectUri } from '../utils/url';
+import { isEnvironment, isSafeIdentifier, microsoftOAuthEndpoint } from '../utils/oauthValidation';
 
 interface TokenInfo {
   accessToken: string | null;
   expiresAt: number | null;
   isExpired: boolean;
   isExpiringSoon: boolean;
+  /** Timestamp (ms) at which this information was read, used as "now" for countdowns. */
+  checkedAt: number;
 }
 
 interface UseTokenManagerReturn {
@@ -18,18 +21,34 @@ interface UseTokenManagerReturn {
 }
 
 /**
+ * Reads token information from localStorage and calculates its expiration status.
+ */
+function readTokenInfo(): TokenInfo {
+  const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+  const expiresAtStr = localStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRES_AT);
+  const expiresAt = expiresAtStr ? Number.parseInt(expiresAtStr, 10) : null;
+
+  const now = Date.now();
+  const isExpired = expiresAt ? now >= expiresAt : false;
+  const isExpiringSoon = expiresAt ? now >= (expiresAt - 5 * 60 * 1000) : false; // 5 minutes before expiry
+
+  return {
+    accessToken,
+    expiresAt,
+    isExpired,
+    isExpiringSoon,
+    checkedAt: now
+  };
+}
+
+/**
  * Custom hook for managing OAuth tokens with automatic refresh capabilities.
- * 
+ *
  * This hook handles token expiration detection, automatic refresh when tokens
  * are about to expire, and provides manual refresh functionality.
  */
 export function useTokenManager(): UseTokenManagerReturn {
-  const [tokenInfo, setTokenInfo] = useState<TokenInfo>({
-    accessToken: null,
-    expiresAt: null,
-    isExpired: false,
-    isExpiringSoon: false
-  });
+  const [tokenInfo, setTokenInfo] = useState<TokenInfo>(readTokenInfo);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,20 +56,7 @@ export function useTokenManager(): UseTokenManagerReturn {
    * Updates token information from localStorage and calculates expiration status
    */
   const updateTokenInfo = useCallback(() => {
-    const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-    const expiresAtStr = localStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRES_AT);
-    const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : null;
-    
-    const now = Date.now();
-    const isExpired = expiresAt ? now >= expiresAt : false;
-    const isExpiringSoon = expiresAt ? now >= (expiresAt - 5 * 60 * 1000) : false; // 5 minutes before expiry
-
-    setTokenInfo({
-      accessToken,
-      expiresAt,
-      isExpired,
-      isExpiringSoon
-    });
+    setTokenInfo(readTokenInfo());
   }, []);
 
   /**
@@ -68,6 +74,9 @@ export function useTokenManager(): UseTokenManagerReturn {
       if (!clientId || !tenantId) {
         throw new Error('OAuth configuration missing. Please reconfigure the application.');
       }
+      if (!isSafeIdentifier(clientId) || !isSafeIdentifier(tenantId) || !isEnvironment(environment)) {
+        throw new TypeError('OAuth configuration is invalid. Please reconfigure the application.');
+      }
 
       const envSuffix = environment === 'prod' ? '' : `-${environment}`;
       const scope = `api://schedule-api${envSuffix}/user_impersonation`;
@@ -75,12 +84,12 @@ export function useTokenManager(): UseTokenManagerReturn {
       // Generate PKCE parameters
       const codeVerifier = generateCodeVerifier();
       const codeChallenge = await generateCodeChallenge(codeVerifier);
-      
+
       // Store code_verifier for later use in token exchange
       localStorage.setItem(STORAGE_KEYS.CODE_VERIFIER, codeVerifier);
 
       const redirectUri = getRedirectUri();
-      const baseUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`;
+      const baseUrl = microsoftOAuthEndpoint(tenantId, 'authorize');
 
       const params = new URLSearchParams({
         client_id: clientId,
@@ -93,8 +102,9 @@ export function useTokenManager(): UseTokenManagerReturn {
         prompt: 'none' // Try silent refresh first
       });
 
-      // Store the current URL to return to after auth
-      localStorage.setItem(STORAGE_KEYS.RETURN_URL, window.location.href);
+      // Store where to return to after auth, as a path on this origin only
+      const { pathname, search, hash } = window.location;
+      localStorage.setItem(STORAGE_KEYS.RETURN_URL, `${pathname}${search}${hash}`);
 
       window.location.href = `${baseUrl}?${params.toString()}`;
     } catch (err) {
@@ -104,22 +114,25 @@ export function useTokenManager(): UseTokenManagerReturn {
   }, []);
 
   /**
-   * Automatically refresh token when it's about to expire
+   * Automatically refresh token when it's about to expire.
+   * The refresh is scheduled rather than run inline so no state is set synchronously in the effect.
    */
   useEffect(() => {
-    if (tokenInfo.isExpiringSoon && !tokenInfo.isExpired && !isRefreshing) {
-      refreshToken();
+    if (!tokenInfo.isExpiringSoon || tokenInfo.isExpired || isRefreshing) {
+      return undefined;
     }
+    const timeout = setTimeout(() => {
+      void refreshToken();
+    }, 0);
+    return () => clearTimeout(timeout);
   }, [tokenInfo.isExpiringSoon, tokenInfo.isExpired, isRefreshing, refreshToken]);
 
   /**
-   * Set up periodic token info updates
+   * Set up periodic token info updates (the initial read happens in the state initialiser)
    */
   useEffect(() => {
-    updateTokenInfo();
-    
     const interval = setInterval(updateTokenInfo, 60000); // Check every minute
-    
+
     return () => clearInterval(interval);
   }, [updateTokenInfo]);
 
@@ -127,6 +140,7 @@ export function useTokenManager(): UseTokenManagerReturn {
    * Listen for storage changes (token updates from other tabs)
    */
   useEffect(() => {
+    /** Re-reads token information when another tab changes the stored token. */
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === STORAGE_KEYS.ACCESS_TOKEN || e.key === STORAGE_KEYS.TOKEN_EXPIRES_AT) {
         updateTokenInfo();

@@ -9,10 +9,10 @@ import { formatReportDate as formatDate } from "../../utils/scheduleReport";
 export default function BasisItemDetail({
   basisItem,
   scheduleItems,
-}: {
+}: Readonly<{
   basisItem: ScheduleItem;
   scheduleItems: ScheduleItem[];
-}) {
+}>) {
   const matchIndex = scheduleItems.findIndex((si) => si.id === basisItem.id);
 
   return (
@@ -43,7 +43,7 @@ export default function BasisItemDetail({
 }
 
 /** The Basis Item's fields as a two-column grid of labelled values. */
-function BasisItemFields({ item }: { item: ScheduleItem }) {
+function BasisItemFields({ item }: Readonly<{ item: ScheduleItem }>) {
   const taxes = Object.entries(item.taxesAndLevies || {});
   const fees = Object.entries(item.adminFees || {});
 
@@ -92,7 +92,10 @@ function BasisItemFields({ item }: { item: ScheduleItem }) {
 }
 
 /** A labelled value in the Basis Item grid. */
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({
+  label,
+  children,
+}: Readonly<{ label: string; children: ReactNode }>) {
   return (
     <div>
       <h3 className="font-medium text-gray-500">{label}</h3>

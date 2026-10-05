@@ -91,7 +91,7 @@ export default function ScheduleItemRow({
   onStatusChange,
   onShowBasisItem,
   onShowReconciliation,
-}: Props) {
+}: Readonly<Props>) {
   const basisItem = item.originalItem;
 
   return (
@@ -163,7 +163,9 @@ export default function ScheduleItemRow({
 }
 
 /** A small warning or info icon in the index cell, labelled with the anomaly's title. */
-function AnomalyMarker({ anomaly }: { anomaly: ScheduleAnomaly }) {
+function AnomalyMarker({
+  anomaly,
+}: Readonly<{ anomaly: ScheduleAnomaly }>) {
   return anomaly.severity === "warning" ? (
     <AlertTriangle
       className="w-3.5 h-3.5 text-red-700"
@@ -175,7 +177,9 @@ function AnomalyMarker({ anomaly }: { anomaly: ScheduleAnomaly }) {
 }
 
 /** Taxes and levies as one "code: €amount" line each, or "-" when there are none. */
-function TaxesList({ taxes }: { taxes: Record<string, number> | undefined }) {
+function TaxesList({
+  taxes,
+}: Readonly<{ taxes: Record<string, number> | undefined }>) {
   const entries = Object.entries(taxes || {});
   if (entries.length === 0) return <>-</>;
   return (
@@ -192,9 +196,9 @@ function TaxesList({ taxes }: { taxes: Record<string, number> | undefined }) {
 /** Admin fees as one "code: €amount (+ tax)" line each, or "-" when there are none. */
 function AdminFeesList({
   fees,
-}: {
+}: Readonly<{
   fees: ScheduleItem["adminFees"] | undefined;
-}) {
+}>) {
   const entries = Object.entries(fees || {});
   if (entries.length === 0) return <>-</>;
   return (
@@ -213,9 +217,9 @@ function AdminFeesList({
 /** The collection item's created date, italicised when derived from Collections. */
 function CreatedDate({
   createdDate,
-}: {
+}: Readonly<{
   createdDate: EffectiveValue<string | null | undefined>;
-}) {
+}>) {
   if (!createdDate.value) return <>-</>;
   return (
     <span
@@ -239,11 +243,11 @@ function StatusIcon({
   succeeded,
   derived,
   onClick,
-}: {
+}: Readonly<{
   succeeded: boolean | null;
   derived: boolean;
   onClick?: () => void;
-}) {
+}>) {
   const title = derived
     ? "Derived from Collections reconciliation — this schedule item has no recorded status"
     : "Click to change status";
@@ -272,7 +276,9 @@ function StatusIcon({
 }
 
 /** A dash, tick or cross for unknown, succeeded or failed. */
-function SucceededIcon({ succeeded }: { succeeded: boolean | null }) {
+function SucceededIcon({
+  succeeded,
+}: Readonly<{ succeeded: boolean | null }>) {
   if (succeeded === null)
     return <MinusCircle className="w-5 h-5 text-gray-400" />;
   return succeeded ? (
@@ -286,10 +292,10 @@ function SucceededIcon({ succeeded }: { succeeded: boolean | null }) {
 function CollectionsBadge({
   entry,
   onClick,
-}: {
+}: Readonly<{
   entry: ItemReconciliation | undefined;
   onClick: () => void;
-}) {
+}>) {
   if (!entry) return <>-</>;
   const { label, className, Icon } = RECONCILIATION_BADGES[entry.status];
   const hasIssue = entry.amountMismatch || entry.statusMismatch;

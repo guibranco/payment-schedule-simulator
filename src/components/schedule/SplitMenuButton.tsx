@@ -75,7 +75,7 @@ export default function SplitMenuButton<T extends string>({
   variant,
   menuAlign,
   menuWidthClass,
-}: Props<T>) {
+}: Readonly<Props<T>>) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   useCloseOnOutsideClick(containerRef, isOpen, () => setIsOpen(false));
@@ -131,11 +131,11 @@ function MenuItem<T extends string>({
   option,
   isSelected,
   onSelect,
-}: {
+}: Readonly<{
   option: MenuOption<T>;
   isSelected: boolean;
   onSelect: (value: T) => void;
-}) {
+}>) {
   const { Icon } = option;
   return (
     <button

@@ -68,9 +68,8 @@ export default function TokenStatus() {
    */
   const getTimeUntilExpiry = () => {
     if (!tokenInfo.expiresAt) return null;
-    
-    const now = Date.now();
-    const timeLeft = tokenInfo.expiresAt - now;
+
+    const timeLeft = tokenInfo.expiresAt - tokenInfo.checkedAt;
     
     if (timeLeft <= 0) return 'Expired';
     
@@ -88,19 +87,28 @@ export default function TokenStatus() {
    */
   const handleRefresh = () => {
     if (!isRefreshing) {
-      refreshToken();
+      void refreshToken();
     }
+  };
+
+  /**
+   * Returns the text colour class for the status label based on token expiry.
+   */
+  const getStatusColorClass = () => {
+    if (tokenInfo.isExpired) {
+      return 'text-red-600';
+    }
+    if (tokenInfo.isExpiringSoon) {
+      return 'text-yellow-600';
+    }
+    return 'text-green-600';
   };
 
   return (
     <div className="flex items-center gap-2 text-sm">
       <div className="flex items-center gap-1">
         {getStatusIcon()}
-        <span className={`${
-          tokenInfo.isExpired ? 'text-red-600' : 
-          tokenInfo.isExpiringSoon ? 'text-yellow-600' : 
-          'text-green-600'
-        }`}>
+        <span className={getStatusColorClass()}>
           {getStatusText()}
         </span>
       </div>

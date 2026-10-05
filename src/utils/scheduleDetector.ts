@@ -174,9 +174,12 @@ function getCI(obj: JsonObject, key: string): unknown {
   return foundKey ? obj[foundKey] : undefined;
 }
 
+/** A collection frequency's display label, as used in requests and CosmosDB documents. */
+type FrequencyLabel = "Monthly" | "Annual";
+
 // SEQ logs Policy Admin's raw request, which serializes CollectionFrequency/CollectionType
 // enums as their underlying integers rather than the string labels used everywhere else.
-const COLLECTION_FREQUENCY_LABELS: Record<number, "Monthly" | "Annual"> = {
+const COLLECTION_FREQUENCY_LABELS: Record<number, FrequencyLabel> = {
   1: "Monthly",
   2: "Annual",
 };
@@ -188,7 +191,7 @@ const COLLECTION_TYPE_LABELS: Record<number, string> = {
 /** Normalizes a collection frequency (string label or SEQ integer enum) to its label, defaulting to Annual. */
 function normalizeFrequencyLabel(
   frequency: string | number | undefined,
-): "Monthly" | "Annual" {
+): FrequencyLabel {
   if (typeof frequency === "number") {
     return COLLECTION_FREQUENCY_LABELS[frequency] ?? "Annual";
   }
@@ -325,9 +328,9 @@ export function detectScheduleFormat(json: unknown): ScheduleFormat {
     keys.has("schedulestartdate") &&
     keys.has("effectivedate") &&
     getCI(obj, "netAmount") != null &&
-    !isNaN(Number(getCI(obj, "netAmount")))
+    !Number.isNaN(Number(getCI(obj, "netAmount")))
   ) {
-    return Object.prototype.hasOwnProperty.call(obj, "CollectionFrequency")
+    return Object.hasOwn(obj, "CollectionFrequency")
       ? "seq"
       : "request";
   }

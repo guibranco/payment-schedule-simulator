@@ -42,7 +42,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Calendar day number of an ISO date/date-time, ignoring time and offset (periods are inclusive whole days). */
 function dayNumber(date: string | null | undefined): number {
-  if (!date) return NaN;
+  if (!date) return Number.NaN;
   return Math.round(
     Date.UTC(
       Number(date.slice(0, 4)),
@@ -160,9 +160,14 @@ function expectedProRataAmount(
 
   const basisStart = dayNumber(basis.periodStartDate);
   const proRataStart = dayNumber(proRata.periodStartDate);
+  // An unparseable date (NaN) also fails the "starts after the Basis Item" check.
+  const startsAfterBasis =
+    !Number.isNaN(proRataStart) &&
+    !Number.isNaN(basisStart) &&
+    proRataStart > basisStart;
   if (
     dayNumber(proRata.periodEndDate) !== dayNumber(basis.periodEndDate) ||
-    !(proRataStart > basisStart)
+    !startsAfterBasis
   )
     return null;
 
@@ -246,51 +251,87 @@ function totalAmountDue(items: ScheduleItem[]): number {
   return items.reduce((sum, item) => sum + Number(item.amountDue || 0), 0);
 }
 
-/** Stamp Duty Imbalance (warning) and Unexpected Stamp Duty Amount (info). */
-function detectStampDuty(schedule: PaymentScheduleResponse): ScheduleAnomaly[] {
-  const items = schedule.scheduleItems;
-  // Charges and refunds in the order they were applied (Adjustment Date, then schedule order).
-  const entries = items
+/** A non-zero Stamp Duty charge (positive) or refund (negative) on a Schedule Item. */
+interface StampDutyEntry {
+  index: number;
+  amount: number;
+  adjusted: number;
+}
+
+/** Stamp Duty charges and refunds in the order they were applied (Adjustment Date, then schedule order). */
+function stampDutyEntries(items: ScheduleItem[]): StampDutyEntry[] {
+  return items
     .map((item, index) => ({
       index,
       amount: adminFeeAmount(item, STAMP_DUTY),
       adjusted: dayNumber(item.adjustmentDate),
     }))
     .filter(
-      (entry): entry is { index: number; amount: number; adjusted: number } =>
+      (entry): entry is StampDutyEntry =>
         entry.amount !== null && entry.amount !== 0,
     )
     .sort((a, b) => (a.adjusted || 0) - (b.adjusted || 0) || a.index - b.index);
+}
 
-  const anomalies: ScheduleAnomaly[] = [];
-
+/** The running net Stamp Duty count, plus the indexes where it left the 0..1 range (charges and refunds didn't alternate). */
+function stampDutySequence(entries: StampDutyEntry[]): {
+  net: number;
+  outOfSequence: number[];
+} {
   let net = 0;
   const outOfSequence: number[] = [];
   for (const entry of entries) {
     net += entry.amount > 0 ? 1 : -1;
     if (net < 0 || net > 1) outOfSequence.push(entry.index);
   }
+  return { net, outOfSequence };
+}
 
-  // A Void nets everything, Stamp Duty included, to zero. Without a status, a zero total is the only signal.
+/** Whether the schedule is Voided: a Void nets everything, Stamp Duty included, to zero. */
+function isVoidedSchedule(schedule: PaymentScheduleResponse): boolean {
+  // Without a status, a zero total is the only signal.
   const statusAllowsVoid =
     !schedule.riskStatus ||
     schedule.riskStatus.toUpperCase() === VOIDED_OR_CANCELLED_STATUS;
-  const isVoid =
-    statusAllowsVoid && Math.abs(totalAmountDue(items)) <= AMOUNT_TOLERANCE;
+  return (
+    statusAllowsVoid &&
+    Math.abs(totalAmountDue(schedule.scheduleItems)) <= AMOUNT_TOLERANCE
+  );
+}
+
+/** The Stamp Duty Imbalance explanation: out-of-sequence items first, else the wrong net count. */
+function stampDutyImbalanceReason(
+  entries: StampDutyEntry[],
+  net: number,
+  outOfSequence: number[],
+  isVoid: boolean,
+): string {
+  if (outOfSequence.length > 0) {
+    return `Stamp Duty charges and refunds don't alternate (see ${plural(outOfSequence.length, "item", "items")} ${itemList(outOfSequence)}).`;
+  }
+  const chargeCount = entries.filter((e) => e.amount > 0).length;
+  const refundCount = entries.length - chargeCount;
+  const expectation = isVoid
+    ? "a Voided schedule should net 0"
+    : "a live schedule should net exactly 1";
+  return `It nets ${net} Stamp Duty ${plural(Math.abs(net), "charge", "charges")} (${chargeCount} charged, ${refundCount} refunded), but ${expectation}.`;
+}
+
+/** Stamp Duty Imbalance (warning) and Unexpected Stamp Duty Amount (info). */
+function detectStampDuty(schedule: PaymentScheduleResponse): ScheduleAnomaly[] {
+  const entries = stampDutyEntries(schedule.scheduleItems);
+  const anomalies: ScheduleAnomaly[] = [];
+
+  const { net, outOfSequence } = stampDutySequence(entries);
+  const isVoid = isVoidedSchedule(schedule);
   const expectedNet = isVoid ? 0 : 1;
 
   if (outOfSequence.length > 0 || net !== expectedNet) {
-    const chargeCount = entries.filter((e) => e.amount > 0).length;
-    const refundCount = entries.length - chargeCount;
-    const reason =
-      outOfSequence.length > 0
-        ? `Stamp Duty charges and refunds don't alternate (see ${plural(outOfSequence.length, "item", "items")} ${itemList(outOfSequence)}).`
-        : `It nets ${net} Stamp Duty ${plural(Math.abs(net), "charge", "charges")} (${chargeCount} charged, ${refundCount} refunded), but ${isVoid ? "a Voided schedule should net 0" : "a live schedule should net exactly 1"}.`;
     anomalies.push({
       kind: "stampDutyImbalance",
       severity: "warning",
       title: "Stamp Duty Imbalance",
-      message: reason,
+      message: stampDutyImbalanceReason(entries, net, outOfSequence, isVoid),
       itemIndexes:
         outOfSequence.length > 0 ? outOfSequence : entries.map((e) => e.index),
     });
@@ -388,7 +429,7 @@ function detectAdminFees(schedule: PaymentScheduleResponse): ScheduleAnomaly[] {
 /** Surgery Detected (info): the schedule was last modified by a person. */
 function detectSurgery(schedule: PaymentScheduleResponse): ScheduleAnomaly[] {
   const modifiedBy = schedule.modifiedBy;
-  if (!modifiedBy || !modifiedBy.includes("@")) return [];
+  if (!modifiedBy?.includes("@")) return [];
   return [
     {
       kind: "surgeryDetected",

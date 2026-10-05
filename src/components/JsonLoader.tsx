@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { FileJson, Clipboard, X } from 'lucide-react';
 import type { PaymentScheduleInput } from '../types';
 
@@ -6,6 +6,101 @@ interface Props {
   onLoad: (data: PaymentScheduleInput) => void;
   onClose: () => void;
 }
+
+type JsonRecord = Record<string, unknown>;
+
+/**
+ * Converts collection frequency to either 'Monthly' or 'Annual'.
+ */
+const normalizeCollectionFrequency = (frequency: string): 'Monthly' | 'Annual' => {
+  const normalized = frequency.toLowerCase();
+  return normalized === 'monthly' ? 'Monthly' : 'Annual';
+};
+
+/** Returns true when the value is a non-null object. */
+const isObject = (value: unknown): value is JsonRecord => Boolean(value) && typeof value === 'object';
+
+/** Throws when a required request field is missing or has the wrong type. */
+const validateRequiredFields = (json: JsonRecord): void => {
+  if (!json.collectionFrequency) {
+    throw new Error('Missing required field: collectionFrequency');
+  }
+
+  if (!json.scheduleStartDate) {
+    throw new Error('Missing required field: scheduleStartDate');
+  }
+
+  if (!json.effectiveDate) {
+    throw new Error('Missing required field: effectiveDate');
+  }
+
+  if (typeof json.netAmount !== 'number') {
+    throw new TypeError('netAmount must be a number');
+  }
+};
+
+/** Parses the admin fees map, converting amounts to numbers. */
+const parseAdminFees = (raw: unknown): PaymentScheduleInput['adminFees'] => {
+  const adminFees: PaymentScheduleInput['adminFees'] = {};
+  if (!isObject(raw)) return adminFees;
+
+  for (const [key, value] of Object.entries(raw)) {
+    if (isObject(value)) {
+      adminFees[key] = {
+        amountDue: Number(value.amountDue || 0),
+        taxAmount: Number(value.taxAmount || 0)
+      };
+    }
+  }
+  return adminFees;
+};
+
+/** Parses the taxes and levies map (tax label -> effective date -> amount), converting amounts to numbers. */
+const parseTaxesAndLevies = (raw: unknown): PaymentScheduleInput['taxesAndLevies'] => {
+  const taxesAndLevies: PaymentScheduleInput['taxesAndLevies'] = {};
+  if (!isObject(raw)) return taxesAndLevies;
+
+  for (const [key, value] of Object.entries(raw)) {
+    if (isObject(value)) {
+      const dates: Record<string, number> = {};
+      for (const [date, amount] of Object.entries(value)) {
+        dates[date] = Number(amount || 0);
+      }
+      taxesAndLevies[key] = dates;
+    }
+  }
+  return taxesAndLevies;
+};
+
+/**
+ * Validates and parses the JSON input into PaymentScheduleInput format.
+ *
+ * This function performs several validations on the input JSON, ensuring that all required fields are present
+ * and correctly typed. It also processes nested structures like admin fees and taxes/levies, converting
+ * string values to numbers where necessary. The collection frequency is normalized using an external function.
+ *
+ * @param json - A JSON object representing the payment schedule input data.
+ * @returns An object conforming to the PaymentScheduleInput format.
+ * @throws Error If any required field is missing or if the types of fields are incorrect.
+ */
+const parseJsonInput = (json: JsonRecord): PaymentScheduleInput => {
+  validateRequiredFields(json);
+
+  const collectionFrequency = normalizeCollectionFrequency(json.collectionFrequency as string);
+
+  return {
+    collectionFrequency,
+    scheduleStartDate: json.scheduleStartDate as string,
+    scheduleEndDate: (json.scheduleEndDate || '0001-01-01') as string,
+    collectionDay: collectionFrequency === 'Annual' ? 0 : (Number(json.collectionDay) || 1),
+    effectiveDate: json.effectiveDate as string,
+    dueDate: (json.dueDate || null) as string | null,
+    netAmount: Number(json.netAmount),
+    taxesAndLevies: parseTaxesAndLevies(json.taxesAndLevies),
+    adminFees: parseAdminFees(json.adminFees),
+    currentSchedule: (json.currentSchedule || undefined) as PaymentScheduleInput['currentSchedule']
+  };
+};
 
 /**
  * Component for loading and parsing JSON request data to populate schedule forms.
@@ -17,90 +112,10 @@ interface Props {
  *
  * @param props - The properties passed to the JsonLoader component, including `onLoad` and `onClose` callbacks.
  */
-export default function JsonLoader({ onLoad, onClose }: Props) {
+export default function JsonLoader({ onLoad, onClose }: Readonly<Props>) {
   const [jsonInput, setJsonInput] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  /**
-   * Converts collection frequency to either 'Monthly' or 'Annual'.
-   */
-  const normalizeCollectionFrequency = (frequency: string): 'Monthly' | 'Annual' => {
-    const normalized = frequency.toLowerCase();
-    return normalized === 'monthly' ? 'Monthly' : 'Annual';
-  };
-
-  /**
-   * Validates and parses the JSON input into PaymentScheduleInput format.
-   *
-   * This function performs several validations on the input JSON, ensuring that all required fields are present
-   * and correctly typed. It also processes nested structures like admin fees and taxes/levies, converting
-   * string values to numbers where necessary. The collection frequency is normalized using an external function.
-   *
-   * @param json - A JSON object representing the payment schedule input data.
-   * @returns An object conforming to the PaymentScheduleInput format.
-   * @throws Error If any required field is missing or if the types of fields are incorrect.
-   */
-  const parseJsonInput = (json: any): PaymentScheduleInput => {
-    // Validate required fields
-    if (!json.collectionFrequency) {
-      throw new Error('Missing required field: collectionFrequency');
-    }
-
-    if (!json.scheduleStartDate) {
-      throw new Error('Missing required field: scheduleStartDate');
-    }
-
-    if (!json.effectiveDate) {
-      throw new Error('Missing required field: effectiveDate');
-    }
-
-    if (typeof json.netAmount !== 'number') {
-      throw new Error('netAmount must be a number');
-    }
-
-    // Parse and validate admin fees structure
-    const adminFees: Record<string, { amountDue: number; taxAmount: number }> = {};
-    if (json.adminFees && typeof json.adminFees === 'object') {
-      for (const [key, value] of Object.entries(json.adminFees)) {
-        if (value && typeof value === 'object') {
-          const fee = value as any;
-          adminFees[key] = {
-            amountDue: Number(fee.amountDue || 0),
-            taxAmount: Number(fee.taxAmount || 0)
-          };
-        }
-      }
-    }
-
-    // Parse and validate taxes and levies (tax label -> effective date -> amount)
-    const taxesAndLevies: Record<string, Record<string, number>> = {};
-    if (json.taxesAndLevies && typeof json.taxesAndLevies === 'object') {
-      for (const [key, value] of Object.entries(json.taxesAndLevies)) {
-        if (value && typeof value === 'object') {
-          const dates: Record<string, number> = {};
-          for (const [date, amount] of Object.entries(value as object)) {
-            dates[date] = Number(amount || 0);
-          }
-          taxesAndLevies[key] = dates;
-        }
-      }
-    }
-
-    const collectionFrequency = normalizeCollectionFrequency(json.collectionFrequency);
-
-    return {
-      collectionFrequency,
-      scheduleStartDate: json.scheduleStartDate,
-      scheduleEndDate: json.scheduleEndDate || '0001-01-01',
-      collectionDay: collectionFrequency === 'Annual' ? 0 : (Number(json.collectionDay) || 1),
-      effectiveDate: json.effectiveDate,
-      dueDate: json.dueDate || null,
-      netAmount: Number(json.netAmount),
-      taxesAndLevies,
-      adminFees,
-      currentSchedule: json.currentSchedule || undefined
-    };
-  };
+  const jsonInputId = useId();
 
   /**
    * Handles form submission by parsing JSON input and invoking callbacks.
@@ -110,7 +125,7 @@ export default function JsonLoader({ onLoad, onClose }: Props) {
    * the parsed data using a callback. If an error occurs during parsing, it sets
    * an appropriate error message based on the type of error encountered.
    */
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
 
@@ -128,13 +143,24 @@ export default function JsonLoader({ onLoad, onClose }: Props) {
     }
   };
 
+  /** Reads an uploaded file as text into the JSON input. */
+  const readFile = async (file: File) => {
+    try {
+      const content = await file.text();
+      setJsonInput(content);
+      setError(null);
+    } catch {
+      // The underlying read error carries no user-actionable detail, so a
+      // generic message is shown instead.
+      setError('Failed to read file');
+    }
+  };
+
   /**
    * Handles file upload events from an input element.
    *
-   * This function processes a file uploaded by a user through an HTML input element.
-   * It reads the file as text and updates the state with the file content or sets an error
-   * if the file cannot be read. The function checks for the presence of a file, creates a FileReader,
-   * and handles the onload event to extract and store the file's content.
+   * This function reads the file uploaded by a user through an HTML input element as text
+   * and updates the state with the file content, or sets an error if the file cannot be read.
    *
    * @param e - React ChangeEvent object containing the uploaded file.
    */
@@ -142,17 +168,7 @@ export default function JsonLoader({ onLoad, onClose }: Props) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const content = event.target?.result as string;
-        setJsonInput(content);
-        setError(null);
-      } catch (err) {
-        setError('Failed to read file');
-      }
-    };
-    reader.readAsText(file);
+    void readFile(file);
   };
 
   return (
@@ -187,10 +203,11 @@ export default function JsonLoader({ onLoad, onClose }: Props) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor={jsonInputId} className="block text-sm font-medium text-gray-700 mb-2">
                 JSON Request Data
               </label>
               <textarea
+                id={jsonInputId}
                 value={jsonInput}
                 onChange={(e) => setJsonInput(e.target.value)}
                 placeholder="Paste your JSON request here..."

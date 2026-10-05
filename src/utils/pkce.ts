@@ -25,8 +25,8 @@ export async function generateCodeChallenge(codeVerifier: string): Promise<strin
  * Encodes a Uint8Array to a Base64 URL string without padding.
  */
 function base64URLEncode(array: Uint8Array): string {
-  return btoa(String.fromCharCode(...array))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
+  return btoa(String.fromCodePoint(...array))
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '');
 }

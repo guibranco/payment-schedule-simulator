@@ -10,13 +10,25 @@ interface Props {
 }
 
 /**
+ * Pairs each detail with a stable key, numbering repeated details so keys stay unique.
+ */
+function withKeys(details: string[]): { key: string; detail: string }[] {
+  const occurrences = new Map<string, number>();
+  return details.map((detail) => {
+    const occurrence = (occurrences.get(detail) ?? 0) + 1;
+    occurrences.set(detail, occurrence);
+    return { key: `${detail}#${occurrence}`, detail };
+  });
+}
+
+/**
  * Component for displaying API errors with proper formatting and styling.
  *
  * This component determines whether the error is a validation error or a general error,
  * and renders an appropriate icon and styles accordingly. It displays the error message,
  * details, and provides an option to dismiss the error if `onDismiss` is provided.
  */
-export default function ErrorDisplay({ error, onDismiss, className = '' }: Props) {
+export default function ErrorDisplay({ error, onDismiss, className = '' }: Readonly<Props>) {
   const isValidation = isValidationError(error);
   
   /**
@@ -55,8 +67,8 @@ export default function ErrorDisplay({ error, onDismiss, className = '' }: Props
                 <p className="text-sm">{error.details[0]}</p>
               ) : (
                 <ul className="text-sm list-disc list-inside space-y-1">
-                  {error.details.map((detail, index) => (
-                    <li key={index}>{detail}</li>
+                  {withKeys(error.details).map(({ key, detail }) => (
+                    <li key={key}>{detail}</li>
                   ))}
                 </ul>
               )}

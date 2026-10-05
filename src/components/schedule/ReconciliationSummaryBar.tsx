@@ -5,10 +5,10 @@ import type { ReconciliationSummary } from "../../types";
 export default function ReconciliationSummaryBar({
   summary,
   onClear,
-}: {
+}: Readonly<{
   summary: ReconciliationSummary;
   onClear?: () => void;
-}) {
+}>) {
   return (
     <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between flex-wrap gap-3">
       <div className="flex items-center gap-2 text-indigo-900">
