@@ -56,6 +56,9 @@ export interface PaymentScheduleResponse {
   riskStatus?: string | null;
   /** Who last modified the document: a system account, or a person's email after a Surgery. */
   modifiedBy?: string | null;
+  /** The policy and risk the schedule belongs to (CosmosDB documents only); used to fetch its collections. */
+  policyNumber?: string | null;
+  riskId?: number | null;
 }
 
 // Collections reconciliation types

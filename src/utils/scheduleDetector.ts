@@ -96,8 +96,14 @@ interface RawPascalSchedule {
   ModifiedBy?: string | null;
 }
 
+/** The policy/risk a CosmosDB schedule document belongs to. */
+interface RawPolicyRisk {
+  PolicyNumber?: string | null;
+  RiskId?: number | null;
+}
+
 /** A Policy Admin CosmosDB document. */
-interface RawPolicyAdminDocument extends RawPascalSchedule {
+interface RawPolicyAdminDocument extends RawPascalSchedule, RawPolicyRisk {
   PaymentScheduleId: string;
   ScheduleItems?: RawPascalItem[];
   RiskTotalAnnualisedPremium?: number | null;
@@ -105,7 +111,7 @@ interface RawPolicyAdminDocument extends RawPascalSchedule {
 }
 
 /** A Rerates CosmosDB document. */
-interface RawReratesDocument extends RawPascalSchedule {
+interface RawReratesDocument extends RawPascalSchedule, RawPolicyRisk {
   PaymentScheduleId: string;
   Items?: RawPascalItem[];
 }
@@ -330,9 +336,7 @@ export function detectScheduleFormat(json: unknown): ScheduleFormat {
     getCI(obj, "netAmount") != null &&
     !Number.isNaN(Number(getCI(obj, "netAmount")))
   ) {
-    return Object.hasOwn(obj, "CollectionFrequency")
-      ? "seq"
-      : "request";
+    return Object.hasOwn(obj, "CollectionFrequency") ? "seq" : "request";
   }
 
   throw new Error(
@@ -372,6 +376,8 @@ function convertPolicyAdmin(
     annualisedPremium: json.RiskTotalAnnualisedPremium ?? null,
     riskStatus: json.RiskStatus ?? null,
     modifiedBy: json.ModifiedBy ?? null,
+    policyNumber: json.PolicyNumber ?? null,
+    riskId: json.RiskId ?? null,
   };
 }
 
@@ -388,6 +394,8 @@ function convertRerates(json: RawReratesDocument): PaymentScheduleResponse {
     coverEndDate: json.CoverEndDate,
     scheduleItems: (json.Items || []).map(normalizePascalItem),
     modifiedBy: json.ModifiedBy ?? null,
+    policyNumber: json.PolicyNumber ?? null,
+    riskId: json.RiskId ?? null,
   };
 }
 

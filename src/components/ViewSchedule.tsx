@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   FileUp,
   Clipboard,
@@ -26,9 +26,73 @@ import ScheduleDisplay from "./ScheduleDisplay";
 import NewSchedule from "./NewSchedule";
 import CollectionsLoader from "./CollectionsLoader";
 import CollectionsHelp from "./CollectionsHelp";
+import CollectionsSyncBar from "./CollectionsSyncBar";
+import { useCollectionsSync } from "../hooks/useCollectionsSync";
 
 interface Props {
   apiEndpoint: string;
+}
+
+// Signing in to the Collections Service navigates away and back, so the schedule JSON being
+// viewed is kept for the tab's session and shown again on return.
+const PENDING_SCHEDULE_JSON_KEY = "pendingViewScheduleJson";
+
+/** The schedule JSON saved before a Collections Service sign-in redirect, if any. */
+function readPendingScheduleJson(): string {
+  try {
+    return sessionStorage.getItem(PENDING_SCHEDULE_JSON_KEY) ?? "";
+  } catch {
+    // Storage unavailable (e.g. blocked by the browser): start empty
+    return "";
+  }
+}
+
+interface ParsedSchedule {
+  format: ScheduleFormat | null;
+  schedule: PaymentScheduleResponse | null;
+  input: PaymentScheduleInput | null;
+  error: string | null;
+}
+
+const EMPTY_PARSE: ParsedSchedule = {
+  format: null,
+  schedule: null,
+  input: null,
+  error: null,
+};
+
+/** Detects and normalizes schedule JSON, or describes why it can't be read. */
+function parseScheduleJson(raw: string): ParsedSchedule {
+  try {
+    const detected = detectAndNormalizeSchedule(JSON.parse(raw));
+    return {
+      format: detected.format,
+      schedule: detected.schedule,
+      input: detected.input,
+      error: null,
+    };
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      return {
+        ...EMPTY_PARSE,
+        error:
+          "Invalid JSON syntax. Please check for missing commas, quotes, or brackets.",
+      };
+    }
+    return {
+      ...EMPTY_PARSE,
+      error: err instanceof Error ? err.message : "Invalid schedule format",
+    };
+  }
+}
+
+/** The view's starting point: a schedule restored after a sign-in redirect, or nothing. */
+function readInitialView(): { jsonInput: string; parsed: ParsedSchedule } {
+  const jsonInput = readPendingScheduleJson();
+  return {
+    jsonInput,
+    parsed: jsonInput ? parseScheduleJson(jsonInput) : EMPTY_PARSE,
+  };
 }
 
 /** Returns the next succeeded status in the cycle unknown → succeeded → failed → unknown. */
@@ -87,8 +151,8 @@ function ScheduleInputSummary({
                 Object.entries(dates).map(([date, value]) => (
                   <span key={`${key}-${date}`} className="block">
                     {key}
-                    {date !== "0001-01-01" && ` (effective ${date})`}
-                    : €{Number(value).toFixed(2)}
+                    {date !== "0001-01-01" && ` (effective ${date})`}: €
+                    {Number(value).toFixed(2)}
                   </span>
                 )),
               )
@@ -119,47 +183,71 @@ function ScheduleInputSummary({
  * Document, SEQ Log), auto-detects which one was provided, and normalizes it for display.
  */
 export default function ViewSchedule({ apiEndpoint }: Readonly<Props>) {
-  const [jsonInput, setJsonInput] = useState("");
+  const [initialView] = useState(readInitialView);
+  const [jsonInput, setJsonInput] = useState(initialView.jsonInput);
   const [showPasteInput, setShowPasteInput] = useState(true);
   const [selectedExample, setSelectedExample] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [format, setFormat] = useState<ScheduleFormat | null>(null);
+  const [error, setError] = useState<string | null>(initialView.parsed.error);
+  const [format, setFormat] = useState<ScheduleFormat | null>(
+    initialView.parsed.format,
+  );
   const [schedule, setSchedule] = useState<PaymentScheduleResponse | null>(
-    null,
+    initialView.parsed.schedule,
   );
   const [scheduleInput, setScheduleInput] =
-    useState<PaymentScheduleInput | null>(null);
+    useState<PaymentScheduleInput | null>(initialView.parsed.input);
   const [showAmendSchedule, setShowAmendSchedule] = useState(false);
   const [collections, setCollections] = useState<
     CollectionTransaction[] | null
   >(null);
   const [isCollectionsLoaderOpen, setIsCollectionsLoaderOpen] = useState(false);
 
+  const sync = useCollectionsSync({ schedule, onCollections: setCollections });
+  const { pause: pauseSync, signIn: signInToCollections } = sync;
+
+  // The restored schedule has been read; don't restore it again on a later visit.
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem(PENDING_SCHEDULE_JSON_KEY);
+    } catch {
+      // Storage unavailable: nothing was saved, so nothing to clear
+    }
+  }, []);
+
   /** Detects and normalizes pasted/uploaded JSON, showing the schedule or a parse error. */
   const processJson = (raw: string) => {
-    try {
-      const json = JSON.parse(raw);
-      const detected = detectAndNormalizeSchedule(json);
-      setFormat(detected.format);
-      setSchedule(detected.schedule);
-      setScheduleInput(detected.input);
-      setCollections(null);
-      setError(null);
-    } catch (err) {
-      setFormat(null);
-      setSchedule(null);
-      setScheduleInput(null);
-      if (err instanceof SyntaxError) {
-        setError(
-          "Invalid JSON syntax. Please check for missing commas, quotes, or brackets.",
-        );
-      } else {
-        setError(
-          err instanceof Error ? err.message : "Invalid schedule format",
-        );
-      }
-    }
+    const parsed = parseScheduleJson(raw);
+    setFormat(parsed.format);
+    setSchedule(parsed.schedule);
+    setScheduleInput(parsed.input);
+    setCollections(null);
+    setError(parsed.error);
   };
+
+  /** Keeps collections loaded by hand, pausing automatic checks so they aren't overwritten. */
+  const handleManualCollections = useCallback(
+    (loaded: CollectionTransaction[]) => {
+      setCollections(loaded);
+      pauseSync();
+    },
+    [pauseSync],
+  );
+
+  /** Clears loaded collections, pausing automatic checks until Refresh now. */
+  const handleClearCollections = useCallback(() => {
+    setCollections(null);
+    pauseSync();
+  }, [pauseSync]);
+
+  /** Signs in to the Collections Service, keeping the schedule on screen across the redirect. */
+  const handleCollectionsSignIn = useCallback(() => {
+    try {
+      sessionStorage.setItem(PENDING_SCHEDULE_JSON_KEY, jsonInput);
+    } catch {
+      // Storage unavailable: sign in anyway; the schedule will need pasting again
+    }
+    void signInToCollections();
+  }, [jsonInput, signInToCollections]);
 
   /** Parses the pasted JSON. */
   const handlePasteSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
@@ -387,6 +475,20 @@ export default function ViewSchedule({ apiEndpoint }: Readonly<Props>) {
               </button>
             </div>
 
+            {schedule && (
+              <CollectionsSyncBar
+                connection={sync.connection}
+                status={sync.status}
+                error={sync.error}
+                lastCheckedAt={sync.lastCheckedAt}
+                isPaused={sync.isPaused}
+                refreshMinutes={sync.refreshMinutes}
+                onRefreshMinutesChange={sync.setRefreshMinutes}
+                onRefresh={sync.refresh}
+                onSignIn={handleCollectionsSignIn}
+              />
+            )}
+
             <div className="flex justify-end flex-wrap gap-2">
               {schedule && (
                 <div className="relative group">
@@ -429,12 +531,10 @@ export default function ViewSchedule({ apiEndpoint }: Readonly<Props>) {
                 schedule={schedule}
                 onStatusChange={handleStatusChange}
                 collections={collections}
-                onClearCollections={() => setCollections(null)}
+                onClearCollections={handleClearCollections}
               />
             ) : (
-              scheduleInput && (
-                <ScheduleInputSummary input={scheduleInput} />
-              )
+              scheduleInput && <ScheduleInputSummary input={scheduleInput} />
             )}
           </div>
         )}
@@ -442,7 +542,7 @@ export default function ViewSchedule({ apiEndpoint }: Readonly<Props>) {
 
       {isCollectionsLoaderOpen && (
         <CollectionsLoader
-          onLoad={setCollections}
+          onLoad={handleManualCollections}
           onClose={() => setIsCollectionsLoaderOpen(false)}
         />
       )}

@@ -1,16 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Calculator, PencilRuler, Settings, Eye, GitCompare } from 'lucide-react';
-import NewSchedule from './components/NewSchedule';
-import AmendSchedule from './components/AmendSchedule';
-import ViewSchedule from './components/ViewSchedule';
-import CompareSchedules from './components/CompareSchedules';
-import ConfigDialog from './components/ConfigDialog';
-import TokenStatus from './components/TokenStatus';
-import { STORAGE_KEYS } from './constants';
-import { getRedirectUri } from './utils/url';
-import { isSafeIdentifier, microsoftOAuthEndpoint, toSameOriginUrl } from './utils/oauthValidation';
+import React, { useState, useEffect } from "react";
+import {
+  Calculator,
+  PencilRuler,
+  Settings,
+  Eye,
+  GitCompare,
+} from "lucide-react";
+import NewSchedule from "./components/NewSchedule";
+import AmendSchedule from "./components/AmendSchedule";
+import ViewSchedule from "./components/ViewSchedule";
+import CompareSchedules from "./components/CompareSchedules";
+import ConfigDialog from "./components/ConfigDialog";
+import TokenStatus from "./components/TokenStatus";
+import { STORAGE_KEYS } from "./constants";
+import { toSameOriginUrl } from "./utils/oauthValidation";
+import { exchangeCodeForToken } from "./utils/oauthFlow";
 
-const VALID_TABS = ['new', 'amend', 'view', 'compare'] as const;
+const VALID_TABS = ["new", "amend", "view", "compare"] as const;
 
 type Tab = (typeof VALID_TABS)[number];
 
@@ -24,7 +30,7 @@ function isValidTab(value: string | null): value is Tab {
 function readInitialApiEndpoint(): string {
   const savedEndpoint = localStorage.getItem(STORAGE_KEYS.API_ENDPOINT);
   const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-  return savedEndpoint && accessToken ? savedEndpoint : '';
+  return savedEndpoint && accessToken ? savedEndpoint : "";
 }
 
 /**
@@ -33,7 +39,7 @@ function readInitialApiEndpoint(): string {
  */
 function shouldOpenConfigInitially(): boolean {
   const configCancelled = localStorage.getItem(STORAGE_KEYS.CONFIG_CANCELLED);
-  return readInitialApiEndpoint() === '' && !configCancelled;
+  return readInitialApiEndpoint() === "" && !configCancelled;
 }
 
 /**
@@ -41,15 +47,17 @@ function shouldOpenConfigInitially(): boolean {
  * authorization without prompt=none (never leaving this origin); otherwise clears the URL.
  */
 function handleOAuthError(error: string): void {
-  console.error('OAuth error:', error);
+  console.error("OAuth error:", error);
   // If silent refresh failed, try with prompt
-  if (error === 'interaction_required' || error === 'login_required') {
+  if (error === "interaction_required" || error === "login_required") {
     const returnUrl = localStorage.getItem(STORAGE_KEYS.RETURN_URL);
     if (returnUrl) {
       localStorage.removeItem(STORAGE_KEYS.RETURN_URL);
       // Retry without prompt=none, never leaving this origin
       const retryUrl = toSameOriginUrl(
-        window.location.href.replace('prompt=none&', '').replace('&prompt=none', '')
+        window.location.href
+          .replace("prompt=none&", "")
+          .replace("&prompt=none", ""),
       );
       if (retryUrl) {
         window.location.href = retryUrl;
@@ -61,69 +69,15 @@ function handleOAuthError(error: string): void {
 }
 
 /**
- * Exchanges an authorization code for an access token, stores the token and its
- * expiry, and returns to the original (same-origin) URL if one was saved.
- * Throws if the configuration is invalid or the exchange fails.
- */
-async function exchangeCodeForToken(code: string, codeVerifier: string): Promise<void> {
-  const tenantId = localStorage.getItem(STORAGE_KEYS.TENANT_ID);
-  const clientId = localStorage.getItem(STORAGE_KEYS.CLIENT_ID);
-
-  if (!isSafeIdentifier(tenantId)) {
-    throw new TypeError('Invalid or missing tenant ID');
-  }
-  const redirectUri = getRedirectUri();
-
-  const response = await fetch(microsoftOAuthEndpoint(tenantId, 'token'), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code: code,
-      client_id: isSafeIdentifier(clientId) ? clientId : '',
-      redirect_uri: redirectUri,
-      code_verifier: codeVerifier,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Token exchange failed: ${response.status}`);
-  }
-
-  const data: { access_token?: unknown; expires_in?: unknown } = await response.json();
-  if (typeof data.access_token !== 'string' || data.access_token === '') {
-    throw new TypeError('Token response did not include an access token');
-  }
-  localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token);
-
-  // Calculate and store expiration time, defaulting to 1 hour if missing or invalid
-  const expiresIn = Number(data.expires_in);
-  const expiresAt = Date.now() + (Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600) * 1000;
-  localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, expiresAt.toString());
-
-  // Clean up the code verifier
-  localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
-
-  // Return to the original URL if available — only ever on this origin
-  const returnUrl = toSameOriginUrl(localStorage.getItem(STORAGE_KEYS.RETURN_URL));
-  localStorage.removeItem(STORAGE_KEYS.RETURN_URL);
-  if (returnUrl && returnUrl !== window.location.href) {
-    window.location.href = returnUrl;
-  }
-}
-
-/**
  * Renders the page component for the given tab.
  */
 function renderTab(tab: Tab, apiEndpoint: string) {
   switch (tab) {
-    case 'new':
+    case "new":
       return <NewSchedule apiEndpoint={apiEndpoint} />;
-    case 'amend':
+    case "amend":
       return <AmendSchedule apiEndpoint={apiEndpoint} />;
-    case 'view':
+    case "view":
       return <ViewSchedule apiEndpoint={apiEndpoint} />;
     default:
       return <CompareSchedules />;
@@ -145,7 +99,7 @@ function renderTab(tab: Tab, apiEndpoint: string) {
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
-    return isValidTab(saved) ? saved : 'new';
+    return isValidTab(saved) ? saved : "new";
   });
   // Only show the config dialog on load if the app isn't configured and it hasn't been cancelled before
   const [isConfigOpen, setIsConfigOpen] = useState(shouldOpenConfigInitially);
@@ -167,15 +121,15 @@ export default function App() {
      */
     const handleOAuthCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const state = urlParams.get('state');
-      const error = urlParams.get('error');
-      
+      const code = urlParams.get("code");
+      const state = urlParams.get("state");
+      const error = urlParams.get("error");
+
       if (error) {
         handleOAuthError(error);
         return;
       }
-      
+
       if (!code || !state) {
         return;
       }
@@ -184,15 +138,15 @@ export default function App() {
 
       const codeVerifier = localStorage.getItem(STORAGE_KEYS.CODE_VERIFIER);
       if (!codeVerifier) {
-        console.error('Code verifier not found');
+        console.error("Code verifier not found");
         setIsConfigOpen(true);
         return;
       }
 
       try {
-        await exchangeCodeForToken(code, codeVerifier);
+        await exchangeCodeForToken(code, state, codeVerifier);
       } catch (err) {
-        console.error('Error exchanging code for token:', err);
+        console.error("Error exchanging code for token:", err);
         // Clean up the code verifier on error
         localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
         localStorage.removeItem(STORAGE_KEYS.RETURN_URL);
@@ -244,44 +198,44 @@ export default function App() {
         <div className="px-4">
           <div className="flex space-x-8">
             <button
-              onClick={() => setActiveTab('new')}
+              onClick={() => setActiveTab("new")}
               className={`py-4 px-3 inline-flex items-center gap-2 border-b-2 text-sm font-medium ${
-                activeTab === 'new'
-                  ? 'border-secondary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                activeTab === "new"
+                  ? "border-secondary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
               <Calculator className="w-5 h-5" />
               New Schedule
             </button>
             <button
-              onClick={() => setActiveTab('amend')}
+              onClick={() => setActiveTab("amend")}
               className={`py-4 px-3 inline-flex items-center gap-2 border-b-2 text-sm font-medium ${
-                activeTab === 'amend'
-                  ? 'border-secondary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                activeTab === "amend"
+                  ? "border-secondary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
               <PencilRuler className="w-5 h-5" />
               Amend Schedule
             </button>
             <button
-              onClick={() => setActiveTab('view')}
+              onClick={() => setActiveTab("view")}
               className={`py-4 px-3 inline-flex items-center gap-2 border-b-2 text-sm font-medium ${
-                activeTab === 'view'
-                  ? 'border-secondary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                activeTab === "view"
+                  ? "border-secondary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
               <Eye className="w-5 h-5" />
               View Schedule
             </button>
             <button
-              onClick={() => setActiveTab('compare')}
+              onClick={() => setActiveTab("compare")}
               className={`py-4 px-3 inline-flex items-center gap-2 border-b-2 text-sm font-medium ${
-                activeTab === 'compare'
-                  ? 'border-secondary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                activeTab === "compare"
+                  ? "border-secondary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
               <GitCompare className="w-5 h-5" />
@@ -291,9 +245,7 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="py-8">
-        {renderTab(activeTab, apiEndpoint)}
-      </main>
+      <main className="py-8">{renderTab(activeTab, apiEndpoint)}</main>
 
       <ConfigDialog
         isOpen={isConfigOpen}

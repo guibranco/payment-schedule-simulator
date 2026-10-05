@@ -17,6 +17,13 @@ export function getRedirectUri(): string {
 }
 
 /**
+ * Navigates the page to a URL (e.g. an identity provider's sign-in page).
+ */
+export function navigateTo(url: string): void {
+  window.location.assign(url);
+}
+
+/**
  * Retrieves the current full URL, including the base path.
  */
 export function getCurrentUrl(): string {
