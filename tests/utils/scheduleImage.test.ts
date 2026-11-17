@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   buildPrintableScheduleNode,
   exportScheduleImage,
+  copyScheduleImageToClipboard,
+  canCopyImageToClipboard,
 } from "../../src/utils/scheduleImage";
 import { detectAndNormalizeSchedule } from "../../src/utils/scheduleDetector";
 import { SAMPLE_SCHEDULES } from "../../src/constants/sampleSchedules";
@@ -210,5 +212,62 @@ describe("exportScheduleImage", () => {
       "render failed",
     );
     expect(document.body.children.length).toBe(bodyChildrenBefore);
+  });
+});
+
+describe("copyScheduleImageToClipboard", () => {
+  let write: ReturnType<typeof vi.fn>;
+  const items: Array<Record<string, Promise<Blob>>> = [];
+
+  beforeEach(() => {
+    items.length = 0;
+    write = vi.fn(async () => undefined);
+    vi.stubGlobal("navigator", { clipboard: { write } });
+    vi.stubGlobal(
+      "ClipboardItem",
+      class {
+        constructor(data: Record<string, Promise<Blob>>) {
+          items.push(data);
+        }
+      },
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("reports support only when the async clipboard API and ClipboardItem exist", () => {
+    expect(canCopyImageToClipboard()).toBe(true);
+    vi.stubGlobal("navigator", {});
+    expect(canCopyImageToClipboard()).toBe(false);
+  });
+
+  it("writes a PNG blob to the clipboard and removes the off-screen node", async () => {
+    const bodyChildrenBefore = document.body.children.length;
+
+    await copyScheduleImageToClipboard(schedule);
+
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(items).toHaveLength(1);
+    const blob = await items[0]["image/png"];
+    expect(blob.type).toBe("image/png");
+    expect(document.body.children.length).toBe(bodyChildrenBefore);
+  });
+
+  it("throws without touching the clipboard when unsupported", async () => {
+    vi.stubGlobal("ClipboardItem", undefined);
+    await expect(copyScheduleImageToClipboard(schedule)).rejects.toThrow(
+      "not supported",
+    );
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it("propagates a clipboard write failure", async () => {
+    write.mockRejectedValueOnce(new Error("denied"));
+    await expect(copyScheduleImageToClipboard(schedule)).rejects.toThrow(
+      "denied",
+    );
   });
 });
