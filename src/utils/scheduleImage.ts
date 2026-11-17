@@ -38,41 +38,83 @@ function triggerDownload(blob: Blob, filename: string) {
 }
 
 /**
- * Renders the schedule to a canvas (via a plain-styled off-screen clone, since html2canvas
- * cannot parse Tailwind v4's oklch() colors) and downloads it as PNG, or as an SVG that
- * embeds the rasterized PNG (a full vector re-creation of arbitrary layout isn't practical).
+ * Renders the schedule to a canvas via a plain-styled off-screen clone (html2canvas cannot
+ * parse Tailwind v4's oklch() colors), always removing the clone afterwards.
+ */
+async function renderScheduleCanvas(
+  schedule: PaymentScheduleResponse,
+  collections?: CollectionTransaction[] | null,
+): Promise<HTMLCanvasElement> {
+  const node = buildPrintableScheduleNode(schedule, collections);
+  document.body.appendChild(node);
+
+  try {
+    const { default: html2canvas } = await import("html2canvas");
+    return await html2canvas(node, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+    });
+  } finally {
+    node.remove();
+  }
+}
+
+/** Encodes a canvas as a PNG blob. */
+function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Failed to create PNG blob"))),
+      "image/png",
+    );
+  });
+}
+
+/**
+ * Renders the schedule and downloads it as PNG, or as an SVG that embeds the rasterized
+ * PNG (a full vector re-creation of arbitrary layout isn't practical).
  */
 export async function exportScheduleImage(
   schedule: PaymentScheduleResponse,
   format: ScheduleImageFormat,
   collections?: CollectionTransaction[] | null,
 ): Promise<void> {
-  const node = buildPrintableScheduleNode(schedule, collections);
-  document.body.appendChild(node);
+  const canvas = await renderScheduleCanvas(schedule, collections);
+  const filename = `schedule-${schedule?.id || "export"}.${format}`;
 
-  try {
-    const { default: html2canvas } = await import("html2canvas");
-    const canvas = await html2canvas(node, {
-      backgroundColor: "#ffffff",
-      scale: 2,
-    });
-    const filename = `schedule-${schedule?.id || "export"}.${format}`;
-
-    if (format === "png") {
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (b) =>
-            b ? resolve(b) : reject(new Error("Failed to create PNG blob")),
-          "image/png",
-        );
-      });
-      triggerDownload(blob, filename);
-    } else {
-      const dataUrl = canvas.toDataURL("image/png");
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}" viewBox="0 0 ${canvas.width} ${canvas.height}"><image href="${dataUrl}" width="${canvas.width}" height="${canvas.height}" /></svg>`;
-      triggerDownload(new Blob([svg], { type: "image/svg+xml" }), filename);
-    }
-  } finally {
-    node.remove();
+  if (format === "png") {
+    triggerDownload(await canvasToPngBlob(canvas), filename);
+  } else {
+    const dataUrl = canvas.toDataURL("image/png");
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}" viewBox="0 0 ${canvas.width} ${canvas.height}"><image href="${dataUrl}" width="${canvas.width}" height="${canvas.height}" /></svg>`;
+    triggerDownload(new Blob([svg], { type: "image/svg+xml" }), filename);
   }
+}
+
+/** Whether this browser can put images on the clipboard (needs a secure context). */
+export function canCopyImageToClipboard(): boolean {
+  return (
+    typeof navigator !== "undefined" &&
+    typeof navigator.clipboard?.write === "function" &&
+    typeof ClipboardItem !== "undefined"
+  );
+}
+
+/**
+ * Renders the schedule and copies it to the clipboard as a PNG, ready to paste into
+ * Teams, Jira, Confluence, etc. The ClipboardItem is created synchronously with a
+ * pending blob so Safari still treats the write as part of the user's click.
+ */
+export async function copyScheduleImageToClipboard(
+  schedule: PaymentScheduleResponse,
+  collections?: CollectionTransaction[] | null,
+): Promise<void> {
+  if (!canCopyImageToClipboard()) {
+    throw new Error("Copying images to the clipboard is not supported here");
+  }
+  const pngBlob = renderScheduleCanvas(schedule, collections).then(
+    canvasToPngBlob,
+  );
+  await navigator.clipboard.write([
+    new ClipboardItem({ "image/png": pngBlob }),
+  ]);
 }

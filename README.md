@@ -17,6 +17,7 @@ An interactive **Vite + React + TypeScript** UI for simulating, inspecting, and 
 - **Collections Reconciliation:** Load a Collections Service response (a JSON array of transactions) and reconcile it against the schedule items on screen — surfaces collected/rejected/refunded/pending status per item, amount and status mismatches, and whether a failed item was retried.
 - **Frequency Change Detection:** Automatically flags schedules that appear to have switched from Monthly to Annual collections partway through, highlighting the pivot item.
 - **Export:** Download a displayed schedule as **JSON**, **CSV**, **PDF**, **HTML**, **PNG**, or **SVG** (image exports are rendered via `html2canvas`, PDF via `jspdf`), including Collections reconciliation data when available; the last-used format is remembered.
+- **Copy image:** Copy the displayed schedule to the clipboard as a PNG, ready to paste straight into Teams, Jira or Confluence (requires HTTPS or localhost and a browser with the async Clipboard API).
 - **Authentication:** OAuth2 Authorization Code + PKCE flow against Azure AD (Microsoft Entra ID), with automatic silent token refresh before expiry and a live token status indicator in the header.
 - **API Config:** Configure the backend base URL/port, tenant ID, client ID, and environment (prod/int/stg) at runtime; settings and the active tab persist in `localStorage` across reloads.
 

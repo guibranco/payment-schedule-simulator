@@ -13,6 +13,7 @@ import {
   fireEvent,
   waitFor,
   within,
+  act,
 } from "@testing-library/react";
 import ScheduleDisplay from "../../src/components/ScheduleDisplay";
 import { detectAndNormalizeSchedule } from "../../src/utils/scheduleDetector";
@@ -25,8 +26,14 @@ import type {
 
 vi.mock("../../src/utils/scheduleImage", () => ({
   exportScheduleImage: vi.fn(),
+  copyScheduleImageToClipboard: vi.fn(),
+  canCopyImageToClipboard: vi.fn(() => true),
 }));
-import { exportScheduleImage } from "../../src/utils/scheduleImage";
+import {
+  exportScheduleImage,
+  copyScheduleImageToClipboard,
+  canCopyImageToClipboard,
+} from "../../src/utils/scheduleImage";
 import { must } from "../helpers";
 
 vi.mock("jspdf", () => ({
@@ -120,6 +127,7 @@ describe("ScheduleDisplay", () => {
 
   beforeEach(() => {
     vi.mocked(exportScheduleImage).mockReset();
+    vi.mocked(copyScheduleImageToClipboard).mockReset();
     localStorage.clear();
     createObjectURL = vi.fn(() => "blob:fake-url");
     revokeObjectURL = vi.fn();
@@ -416,6 +424,81 @@ describe("ScheduleDisplay", () => {
       ).value;
       expect(instance.addPage).toHaveBeenCalled();
     });
+  });
+
+  it("copies the schedule image to the clipboard and keeps the export button", async () => {
+    vi.mocked(copyScheduleImageToClipboard).mockResolvedValueOnce(undefined);
+    render(<ScheduleDisplay schedule={schedule} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy image" }));
+
+    await waitFor(() => {
+      expect(copyScheduleImageToClipboard).toHaveBeenCalledWith(schedule, null);
+    });
+    expect(
+      await screen.findByRole("button", { name: "Copied!" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Export as/ }),
+    ).toBeInTheDocument();
+    expect(exportScheduleImage).not.toHaveBeenCalled();
+  });
+
+  it("keeps a second copy's Copying… state when the first copy's reset timer would fire", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(copyScheduleImageToClipboard).mockResolvedValueOnce(undefined);
+      let finishSecond: () => void = () => undefined;
+      vi.mocked(copyScheduleImageToClipboard).mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishSecond = resolve;
+          }),
+      );
+      render(<ScheduleDisplay schedule={schedule} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Copy image" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Copied!" }));
+      expect(
+        await screen.findByRole("button", { name: "Copying…" }),
+      ).toBeDisabled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(2500);
+      });
+      expect(screen.getByRole("button", { name: "Copying…" })).toBeDisabled();
+
+      await act(async () => {
+        finishSecond();
+      });
+      expect(
+        await screen.findByRole("button", { name: "Copied!" }),
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows an error when copying the image fails", async () => {
+    vi.mocked(copyScheduleImageToClipboard).mockRejectedValueOnce(
+      new Error("denied"),
+    );
+    render(<ScheduleDisplay schedule={schedule} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy image" }));
+
+    expect(
+      await screen.findByText(
+        "Failed to copy the schedule image to the clipboard. Please try again or export it as PNG.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy image" })).toBeEnabled();
+  });
+
+  it("disables the copy button when the browser can't copy images", () => {
+    vi.mocked(canCopyImageToClipboard).mockReturnValueOnce(false);
+    render(<ScheduleDisplay schedule={schedule} />);
+    expect(screen.getByRole("button", { name: "Copy image" })).toBeDisabled();
   });
 
   it("shows a format-specific error message when an export fails", async () => {

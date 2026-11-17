@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Check,
+  ClipboardCopy,
   FileJson,
   FileSpreadsheet,
   FileText,
@@ -12,7 +14,11 @@ import type {
   ScheduleItem,
   CollectionTransaction,
 } from "../types";
-import { exportScheduleImage } from "../utils/scheduleImage";
+import {
+  canCopyImageToClipboard,
+  copyScheduleImageToClipboard,
+  exportScheduleImage,
+} from "../utils/scheduleImage";
 import {
   buildScheduleReportDocument,
   formatReportDate as formatDate,
@@ -141,6 +147,21 @@ export default function ScheduleDisplay({
     useState<ViewJsonFormat>("response");
 
   const [exportError, setExportError] = useState<string | null>(null);
+  const [copyState, setCopyState] = useState<"idle" | "copying" | "copied">(
+    "idle",
+  );
+  const canCopyImage = canCopyImageToClipboard();
+  const copyResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Cancels a pending "Copied!" → idle reset so it can't clobber a newer copy. */
+  const clearCopyResetTimer = () => {
+    if (copyResetTimer.current !== null) {
+      clearTimeout(copyResetTimer.current);
+      copyResetTimer.current = null;
+    }
+  };
+
+  useEffect(() => clearCopyResetTimer, []);
   const [exportFormat, setExportFormat] = useState<ExportFormat>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT);
     return isExportFormat(saved) ? saved : "json";
@@ -403,6 +424,27 @@ export default function ScheduleDisplay({
     }
   };
 
+  /** Copies the schedule image (PNG) to the clipboard for pasting into Teams/Jira/Confluence. */
+  const handleCopyImage = async () => {
+    clearCopyResetTimer();
+    setExportError(null);
+    setCopyState("copying");
+    try {
+      await copyScheduleImageToClipboard(schedule, collections ?? null);
+      setCopyState("copied");
+      copyResetTimer.current = setTimeout(() => {
+        copyResetTimer.current = null;
+        setCopyState("idle");
+      }, 2000);
+    } catch (err) {
+      console.error("Error copying schedule image:", err);
+      setCopyState("idle");
+      setExportError(
+        "Failed to copy the schedule image to the clipboard. Please try again or export it as PNG.",
+      );
+    }
+  };
+
   if (!schedule) {
     return <div className="p-4 text-gray-600">No schedule data available.</div>;
   }
@@ -424,6 +466,26 @@ export default function ScheduleDisplay({
             menuAlign="left"
             menuWidthClass="w-64"
           />
+          <button
+            type="button"
+            onClick={handleCopyImage}
+            disabled={!canCopyImage || copyState === "copying"}
+            className="flex items-center gap-2 px-4 py-2 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={
+              canCopyImage
+                ? "Copy the schedule as an image to paste into Teams, Jira or Confluence"
+                : "Copying images needs a secure (HTTPS) page in a supported browser"
+            }
+          >
+            {copyState === "copied" ? (
+              <Check className="w-5 h-5 text-green-600" />
+            ) : (
+              <ClipboardCopy className="w-5 h-5" />
+            )}
+            {copyState === "copying" && "Copying…"}
+            {copyState === "copied" && "Copied!"}
+            {copyState === "idle" && "Copy image"}
+          </button>
           <SplitMenuButton
             label={`Export as ${EXPORT_FORMAT_LABELS[exportFormat]}`}
             title={`Export schedule as ${EXPORT_FORMAT_LABELS[exportFormat]}`}
