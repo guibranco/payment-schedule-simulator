@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   ClipboardCopy,
@@ -151,6 +151,17 @@ export default function ScheduleDisplay({
     "idle",
   );
   const canCopyImage = canCopyImageToClipboard();
+  const copyResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Cancels a pending "Copied!" → idle reset so it can't clobber a newer copy. */
+  const clearCopyResetTimer = () => {
+    if (copyResetTimer.current !== null) {
+      clearTimeout(copyResetTimer.current);
+      copyResetTimer.current = null;
+    }
+  };
+
+  useEffect(() => clearCopyResetTimer, []);
   const [exportFormat, setExportFormat] = useState<ExportFormat>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SCHEDULE_EXPORT_FORMAT);
     return isExportFormat(saved) ? saved : "json";
@@ -415,12 +426,16 @@ export default function ScheduleDisplay({
 
   /** Copies the schedule image (PNG) to the clipboard for pasting into Teams/Jira/Confluence. */
   const handleCopyImage = async () => {
+    clearCopyResetTimer();
     setExportError(null);
     setCopyState("copying");
     try {
       await copyScheduleImageToClipboard(schedule, collections ?? null);
       setCopyState("copied");
-      setTimeout(() => setCopyState("idle"), 2000);
+      copyResetTimer.current = setTimeout(() => {
+        copyResetTimer.current = null;
+        setCopyState("idle");
+      }, 2000);
     } catch (err) {
       console.error("Error copying schedule image:", err);
       setCopyState("idle");

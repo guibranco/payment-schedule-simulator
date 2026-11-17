@@ -13,6 +13,7 @@ import {
   fireEvent,
   waitFor,
   within,
+  act,
 } from "@testing-library/react";
 import ScheduleDisplay from "../../src/components/ScheduleDisplay";
 import { detectAndNormalizeSchedule } from "../../src/utils/scheduleDetector";
@@ -441,6 +442,41 @@ describe("ScheduleDisplay", () => {
       screen.getByRole("button", { name: /^Export as/ }),
     ).toBeInTheDocument();
     expect(exportScheduleImage).not.toHaveBeenCalled();
+  });
+
+  it("keeps a second copy's Copying… state when the first copy's reset timer would fire", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(copyScheduleImageToClipboard).mockResolvedValueOnce(undefined);
+      let finishSecond: () => void = () => undefined;
+      vi.mocked(copyScheduleImageToClipboard).mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishSecond = resolve;
+          }),
+      );
+      render(<ScheduleDisplay schedule={schedule} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Copy image" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Copied!" }));
+      expect(
+        await screen.findByRole("button", { name: "Copying…" }),
+      ).toBeDisabled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(2500);
+      });
+      expect(screen.getByRole("button", { name: "Copying…" })).toBeDisabled();
+
+      await act(async () => {
+        finishSecond();
+      });
+      expect(
+        await screen.findByRole("button", { name: "Copied!" }),
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows an error when copying the image fails", async () => {
