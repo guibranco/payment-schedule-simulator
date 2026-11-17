@@ -71,7 +71,7 @@ Ending a policy's cover early; the policy's status becomes CX and its cover end 
 A Cancellation with a full refund, as if there was never cover: the schedule nets to zero, Stamp Duty included. Cover end equals cover start, but that alone doesn't make a Void — a Cancellation on the start date with a non-zero total still gave a day of cover.
 
 **Surgery**:
-A manual intervention by IT that edits a schedule's data directly to correct a wrongly collected schedule, outside the normal MTA flow. Marked by a person's email as the modifier instead of a system account (SYSTEM, RERATES), which system-generated schedules always carry, even for adviser sales and MTAs.
+A manual intervention by IT that edits a schedule's data directly to correct a wrongly collected schedule, outside the normal MTA flow. Not detectable from the document: CreatedBy and ModifiedBy can hold a real user as well as a system account (SYSTEM, RERATES), so a person there does not imply a Surgery.
 _Avoid_: Hotfix, manual fix
 
 **Renewal**:
@@ -121,9 +121,6 @@ A Schedule Anomaly (warning): a Cancellation Fee with a non-zero amount on a Can
 
 **Unexpected Stamp Duty Amount**:
 A Schedule Anomaly (info): a Stamp Duty charge other than the current fixed amount.
-
-**Surgery Detected**:
-A Schedule Anomaly (info): the schedule was last modified by a person rather than a system account, indicating a Surgery.
 
 **Unverified Pro-Rata Amount**:
 A Schedule Anomaly (info): a Pro-Rata Item whose scenario the tool cannot yet check, so its amount was not verified.

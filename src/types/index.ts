@@ -54,7 +54,7 @@ export interface PaymentScheduleResponse {
   annualisedPremium?: number | null;
   /** The policy's status, e.g. AC (active) or CX (cancelled) (`RiskStatus`, Policy Admin only). */
   riskStatus?: string | null;
-  /** Who last modified the document: a system account, or a person's email after a Surgery. */
+  /** Who last modified the document: a system account (e.g. SYSTEM, RERATES) or a real user. */
   modifiedBy?: string | null;
   /** The policy and risk the schedule belongs to (CosmosDB documents only); used to fetch its collections. */
   policyNumber?: string | null;
