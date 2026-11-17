@@ -14,8 +14,7 @@ export type AnomalyKind =
   | "unexpectedStampDutyAmount"
   | "annualPremiumMismatch"
   | "collectionFeeCharged"
-  | "prohibitedCancellationFee"
-  | "surgeryDetected";
+  | "prohibitedCancellationFee";
 
 /** A detected condition suggesting a schedule is unusual or possibly wrong (see CONTEXT.md). */
 export interface ScheduleAnomaly {
@@ -426,21 +425,6 @@ function detectAdminFees(schedule: PaymentScheduleResponse): ScheduleAnomaly[] {
   return anomalies;
 }
 
-/** Surgery Detected (info): the schedule was last modified by a person. */
-function detectSurgery(schedule: PaymentScheduleResponse): ScheduleAnomaly[] {
-  const modifiedBy = schedule.modifiedBy;
-  if (!modifiedBy?.includes("@")) return [];
-  return [
-    {
-      kind: "surgeryDetected",
-      severity: "info",
-      title: "Surgery Detected",
-      message: `This schedule was last modified manually by ${modifiedBy} rather than by a system account, indicating a Surgery.`,
-      itemIndexes: [],
-    },
-  ];
-}
-
 /** Runs every Schedule Anomaly check, returning warnings before info, each group in detection order. */
 export function detectScheduleAnomalies(
   schedule: PaymentScheduleResponse | null | undefined,
@@ -457,7 +441,6 @@ export function detectScheduleAnomalies(
     ...detectAnnualPremiumMismatch(scheduleWithItems),
     ...detectAdminFees(scheduleWithItems),
     ...detectFrequencySwitch(scheduleWithItems),
-    ...detectSurgery(scheduleWithItems),
   ];
   return [
     ...anomalies.filter((a) => a.severity === "warning"),

@@ -1283,8 +1283,17 @@ describe("ScheduleDisplay", () => {
         <ScheduleDisplay
           schedule={{
             ...schedule,
-            modifiedBy: "someone@example.com",
-            scheduleItems: [fullItem, { ...proRataItem, originalItem: null }],
+            scheduleItems: [
+              fullItem,
+              {
+                ...stampDutyItem,
+                id: "smd-2",
+                amountDue: 2,
+                netAmount: 2,
+                adminFees: { SMD: { amountDue: 2, taxAmount: 0 } },
+              },
+              { ...proRataItem, originalItem: null },
+            ],
           }}
         />,
       );
@@ -1297,8 +1306,7 @@ describe("ScheduleDisplay", () => {
       );
       expect(entries.map((entry) => entry.textContent)).toEqual([
         expect.stringContaining("Orphaned Pro-Rata Item"),
-        expect.stringContaining("Stamp Duty Imbalance"),
-        expect.stringContaining("Surgery Detected"),
+        expect.stringContaining("Unexpected Stamp Duty Amount"),
       ]);
     });
 

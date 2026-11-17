@@ -369,24 +369,21 @@ describe("detectScheduleAnomalies", () => {
     });
   });
 
-  describe("Surgery Detected", () => {
-    it("notes a schedule last modified by a person", () => {
-      const anomalies = detectScheduleAnomalies({
+  it("raises no anomaly for a schedule last modified by a real user", () => {
+    expect(
+      kinds({
         ...baseSchedule,
         modifiedBy: "someone@example.com",
-      });
-      expect(anomalies.map((a) => a.kind)).toEqual(["surgeryDetected"]);
-      expect(anomalies[0].message).toContain("someone@example.com");
-    });
-
-    it("ignores system accounts", () => {
-      expect(kinds({ ...baseSchedule, modifiedBy: "SYSTEM" })).toEqual([]);
-    });
+      }),
+    ).toEqual([]);
   });
 
   it("lists warnings before info", () => {
     const anomalies = detectScheduleAnomalies(
-      withItems([fullItem, proRataItem], { modifiedBy: "someone@example.com" }),
+      withItems([
+        { ...proRataItem, originalItem: null },
+        stampDuty(2, stampDutyItem.adjustmentDate),
+      ]),
     );
     expect(anomalies.map((a) => a.severity)).toEqual(["warning", "info"]);
   });
